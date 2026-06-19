@@ -9,6 +9,8 @@ Environment:
   - Requires `chromadb` and either `huggingface-hub` or `sentence-transformers`.
 """
 
+
+
 import os
 import argparse
 import math
@@ -16,18 +18,39 @@ import re
 from typing import List, Dict, Optional
 import pandas as pd
 from tqdm import tqdm
+import numpy as np
+os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
+import ctypes
+# Add this BEFORE 'import torch'
+try:
+    # This manually loads the core C++ library for torch
+    ctypes.WinDLL(os.path.join(os.environ['CONDA_PREFIX'], 'Lib', 'site-packages', 'torch', 'lib', 'c10.dll'))
+except Exception:
+    pass
+import torch
+import torch.nn.functional as F
 from dotenv import load_dotenv
-load_dotenv()
+from dotenv import dotenv_values
+
+# Load the dictionary that you confirmed works
+config = dotenv_values(".env")
+
+# Manually push them into os.environ
+for key, value in config.items():
+    if value is not None:
+        os.environ[key] = value
+
 
 from openai import OpenAI
 import requests
 import chromadb
 from chromadb.utils import embedding_functions
-
 from data_fetchers import load_dataset_into_memory
+# Configuration\
+
 
 # Configuration
-ENDPOINT_URL = "https://yyirs15si60zuagp.us-east-1.aws.endpoints.huggingface.cloud" # Endpoint URL + version
+ENDPOINT_URL = os.getenv("EMBEDDING_ENDPOINT_URL") # Endpoint URL + version
 HF_TOKEN = os.getenv("HF_API_TOKEN") # Your Hugging Face Hub token from hf.co/settings/tokens
 
 HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -43,19 +66,127 @@ def query(texts):
 from huggingface_hub import InferenceClient
 
 client = InferenceClient(model= ENDPOINT_URL, token=HF_TOKEN)
- 
-from huggingface_hub import HfApi
-
-
-result = client.feature_extraction(
-    "Explain transformers simply"
-)
-
-print(result)
 
 def get_embeddings(texts: List[str]) -> List[List[float]]:
 	results = client.feature_extraction(texts)
 	return results
+
+
+def decompose_string_to_per_each_new_token_embeddings(text: str) -> List[List[float]]:
+	tokens = text.split()  # simple whitespace tokenizer; replace with more robust one if needed
+	cache_toks = []
+	each_new_text = []
+	for tok in tokens:
+		cache_toks.append(tok)
+		each_new_text.append(' '.join(cache_toks))
+
+	emb = get_embeddings(each_new_text)
+	return emb
+
+
+def shift_embeds(embs: List[List[float]], fill_with_nan: bool = True) -> List[List[float]]:
+	"""Return a list of the same length as `embs` where each row is the previous cumulative embedding.
+
+	For i in [1..n]: result[i] = embs[i-1]
+	The first row (i == 0) is filled with NaNs by default, or zeros if `fill_with_nan` is False.
+	"""
+	embs_shifted = np.vstack([embs[:1], embs[:-1]])
+	if fill_with_nan:
+		embs_shifted[0] = np.nan
+	else:
+		embs_shifted[0] = 0
+	return embs_shifted
+
+
+def per_token_embedding_differences(embs: List[List[float]], fill_with_nan: bool = True) -> List[List[float]]:
+	"""Return a list of the same length as `embs` where each row is the difference
+	between the previous cumulative embedding and the current one.
+
+	For i in [1..n]: result[i] = embs[i] - embs[i-1]
+	The first row (i == 0) is filled with NaNs by default, or zeros if
+	`fill_with_nan` is False.
+	"""
+	embs_shifted = np.vstack([embs[:1], embs[:-1]])
+	diff = embs - embs_shifted
+	return diff
+
+embs = decompose_string_to_per_each_new_token_embeddings("What is the capital of France?")
+diffs = per_token_embedding_differences(embs)
+
+
+# L2 normalization check
+assert (torch.tensor(embs) - F.normalize(torch.tensor(embs), p=2, dim=1)).sum(dim=1).abs().max() < 1e-6
+print("Embeddings are L2 normalized!")
+
+
+def arc_distance(u: np.ndarray, v: np.ndarray) -> float:
+    dot = float(np.dot(u, v))
+    dot = max(min(dot, 1.0), -1.0)
+    return float(math.acos(dot))
+
+diffs_df = pd.DataFrame(diffs)
+print(diffs_df)
+
+import matplotlib.pyplot as plt
+
+diffs_df.mean().plot.hist()
+
+
+
+import seaborn as sns
+import matplotlib.colors as mcolors
+
+norm = mcolors.TwoSlopeNorm(
+    vmin=diffs_df.min().min(),
+    vcenter=0,
+    vmax=diffs_df.max().max()
+)
+
+
+sns.heatmap(diffs_df[greatest_distance[:20]].iloc[1:], norm=norm, cmap="coolwarm")
+
+
+
+
+
+
+
+
+
+def per_token_embedding_differences(embs: List[List[float]], fill_with_nan: bool = True) -> List[List[float]]:
+	"""Return a list of the same length as `embs` where each row is the difference
+	between the next cumulative embedding and the current one.
+
+	For i in [0..n-2]: result[i] = embs[i+1] - embs[i]
+	The final row (i == n-1) is filled with NaNs by default, or zeros if
+	`fill_with_nan` is False.
+	"""
+	if not embs:
+		return []
+
+	dim = len(embs[0])
+	# validate dimensions
+	for v in embs:
+		if len(v) != dim:
+			raise ValueError("Inconsistent embedding dimensions in input list")
+
+	res: List[List[float]] = []
+	n = len(embs)
+	for i in range(n):
+		if i == n - 1:
+			if fill_with_nan:
+				row = [float('nan')] * dim
+			else:
+				row = [0.0] * dim
+		else:
+			row = [embs[i+1][j] - embs[i][j] for j in range(dim)]
+		res.append(row)
+	return res
+
+
+diffs = per_token_embedding_differences(embs)
+print("Per-token diffs:")
+print(diffs)
 
 
 dataset = load_dataset_into_memory("truthfulqa")
@@ -73,6 +204,12 @@ df_incorrect = df[['question','incorrect_answers']]
 df_incorrect = df_incorrect.explode(column='incorrect_answers')
 print(df_correct.head())
 print(df_incorrect.head())
+
+# Get embeddings for each text column
+q_embeds = get_embeddings(df_correct['question'].tolist())
+a_embeds = get_embeddings(df_correct['correct_answers'].tolist())
+ic_embeds = get_embeddings(df_incorrect['incorrect_answers'].tolist())
+
 
 
 

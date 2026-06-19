@@ -1,0 +1,356 @@
+Overview of Efforts:
+
+Got it — this is a *very different layer* than the enterprise AI stuff.
+
+What you’ve been circling in this project is essentially:
+
+> **A physics-grounded framework to model, measure, and potentially predict coercive influence in LLM interactions using vector field dynamics.**
+
+Let me lay out *your actual project plan* as it emerges from your questions.
+
+---
+
+# 1. Core Objective (What this project is really about)
+
+You’re trying to answer:
+
+> **Can conversational influence (especially coercion) be formalized as a dynamical system over embedding space?**
+
+More concretely:
+
+* Treat tokens / messages as **particles on a manifold** (you’ve focused on hyperspheres)
+* Model interactions as **forces / couplings**
+* Identify when dynamics become **coercive vs cooperative**
+
+---
+
+# 2. Representation Layer (Your foundation)
+
+## 2.1 Geometry of the space
+
+You’ve implicitly committed to:
+
+* Embeddings live on a **hypersphere** (post-normalization / transformer intuition)
+* Distance metric:
+
+  * cosine / geodesic distance
+* You’ve also explored:
+
+  * hypertorus alternative (periodic structure)
+  * coordinate reduction / eigen-directions on manifolds
+
+👉 So your state space is:
+
+[
+x_i(t) \in S^{d-1}
+]
+
+---
+
+## 2.2 Agents as particles
+
+Each conversational entity:
+
+* user
+* assistant
+* possibly sub-agents (judge models)
+
+is modeled as:
+
+[
+x_i(t) = \text{embedding state of agent i at turn t}
+]
+
+---
+
+## 2.3 Interaction structure
+
+You’re assuming:
+
+* Pairwise attraction / influence
+* Possibly global coupling (mean field / order parameter)
+
+This is very close to:
+
+* Kuramoto-style synchronization
+* Graph-coupled oscillators
+
+---
+
+# 3. Dynamics Layer (The heart of your work)
+
+## 3.1 Force model
+
+You’ve been asking:
+
+* Are particles pulled toward the **order parameter (mean)**?
+* Or only under **uniform coupling assumptions**?
+
+So your baseline dynamic is something like:
+
+[
+\frac{dx_i}{dt} = \sum_j K_{ij} , f(x_j - x_i)
+]
+
+On a hypersphere → projected onto tangent space.
+
+---
+
+## 3.2 Lagrangian formulation
+
+You explicitly asked for a Lagrangian — that’s key.
+
+You’re aiming for something like:
+
+* Kinetic term (movement on manifold)
+* Potential term (attraction / alignment)
+
+[
+\mathcal{L} = \sum_i \frac{1}{2} |\dot{x}*i|^2 - \sum*{i,j} V(x_i, x_j)
+]
+
+Where:
+
+* (V) encodes:
+
+  * alignment pressure
+  * attraction strength
+  * possibly asymmetry (coercion)
+
+---
+
+## 3.3 Reduction of trajectories
+
+You asked:
+
+> Can we reduce paths relative to initial position? Mean as zeroth-order solution?
+
+So you’re exploring:
+
+* Mean-field approximation:
+  [
+  x_i(t) \approx m(t) + \text{deviation}
+  ]
+
+* Dimensional reduction:
+
+  * principal geodesic directions
+  * manifold eigenmodes
+
+👉 This is about making the system *tractable*.
+
+---
+
+# 4. Coercion Modeling (Your unique angle)
+
+This is the *actual novelty*.
+
+You’re not just modeling interaction — you’re trying to detect:
+
+> **When influence becomes coercion**
+
+Implicit signals you’re targeting:
+
+## 4.1 Asymmetry in influence
+
+* One agent dominates the vector field
+* (K_{ij} \neq K_{ji})
+
+## 4.2 Collapse of degrees of freedom
+
+* Trajectories converge unnaturally fast
+* Reduced entropy of movement
+* Loss of independent directions
+
+## 4.3 Forced alignment
+
+* Agent state pulled toward another’s trajectory
+* Not toward neutral/global mean, but toward **specific attractor**
+
+## 4.4 Path dependence / trapping
+
+* Once in a region, hard to leave
+* Strong local minima / attractor basins
+
+---
+
+# 5. Measurement Layer (What you want to compute)
+
+You’re moving toward defining metrics like:
+
+## 5.1 Alignment metrics
+
+* cosine similarity over time
+* geodesic distance contraction
+
+## 5.2 Velocity / acceleration
+
+* how fast embeddings move
+* sudden directional changes
+
+## 5.3 Curvature of trajectory
+
+* smooth vs forced redirection
+
+## 5.4 Entropy of movement
+
+* diversity of directions
+* collapse = coercion signal
+
+## 5.5 Influence field estimation
+
+* infer (K_{ij}) from observed trajectories
+
+---
+
+# 6. Practical Pipeline (Implied but not fully stated)
+
+Based on your questions, your pipeline would be:
+
+## Step 1: Extract embeddings
+
+* per token or per turn
+* from model (open weights or API)
+
+## Step 2: Normalize
+
+* project to hypersphere
+
+## Step 3: Track trajectories
+
+* sequence of embeddings per agent
+
+## Step 4: Compute interactions
+
+* pairwise distances
+* directional changes
+
+## Step 5: Fit dynamic model
+
+* estimate coupling matrix (K_{ij})
+* possibly via regression or Bayesian inference
+
+## Step 6: Detect coercion
+
+* apply metrics:
+
+  * asymmetry
+  * collapse
+  * attractor behavior
+
+---
+
+# 7. Extensions You’ve Hinted At
+
+## 7.1 Bayesian layer
+
+You mentioned:
+
+* using correct vs incorrect samples to build posteriors
+
+→ This could become:
+
+> Prior over “healthy interaction” vs “coercive interaction”
+
+---
+
+## 7.2 Multi-agent judge system
+
+You asked about:
+
+* LLM-as-judge
+* multiple judges with different prompts
+
+→ This becomes:
+
+* Ensemble evaluators of trajectory properties
+* Each judge = different projection of the field
+
+---
+
+## 7.3 Geometry experimentation
+
+You explored:
+
+* hypersphere vs hypertorus
+* eigen decomposition on manifolds
+
+→ This is about:
+
+> Finding the *right coordinate system* where coercion is most visible
+
+---
+
+# 8. The Real Structure of Your Project
+
+If I compress it:
+
+### Layer 1 — Geometry
+
+Define embedding space as a manifold (hypersphere)
+
+### Layer 2 — Dynamics
+
+Model conversation as interacting particles
+
+### Layer 3 — Inference
+
+Estimate interaction forces from trajectories
+
+### Layer 4 — Detection
+
+Identify coercion via asymmetry + collapse
+
+### Layer 5 — Evaluation
+
+Use judges / Bayesian methods to validate
+
+---
+
+# 9. What’s actually novel here
+
+Most people:
+
+* classify text
+* maybe analyze sentiment
+
+You are trying to:
+
+> **Model conversation as a physical system and detect coercion as a phase transition / dynamical regime.**
+
+That’s fundamentally different.
+
+---
+
+# 10. Where your plan is incomplete (important)
+
+To make this real, you still need:
+
+## 10.1 Explicit coercion definition
+
+Right now it’s intuitive — you need:
+
+* formal condition(s)
+* thresholds
+
+## 10.2 Identifiability
+
+Can you actually recover (K_{ij}) from embeddings?
+
+## 10.3 Data
+
+* labeled coercive vs non-coercive interactions
+
+## 10.4 Validation
+
+* does this outperform simpler baselines?
+
+---
+
+# Bottom line
+
+Project plan is:
+
+> Build a **physics-inspired, manifold-based dynamical system model of conversation**, then use it to **detect coercive influence as asymmetric, entropy-reducing attractor dynamics** in embedding space.
+
+---
