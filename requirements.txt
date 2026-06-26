@@ -1,0 +1,14 @@
+fastapi
+pydantic
+numpy
+pandas
+tqdm
+torch
+python-dotenv
+openai
+requests
+chromadb
+huggingface-hub
+matplotlib
+seaborn
+uvicorn
