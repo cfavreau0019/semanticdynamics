@@ -1,6 +1,6 @@
 import sentencepiece
 
-from tokenizers.base import Token, TokenizeResult, Tokenizer
+from text_tokenizers.base import Token, TokenizeResult, Tokenizer
 
 
 class SentencePieceTokenizer(Tokenizer):
