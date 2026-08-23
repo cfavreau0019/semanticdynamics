@@ -1,4 +1,3 @@
-#from tokenizers_lib import Tokenizer as HFTokenizerLib
 from transformers import AutoTokenizer
 
 from text_tokenizers.base import Token, TokenizeResult, Tokenizer
@@ -6,8 +5,7 @@ from text_tokenizers.base import Token, TokenizeResult, Tokenizer
 
 class HFTokenizer(Tokenizer):
     """
-    Wraps a Hugging Face fast tokenizer (transformers AutoTokenizer or
-    tokenizers.Tokenizer directly) to provide exact character offsets
+    Wraps a Hugging Face fast tokenizer to provide exact character offsets
     via return_offsets_mapping=True.
 
     Any fast tokenizer works: GPT-2, RoBERTa, Llama, Mistral, etc.
@@ -15,7 +13,7 @@ class HFTokenizer(Tokenizer):
     will raise an error on init.
 
     Args:
-        model_name_or_path: HF model ID or local path (e.g. "gpt2", "meta-llama/Llama-3-8B")
+        model_name_or_path: HF model ID or local path (e.g. "gpt2")
         add_special_tokens: whether to include [CLS]/[SEP]/BOS/EOS tokens (default False)
     """
 
@@ -28,6 +26,10 @@ class HFTokenizer(Tokenizer):
             )
         self.add_special_tokens = add_special_tokens
 
+    @property
+    def vocab(self) -> dict[str, int]:
+        return self.hf.vocab
+
     def tokenize(self, text: str) -> TokenizeResult:
         encoding = self.hf(
             text,
@@ -36,7 +38,6 @@ class HFTokenizer(Tokenizer):
         )
         tokens = []
         for token_id, (start, end) in zip(encoding["input_ids"], encoding["offset_mapping"]):
-            # HF uses (0, 0) for special tokens — skip them if they sneak in
             if start == 0 and end == 0 and self.add_special_tokens:
                 continue
             piece = text[start:end]

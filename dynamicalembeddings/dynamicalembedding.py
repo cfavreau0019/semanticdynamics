@@ -1,7 +1,83 @@
 import sys
 sys.path.insert(0, '..')
 
+from collections import defaultdict
 from text_tokenizers import WhitespaceTokenizer, Tokenizer, TokenizeResult
+from text_tokenizers.base import Token
+
+
+def group_tokens(
+    tokens: list[Token],
+    kernel_size: int = None,
+    char_len: int = None,
+    stride: int = None,
+    dilation: int = 1,
+    drop_last: bool = True,
+) -> list[list[Token]]:
+    """
+    Partition/slide a window over a flat list of tokens into groups.
+
+    Exactly one of kernel_size or char_len must be provided.
+
+    kernel_size — window width in tokens (same meaning as a CNN's kernel_size).
+    stride      — step between window starts. Defaults to kernel_size (non-overlapping,
+                  the original tok_len behavior).
+    dilation    — spacing between the tokens sampled within one window (default 1 =
+                  contiguous). Window i taps tokens[start], tokens[start+dilation], ...,
+                  tokens[start+(kernel_size-1)*dilation] where start = i * stride —
+                  identical index arithmetic to Conv1d/MaxPool1d.
+    drop_last   — if True (default, matches PyTorch's no-padding "valid" conv), windows
+                  that would run past the end of tokens are dropped. If False, leftover
+                  tokens after the last full window are appended as one final (possibly
+                  shorter) group.
+
+    char_len — variable-size groups where the character span
+               (last token end - first token start) stays <= char_len.
+               A single token that already exceeds char_len gets its own group.
+               stride/dilation/drop_last do not apply in this mode.
+    """
+    if (kernel_size is None) == (char_len is None):
+        raise ValueError("Provide exactly one of kernel_size or char_len.")
+
+    groups = []
+
+    if kernel_size is not None:
+        stride = stride or kernel_size
+        n = len(tokens)
+        span = dilation * (kernel_size - 1) + 1
+        start = 0
+        while start + span <= n:
+            groups.append([tokens[start + j * dilation] for j in range(kernel_size)])
+            start += stride
+
+        if not drop_last and start < n:
+            groups.append(tokens[start:])
+    else:
+        current = []
+        for token in tokens:
+            if not current:
+                current.append(token)
+            elif (token.end - current[0].start) <= char_len:
+                current.append(token)
+            else:
+                groups.append(current)
+                current = [token]
+        if current:
+            groups.append(current)
+
+    return groups
+
+
+def reconstruct_text(group: list[Token], original_text: str) -> str:
+    """
+    Reconstruct the original text span for a group of tokens by slicing
+    original_text[first.start : last.end] — preserves original whitespace
+    and punctuation exactly rather than joining token strings.
+    """
+    if not group:
+        return ""
+    return original_text[group[0].start : group[-1].end].strip()
+
 
 class DynamicalEmbedding:
     """
@@ -93,7 +169,7 @@ class DynamicalEmbedding:
         subtexts = {}
 
         for length in spec["tok_len"]:
-            groups = group_tokens(tokens, tok_len=length)
+            groups = group_tokens(tokens, kernel_size=length, drop_last=False)
             subtexts[f"tok_len_{length}"] = [
                 reconstruct_text(g, self.text) for g in groups
             ]

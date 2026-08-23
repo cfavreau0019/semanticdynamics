@@ -24,6 +24,11 @@ class Tokenizer(ABC):
     def tokenize(self, text: str) -> TokenizeResult:
         ...
 
+    @property
+    @abstractmethod
+    def vocab(self) -> dict[str, int]:
+        """Return a token → id mapping for this tokenizer's vocabulary."""
+        ...
+
     def decode(self, tokens: list[Token]) -> str:
-        # default: reconstruct via offsets — works for anything that preserves spans
         return "".join(t.text for t in tokens)
