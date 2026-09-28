@@ -13,3 +13,4 @@ matplotlib
 seaborn
 uvicorn
 nnsight
+pytest

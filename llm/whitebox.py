@@ -186,8 +186,14 @@ class WhiteBoxModel:
     ) -> list[HiddenStates]:
         """
         Forward passes for many texts, `batch_size` texts per trace (one NDIF request each),
-        using one invoke per text. Padding positions are stripped, so every result has its
-        own true seq_len.
+        using one invoke per text. Results are returned in input order and match
+        hidden_states() on each text.
+
+        Mixed-length batches are right-padded: under causal attention a real token never
+        attends to padding that comes after it, and positions still start at 0, so every
+        real position is unaffected (left padding would shift positions, which changes the
+        states of absolute-position models such as GPT-2 entirely). Each text's states are
+        sliced to its true length and its next-token logits are read at its last real token.
         """
         import nnsight
         from tqdm.auto import tqdm
@@ -195,29 +201,33 @@ class WhiteBoxModel:
         idx = self._layer_indices(layers)
         layer_modules = [self._layers[i] for i in idx]
         lm_head = self._lm_head
-        left_pad = self.tokenizer.padding_side == "left"
         results: list[HiddenStates] = []
 
-        for start in tqdm(range(0, len(texts), batch_size), desc="hidden states", disable=not progress):
-            batch = list(texts[start:start + batch_size])
-            with self.model.trace(remote=self.remote, **trace_kwargs) as tracer:
-                saved_states = nnsight.save(list())
-                saved_logits = nnsight.save(list())
-                for t in batch:
-                    with tracer.invoke(t):
-                        outs = []
-                        for layer in layer_modules:
-                            out = layer.output
-                            if isinstance(out, tuple):
-                                out = out[0]
-                            outs.append(out[0].cpu())
-                        saved_states.append(torch.stack(outs))
-                        saved_logits.append(lm_head.output[0, -1].cpu())
+        # nnsight pads batched invokes according to the tokenizer, not a trace kwarg
+        original_side = self.tokenizer.padding_side
+        self.tokenizer.padding_side = "right"
+        try:
+            for start in tqdm(range(0, len(texts), batch_size), desc="hidden states", disable=not progress):
+                batch = list(texts[start:start + batch_size])
+                lengths = [len(self._token_ids(t)) for t in batch]
+                with self.model.trace(remote=self.remote, **trace_kwargs) as tracer:
+                    saved_states = nnsight.save(list())
+                    saved_logits = nnsight.save(list())
+                    for t, n in zip(batch, lengths):
+                        with tracer.invoke(t):
+                            outs = []
+                            for layer in layer_modules:
+                                out = layer.output
+                                if isinstance(out, tuple):
+                                    out = out[0]
+                                outs.append(out[0, :n].cpu())
+                            saved_states.append(torch.stack(outs))
+                            saved_logits.append(lm_head.output[0, n - 1].cpu())
 
-            for t, states, logits in zip(batch, saved_states, saved_logits):
-                n = len(self._token_ids(t))
-                states = states[:, -n:, :] if left_pad else states[:, :n, :]
-                results.append(self._pack(t, idx, states, logits, save_logits))
+                for t, states, logits in zip(batch, saved_states, saved_logits):
+                    results.append(self._pack(t, idx, states, logits, save_logits))
+        finally:
+            self.tokenizer.padding_side = original_side
         return results
 
     def _pack(self, text, idx, states, logits, save_logits) -> HiddenStates:
@@ -263,7 +273,7 @@ class WhiteBoxModel:
                                  **generate_kwargs) as tracer:
             steps = nnsight.save(list())
             if save_hidden_states:
-                with tracer.all():
+                for _ in tracer.iter[:]:
                     outs = []
                     for layer in layer_modules:
                         out = layer.output
