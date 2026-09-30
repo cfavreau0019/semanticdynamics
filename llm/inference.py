@@ -15,7 +15,7 @@ from typing import Callable, Optional, Sequence
 
 from tqdm.auto import tqdm
 
-from llm.hooks import ValidateFn, attach_validation
+from llm.hooks import DEFAULT_VALIDATION_RETRIES, ValidateFn, attach_validation, merge_retry, needs_retry
 from llm.providers import LLMProvider, get_provider
 from llm.types import ChatRequest, ChatResponse
 
@@ -52,6 +52,7 @@ def generate_many(
     on_result: Optional[Callable[[ChatResponse], None]] = None,
     progress: bool = True,
     validate: Optional[ValidateFn] = None,
+    validation_retries: int = DEFAULT_VALIDATION_RETRIES,
     **params,
 ) -> list[ChatResponse]:
     """
@@ -68,6 +69,11 @@ def generate_many(
     validate       — (response, request) -> dict, run on each successful response in its worker
                      thread *before* on_result, so checkpoints already carry response.validation
                      (see validation.response_validator)
+    validation_retries — when `validate` is given, regenerate a response that fails validation
+                     up to this many extra times (default 2; 0 disables). Retries happen inside
+                     the worker, so on_result/checkpoints only see the final response, whose
+                     `attempts` and `failed_attempts` record what came before. API errors and
+                     validator crashes are not retried here (the SDK retries transient errors).
     Returns responses in the same order as `requests`.
     """
     llm = get_provider(provider)
@@ -76,14 +82,25 @@ def generate_many(
         for r in requests
     ]
 
-    def run(req: ChatRequest) -> ChatResponse:
+    def attempt(req: ChatRequest, raising: bool) -> ChatResponse:
         try:
             return attach_validation(llm.chat(req), validate, req)
         except Exception as e:
-            if raise_on_error:
+            if raising:
                 raise
             return ChatResponse(request_id=req.id, text=None, error=f"{type(e).__name__}: {e}",
                                 metadata=req.metadata)
+
+    def run(req: ChatRequest) -> ChatResponse:
+        resp = attempt(req, raise_on_error)
+        retries_left = validation_retries if validate is not None else 0
+        while retries_left > 0 and needs_retry(resp):
+            retries_left -= 1
+            retry = attempt(req, raising=False)
+            resp = merge_retry(resp, retry)
+            if not retry.ok:  # keep the last usable (if invalid) response rather than looping on errors
+                break
+        return resp
 
     results: list[Optional[ChatResponse]] = [None] * len(reqs)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -102,4 +119,10 @@ def generate_many(
     n_failed = sum(not r.ok for r in results)
     if n_failed and progress:
         print(f"{n_failed}/{len(results)} requests failed; inspect `.error` on those responses.")
+    if validate is not None and progress:
+        n_retried = sum(r.attempts > 1 for r in results)
+        n_invalid = sum(r.valid is False for r in results)
+        if n_retried or n_invalid:
+            print(f"{n_retried} responses regenerated after failing validation; "
+                  f"{n_invalid} still invalid (see .validation / .failed_attempts).")
     return results

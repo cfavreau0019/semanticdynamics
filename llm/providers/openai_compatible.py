@@ -5,6 +5,7 @@ Together, OpenRouter, a local server, ... Chat and embeddings go through the
 """
 import json
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
@@ -224,10 +225,11 @@ class OpenAICompatibleProvider(LLMProvider):
             raise ValueError(f"A batch file may only target one model; got {sorted(models)}.")
 
     def write_batch_file(self, lines: list[dict], path: Optional[str | Path] = None) -> Path:
-        """Write batch lines to JSONL (default: data/llm_batches/<name>_<timestamp>_input.jsonl)."""
+        """Write batch lines to JSONL (default: data/llm_batches/<name>_<timestamp>_<id>_input.jsonl)."""
         if path is None:
             self.batch_dir.mkdir(parents=True, exist_ok=True)
-            path = self.batch_dir / f"{self.name}_{time.strftime('%Y%m%d_%H%M%S')}_input.jsonl"
+            stamp = f"{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"  # unique even within a second
+            path = self.batch_dir / f"{self.name}_{stamp}_input.jsonl"
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:

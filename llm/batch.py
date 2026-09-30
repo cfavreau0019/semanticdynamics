@@ -19,7 +19,8 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
-from llm.hooks import ValidateFn, apply_validation
+from llm.hooks import DEFAULT_VALIDATION_RETRIES, ValidateFn, apply_validation, merge_retry, needs_retry
+from llm.inference import generate_many
 from llm.providers import LLMProvider, get_provider
 from llm.types import BatchJob, ChatRequest, ChatResponse, Usage
 
@@ -94,12 +95,18 @@ def run_batch(
     poll_interval: float = 60.0,
     timeout: Optional[float] = None,
     validate: Optional[ValidateFn] = None,
+    validation_retries: int = DEFAULT_VALIDATION_RETRIES,
     **submit_kwargs,
 ) -> list[ChatResponse] | BatchJob:
     """
-    Submit a chat batch. wait=True blocks and returns ordered ChatResponses (validated with
-    `validate` if given); wait=False returns the BatchJob immediately (collect later with
-    run_batch_results, passing `validate` there).
+    Submit a chat batch. wait=True blocks and returns ordered ChatResponses; wait=False
+    returns the BatchJob immediately (collect later with run_batch_results, then
+    retry_invalid if you want regenerations).
+
+    With `validate` and wait=True, responses that fail validation are resubmitted as a
+    follow-up batch of just those requests, up to `validation_retries` rounds (default 2;
+    0 disables). Each round is another batch job, so it can add up to the completion
+    window (24h) of waiting per round.
     """
     llm = get_provider(provider)
     job = llm.submit_batch(requests, **submit_kwargs)
@@ -107,7 +114,11 @@ def run_batch(
     if not wait:
         return job
     job = wait_for_batch(job, llm, poll_interval=poll_interval, timeout=timeout)
-    return run_batch_results(job, llm, requests, validate=validate)
+    responses = run_batch_results(job, llm, requests, validate=validate)
+    if validate is not None and validation_retries > 0:
+        responses = retry_invalid(responses, requests, validate, llm, retries=validation_retries, mode="batch",
+                                  poll_interval=poll_interval, timeout=timeout, **submit_kwargs)
+    return responses
 
 
 def run_batch_results(
@@ -120,6 +131,56 @@ def run_batch_results(
     Fetch results for a finished batch (e.g. submitted in an earlier session). With
     `validate`, each successful response gets response.validation before being returned,
     i.e. before you save it.
+
+    This never submits new work. To regenerate responses that failed validation, pass the
+    result to retry_invalid (live or as a follow-up batch).
     """
     responses = get_provider(provider).batch_results(job, requests)
     return apply_validation(responses, validate, requests) if validate else responses
+
+
+def retry_invalid(
+    responses: Sequence[ChatResponse],
+    requests: Sequence[ChatRequest],
+    validate: ValidateFn,
+    provider: str | LLMProvider | None = None,
+    retries: int = DEFAULT_VALIDATION_RETRIES,
+    mode: str = "live",
+    max_workers: int = 4,
+    poll_interval: float = 60.0,
+    timeout: Optional[float] = None,
+    progress: bool = True,
+    **submit_kwargs,
+) -> list[ChatResponse]:
+    """
+    Regenerate responses that failed validation (valid is False), up to `retries` rounds.
+
+    mode="live"  — regenerate with generate_many (seconds, full price)
+    mode="batch" — submit the failures as a follow-up batch and wait (up to 24h, ~half price)
+
+    `requests` supplies the original request for each response (matched by id). Returns a
+    new list in the same order; each regenerated response carries `attempts` and
+    `failed_attempts`. Responses that are valid, unvalidated, or API failures are untouched.
+    """
+    if mode not in ("live", "batch"):
+        raise ValueError(f"mode must be 'live' or 'batch', got {mode!r}")
+    llm = get_provider(provider)
+    by_id = {r.id: r for r in requests}
+    out = list(responses)
+    for round_ in range(1, retries + 1):
+        bad = [i for i, r in enumerate(out) if needs_retry(r) and r.request_id in by_id]
+        if not bad:
+            break
+        retry_reqs = [by_id[out[i].request_id] for i in bad]
+        if progress:
+            print(f"Validation retry round {round_}/{retries}: regenerating {len(bad)} response(s) ({mode})")
+        if mode == "live":
+            new = generate_many(retry_reqs, provider=llm, max_workers=max_workers, validate=validate,
+                                validation_retries=0, progress=progress)
+        else:
+            job = llm.submit_batch(retry_reqs, **submit_kwargs)
+            job = wait_for_batch(job, llm, poll_interval=poll_interval, timeout=timeout, verbose=progress)
+            new = run_batch_results(job, llm, retry_reqs, validate=validate)
+        for i, n in zip(bad, new):
+            out[i] = merge_retry(out[i], n)
+    return out

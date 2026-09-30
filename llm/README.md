@@ -64,6 +64,22 @@ In batch files the fields are merged into each line's `body`. Call `provider.bui
 
 `generate_many`, `run_batch` and `run_batch_results` accept `validate=`, a `(response, request) -> dict` function. The result is stored on `response.validation`, with `response.valid` as a shortcut, before `on_result` runs or you save the responses. `apply_validation(responses, validate)` does the same for any other path, including re-validating loaded files. Validators, such as the regex-based tarot checks, live in the separate [`validation`](../validation/README.md) package.
 
+**Retries (on by default).** With a validator, a response that fails validation is regenerated up to `validation_retries=2` more times. Set `validation_retries=0` to turn this off.
+
+| Path | How it retries |
+|---|---|
+| `generate_many` | immediately, inside the worker; `on_result`/checkpoints only see the final response |
+| `run_batch(wait=True)` | resubmits just the failures as a follow-up batch (another wait of up to 24h per round) |
+| `run_batch_results` | never submits new work; pass its output to `retry_invalid(responses, requests, validate, mode="live" \| "batch")` |
+
+Only content that was validated and failed is retried. API errors (the SDK retries transient ones itself) and validator crashes (`valid is None`) are not. If a retry hits an API error, the last invalid response is kept.
+
+Nothing is thrown away:
+- `response.attempts` counts every generation made for the request.
+- `response.failed_attempts` keeps the text, validation, finish reason, usage and error of each attempt that wasn't returned. `usage` covers only the returned attempt, so add these for the total cost.
+
+Retrying an identical request can reproduce the same failure, especially at `temperature=0`.
+
 ## Batch (OpenAI)
 
 A batch costs about half the live price and finishes within 24h. Each `ChatRequest.id` becomes the line's `custom_id`. The input file looks like this:

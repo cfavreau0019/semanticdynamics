@@ -86,6 +86,15 @@ responses = apply_validation(load_responses(path), validate)
 save_responses(responses, path)
 ```
 
+**Retries are on by default.** Responses that fail validation are regenerated up to 2 more times (`validation_retries=2`) by `generate_many` and blocking `run_batch`. For batches collected later, call `retry_invalid(responses, requests, validate, mode="live" | "batch")`.
+
+Every failed attempt is kept on the returned response: `r.attempts` counts them, and `r.failed_attempts` holds each one's text and validation. That lets you measure first-try failure rates:
+
+```python
+first_try_valid = sum(r.attempts == 1 and r.valid for r in responses) / len(responses)
+[f["validation"]["issues"] for r in responses for f in r.failed_attempts]   # why earlier attempts failed
+```
+
 ## Other tasks
 
 Other spreads: `spread_validator(["Past", "Present", "Future"])` or `spread_validator({position: [aliases]})`.

@@ -104,6 +104,11 @@ class ChatResponse:
     {"passed": bool | None}. It is kept apart from `metadata` (the request's inputs) and
     from `error` (the API call itself failing): ok=True, valid=False means the call
     succeeded but the content is wrong.
+
+    When a response is regenerated because it failed validation, `attempts` counts every
+    generation made for the request and `failed_attempts` keeps a record (text, validation,
+    finish_reason, usage, error) of each one that was not returned, oldest first. `usage`
+    covers only the returned attempt; add failed_attempts' usage for the total cost.
     """
     request_id: str
     text: Optional[str]
@@ -113,6 +118,8 @@ class ChatResponse:
     error: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     validation: Optional[dict[str, Any]] = None
+    attempts: int = 1                                                    # generations made for this request
+    failed_attempts: list[dict[str, Any]] = field(default_factory=list)  # records of attempts not returned
     raw: Any = field(default=None, repr=False)  # provider-native response object/dict
 
     @property
