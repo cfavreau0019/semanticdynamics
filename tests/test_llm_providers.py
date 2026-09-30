@@ -50,6 +50,60 @@ def test_missing_model_raises(make_provider):
         make_provider(default_model=None).chat(ChatRequest.from_prompt("x"))
 
 
+# ---- extra_body -----------------------------------------------------------------
+SAMPLING = {"repetition_penalty": 1.1, "top_k": 40, "min_p": 0.02}
+
+
+def test_live_chat_sends_extra_body_via_sdk_kwarg(provider):
+    provider.chat(ChatRequest.from_prompt("x", max_tokens=5, extra_body=SAMPLING))
+    kwargs = provider.client.calls[-1][1]
+    assert kwargs["extra_body"] == SAMPLING
+    assert "top_k" not in kwargs  # not passed as a (non-existent) SDK argument
+    assert kwargs["max_completion_tokens"] == 5
+
+
+def test_no_extra_body_sends_none(provider):
+    provider.chat(ChatRequest.from_prompt("x"))
+    assert provider.client.calls[-1][1]["extra_body"] is None
+
+
+def test_extra_body_precedence(make_provider):
+    p = make_provider(default_extra_body={"top_k": 10, "min_p": 0.1, "a": 1},
+                      default_params={"extra_body": {"a": 2, "b": 2}})
+    req = ChatRequest.from_prompt("x", extra_body={"top_k": 40})
+    req.params["extra_body"] = {"b": 3, "min_p": 0.05}
+    # default_extra_body < default_params["extra_body"] < params["extra_body"] < request.extra_body
+    assert p.resolve_extra_body(req) == {"top_k": 40, "min_p": 0.05, "a": 2, "b": 3}
+
+
+def test_extra_body_in_params_is_routed_not_sent_as_kwarg(provider):
+    req = ChatRequest(messages=[{"role": "user", "content": "x"}], params={"extra_body": {"top_k": 5}})
+    provider.chat(req)
+    kwargs = provider.client.calls[-1][1]
+    assert kwargs["extra_body"] == {"top_k": 5}
+
+
+def test_build_chat_body_and_batch_lines_flatten_extra_body(make_provider):
+    p = make_provider(default_extra_body={"min_p": 0.02})
+    req = ChatRequest.from_prompt("q", id="s0", max_tokens=7, extra_body={"top_k": 40})
+    body = p.build_batch_lines([req])[0]["body"]
+    assert body["top_k"] == 40 and body["min_p"] == 0.02 and body["max_completion_tokens"] == 7
+    assert "extra_body" not in body
+    assert p.build_chat_body(req) == body
+
+
+def test_extra_body_keys_are_not_renamed(provider):
+    body = provider.build_chat_body(ChatRequest.from_prompt("x", extra_body={"max_tokens": 3}))
+    assert body["max_tokens"] == 3  # sent verbatim; renames only apply to standard params
+
+
+def test_get_provider_default_extra_body_override(monkeypatch):
+    monkeypatch.setenv("FEATHERLESS_API_TOKEN", "test-key")
+    p = get_provider("featherless", default_extra_body=SAMPLING)
+    assert p.default_extra_body == SAMPLING
+    assert get_provider("featherless") is not p
+
+
 # ---- embeddings -----------------------------------------------------------------
 def test_embed_batches_calls_and_restores_order(provider):
     out = provider.embed(["a", "abc", "ab", "abcd", "abcde"], batch_size=2)

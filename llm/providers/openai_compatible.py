@@ -57,6 +57,9 @@ class OpenAICompatibleProvider(LLMProvider):
         default_model:           chat model used when a request doesn't name one
         default_embedding_model: embedding model used when embed() doesn't name one
         default_params:          merged under every request's params (e.g. {"temperature": 0.7})
+        default_extra_body:      non-standard body fields sent with every chat request, e.g.
+                                 {"top_k": 40, "min_p": 0.02, "repetition_penalty": 1.1} for
+                                 vLLM-based servers (Featherless). OpenAI rejects unknown fields.
         param_renames:           rename param keys before sending, e.g. OpenAI's newer models
                                  reject `max_tokens` and want `max_completion_tokens`
         supports_batch:          whether this endpoint implements the Files + Batches API
@@ -74,6 +77,7 @@ class OpenAICompatibleProvider(LLMProvider):
         default_model: Optional[str] = None,
         default_embedding_model: Optional[str] = None,
         default_params: Optional[dict[str, Any]] = None,
+        default_extra_body: Optional[dict[str, Any]] = None,
         param_renames: Optional[dict[str, str]] = None,
         supports_batch: bool = False,
         supports_embeddings: bool = True,
@@ -83,7 +87,7 @@ class OpenAICompatibleProvider(LLMProvider):
         client: Optional[OpenAI] = None,
         **client_kwargs,
     ):
-        super().__init__(default_model, default_embedding_model, default_params)
+        super().__init__(default_model, default_embedding_model, default_params, default_extra_body)
         self.name = name
         self.param_renames = dict(param_renames or {})
         self.supports_batch = supports_batch
@@ -96,18 +100,28 @@ class OpenAICompatibleProvider(LLMProvider):
     # ---- request building -------------------------------------------------------
     def _params(self, params: Mapping[str, Any]) -> dict[str, Any]:
         merged = {**self.default_params, **params}
+        merged.pop("extra_body", None)  # handled by resolve_extra_body
         for old, new in self.param_renames.items():
             if old in merged and new not in merged:
                 merged[new] = merged.pop(old)
         return merged
 
-    def build_chat_body(self, request: ChatRequest) -> dict[str, Any]:
-        """The exact JSON body sent to /chat/completions (also used for batch lines)."""
-        return {
+    def _request_parts(self, request: ChatRequest) -> tuple[dict[str, Any], dict[str, Any]]:
+        """(standard SDK kwargs, provider-specific extra_body)."""
+        kwargs = {
             "model": self.resolve_model(request.model),
             "messages": request.messages,
             **self._params(request.params),
         }
+        return kwargs, self.resolve_extra_body(request)
+
+    def build_chat_body(self, request: ChatRequest) -> dict[str, Any]:
+        """
+        The exact JSON body the server receives (also used for batch lines): standard
+        params plus extra_body fields merged in at the top level, as the SDK does.
+        """
+        kwargs, extra = self._request_parts(request)
+        return {**kwargs, **extra}
 
     def _to_response(self, request: ChatRequest, completion: Any) -> ChatResponse:
         """Works on both SDK objects (live calls) and plain dicts (batch output)."""
@@ -135,7 +149,8 @@ class OpenAICompatibleProvider(LLMProvider):
 
     # ---- chat -------------------------------------------------------------------
     def chat(self, request: ChatRequest) -> ChatResponse:
-        completion = self.client.chat.completions.create(**self.build_chat_body(request))
+        kwargs, extra = self._request_parts(request)
+        completion = self.client.chat.completions.create(**kwargs, extra_body=extra or None)
         return self._to_response(request, completion)
 
     # ---- embeddings -------------------------------------------------------------

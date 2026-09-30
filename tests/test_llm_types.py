@@ -25,8 +25,20 @@ def test_prompt_property_returns_last_user_message():
 
 
 def test_request_dict_round_trip():
-    r = ChatRequest.from_prompt("hi", system="s", metadata={"x": [1, 2]}, temperature=0.3)
+    r = ChatRequest.from_prompt("hi", system="s", metadata={"x": [1, 2]}, temperature=0.3,
+                                extra_body={"top_k": 40})
     assert ChatRequest.from_dict(r.to_dict()) == r
+
+
+def test_from_prompt_extra_body_kept_separate_from_params():
+    r = ChatRequest.from_prompt("hi", extra_body={"min_p": 0.02}, max_tokens=5)
+    assert r.extra_body == {"min_p": 0.02} and r.params == {"max_tokens": 5}
+    assert ChatRequest.from_prompt("hi").extra_body == {}
+
+
+def test_requests_saved_before_extra_body_existed_still_load():
+    old = {"messages": [{"role": "user", "content": "hi"}], "model": None, "params": {}, "id": "a", "metadata": {}}
+    assert ChatRequest.from_dict(old).extra_body == {}
 
 
 def test_usage_addition():

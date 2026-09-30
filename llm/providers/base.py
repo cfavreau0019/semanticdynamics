@@ -29,10 +29,12 @@ class LLMProvider(ABC):
         default_model: Optional[str] = None,
         default_embedding_model: Optional[str] = None,
         default_params: Optional[dict[str, Any]] = None,
+        default_extra_body: Optional[dict[str, Any]] = None,
     ):
         self.default_model = default_model
         self.default_embedding_model = default_embedding_model
         self.default_params = dict(default_params or {})
+        self.default_extra_body = dict(default_extra_body or {})
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name!r}, default_model={self.default_model!r})"
@@ -51,6 +53,19 @@ class LLMProvider(ABC):
         if not model:
             raise ValueError(f"No embedding model given and provider '{self.name}' has no default.")
         return model
+
+    def resolve_extra_body(self, request: ChatRequest) -> dict[str, Any]:
+        """
+        Provider-specific extra fields for this request, merged key-by-key (later wins):
+        default_extra_body < default_params["extra_body"] < request.params["extra_body"]
+        < request.extra_body.
+        """
+        return {
+            **self.default_extra_body,
+            **self.default_params.get("extra_body", {}),
+            **request.params.get("extra_body", {}),
+            **request.extra_body,
+        }
 
     # ---- chat -------------------------------------------------------------------
     @abstractmethod

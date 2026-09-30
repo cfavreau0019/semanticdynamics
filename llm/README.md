@@ -43,6 +43,23 @@ A failed request comes back as a response with `r.error` set, and the rest of th
 
 Params are written the same way for every provider. On OpenAI, `max_tokens` is renamed to `max_completion_tokens` automatically.
 
+### Provider-specific parameters (`extra_body`)
+
+Fields outside the standard OpenAI schema go in `extra_body`. Examples are vLLM sampling controls on Featherless such as `top_k`, `min_p` and `repetition_penalty`. The fields are sent verbatim at the top level of the request body.
+
+```python
+sampling = {"repetition_penalty": 1.1, "top_k": 40, "min_p": 0.02}
+
+generate("...", provider="featherless", extra_body=sampling)                       # one call
+ChatRequest.from_prompt("...", extra_body=sampling)                                 # per request
+generate_many(prompts, provider="featherless", extra_body=sampling)                 # all string prompts
+fl = get_provider("featherless", default_extra_body=sampling)                       # every request on this provider
+```
+
+Precedence, key by key, with later sources winning: `default_extra_body` < `default_params["extra_body"]` < `request.params["extra_body"]` < `request.extra_body`.
+
+In batch files the fields are merged into each line's `body`. Call `provider.build_chat_body(req)` to see exactly what is sent. OpenAI rejects unknown fields with a 400 error. Featherless silently ignores fields it doesn't recognise, so a typo like `top_kk` fails without warning.
+
 ## Batch (OpenAI)
 
 A batch costs about half the live price and finishes within 24h. Each `ChatRequest.id` becomes the line's `custom_id`. The input file looks like this:

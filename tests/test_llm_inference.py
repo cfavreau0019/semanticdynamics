@@ -14,6 +14,17 @@ def test_generate_returns_text_with_default_system(provider):
     assert kwargs["max_completion_tokens"] == 5
 
 
+def test_generate_passes_extra_body(provider):
+    generate("hi", provider=provider, max_tokens=5, extra_body={"top_k": 40, "min_p": 0.02})
+    kwargs = provider.client.calls[-1][1]
+    assert kwargs["extra_body"] == {"top_k": 40, "min_p": 0.02}
+
+
+def test_generate_many_strings_share_extra_body(provider):
+    generate_many(["a", "b"], provider=provider, progress=False, extra_body={"repetition_penalty": 1.1})
+    assert [c[1]["extra_body"] for c in provider.client.calls] == [{"repetition_penalty": 1.1}] * 2
+
+
 def test_generate_without_system(provider):
     generate("hi", system=None, provider=provider)
     assert [m["role"] for m in provider.client.calls[-1][1]["messages"]] == ["user"]

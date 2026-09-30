@@ -26,12 +26,18 @@ class ChatRequest:
                the matching ChatResponse, so results can be joined back to inputs.
     metadata — arbitrary user data (e.g. the tarot `instant`). Never sent to the
                provider; copied onto the ChatResponse.
+    extra_body — provider-specific fields outside the standard OpenAI schema, merged
+               into the JSON body as-is, e.g. {"top_k": 40, "min_p": 0.02,
+               "repetition_penalty": 1.1} for vLLM-based servers such as Featherless.
+               Merged over the provider's default_extra_body. OpenAI itself rejects
+               unknown fields.
     """
     messages: list[Message]
     model: Optional[str] = None
     params: dict[str, Any] = field(default_factory=dict)
     id: str = field(default_factory=_new_id)
     metadata: dict[str, Any] = field(default_factory=dict)
+    extra_body: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_prompt(
@@ -41,6 +47,7 @@ class ChatRequest:
         model: Optional[str] = None,
         id: Optional[str] = None,
         metadata: Optional[dict] = None,
+        extra_body: Optional[dict] = None,
         **params,
     ) -> "ChatRequest":
         messages = []
@@ -53,6 +60,7 @@ class ChatRequest:
             params=params,
             id=id if id is not None else _new_id(),
             metadata=metadata or {},
+            extra_body=extra_body or {},
         )
 
     @property

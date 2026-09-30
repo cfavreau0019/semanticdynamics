@@ -67,6 +67,16 @@ def test_hidden_states_match_hf_output_hidden_states(wb):
         torch.testing.assert_close(hs.hidden_states[i], ref[i + 1][0], atol=1e-4, rtol=1e-4)
 
 
+def test_returned_tensors_are_detached(wb):
+    hs = wb.hidden_states(TEXT, save_logits=True)
+    many = wb.hidden_states_many([TEXT, "Hi"], save_logits=True, progress=False)
+    g = wb.generate("Hello", max_new_tokens=2, do_sample=False)
+    tensors = [hs.hidden_states, hs.next_token_logits, *(m.hidden_states for m in many),
+               *(m.next_token_logits for m in many), *g.step_hidden_states]
+    assert not any(t.requires_grad for t in tensors)
+    hs.hidden_states.numpy()  # plotting / numpy interop must work directly
+
+
 def test_layer_selection_sorted_and_negative(wb):
     hs = wb.hidden_states(TEXT, layers=[-1, 0, 5])
     assert hs.layers == [0, 5, 11] and hs.hidden_states.shape[0] == 3

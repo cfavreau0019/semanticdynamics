@@ -4,6 +4,7 @@ Black-box text generation: one-off calls and concurrent fan-out over many reques
     from llm import generate, generate_many, ChatRequest
 
     text = generate("Hello", provider="featherless", max_tokens=100)
+    text = generate("Hello", provider="featherless", extra_body={"top_k": 40, "min_p": 0.02})
 
     reqs = [ChatRequest.from_prompt(celtic_cross_prompt(inst), max_tokens=6400, metadata={"instant": inst})
             for inst in instants]
@@ -32,7 +33,10 @@ def generate(
     model: Optional[str] = None,
     **params,
 ) -> str:
-    """Prompt in, text out. Extra kwargs (max_tokens, temperature, ...) are sent as params."""
+    """
+    Prompt in, text out. Extra kwargs (max_tokens, temperature, ...) are sent as params;
+    extra_body={...} carries provider-specific fields (top_k, min_p, repetition_penalty, ...).
+    """
     request = ChatRequest.from_prompt(prompt, system=system, model=model, **params)
     return chat(request, provider).text
 
@@ -52,7 +56,8 @@ def generate_many(
     Run many requests concurrently against a live endpoint (threads; the SDK client is
     thread-safe and retries 429/5xx itself).
 
-    requests       — ChatRequests, or plain prompt strings (wrapped using system/model/params)
+    requests       — ChatRequests, or plain prompt strings (wrapped using system/model/params,
+                     including extra_body={...} if given)
     max_workers    — concurrent in-flight requests; keep within your provider's rate/concurrency
                      limits (Featherless plans cap concurrent connections)
     raise_on_error — False: a failed request yields ChatResponse(error=...) and the rest continue

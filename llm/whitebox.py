@@ -169,9 +169,9 @@ class WhiteBoxModel:
                 out = layer.output
                 if isinstance(out, tuple):  # older transformers return (hidden, ...)
                     out = out[0]
-                outs.append(out[0].cpu())
+                outs.append(out[0].detach().cpu())
             states = nnsight.save(torch.stack(outs))
-            logits = nnsight.save(lm_head.output[0, -1].cpu())
+            logits = nnsight.save(lm_head.output[0, -1].detach().cpu())
 
         return self._pack(text, idx, states, logits, save_logits)
 
@@ -220,9 +220,9 @@ class WhiteBoxModel:
                                 out = layer.output
                                 if isinstance(out, tuple):
                                     out = out[0]
-                                outs.append(out[0, :n].cpu())
+                                outs.append(out[0, :n].detach().cpu())
                             saved_states.append(torch.stack(outs))
-                            saved_logits.append(lm_head.output[0, n - 1].cpu())
+                            saved_logits.append(lm_head.output[0, n - 1].detach().cpu())
 
                 for t, states, logits in zip(batch, saved_states, saved_logits):
                     results.append(self._pack(t, idx, states, logits, save_logits))
@@ -280,9 +280,9 @@ class WhiteBoxModel:
                         if isinstance(out, tuple):
                             out = out[0]
                         out = out[0, -1:] if last_token_only else out[0]
-                        outs.append(out.cpu())
+                        outs.append(out.detach().cpu())
                     steps.append(torch.stack(outs))
-            output_ids = nnsight.save(generator.output[0].cpu())
+            output_ids = nnsight.save(generator.output[0].detach().cpu())
 
         prompt_ids = self._token_ids(prompt)
         new_ids = output_ids[len(prompt_ids):].tolist()
