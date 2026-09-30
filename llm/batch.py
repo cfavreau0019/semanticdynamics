@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
+from llm.hooks import ValidateFn, apply_validation
 from llm.providers import LLMProvider, get_provider
 from llm.types import BatchJob, ChatRequest, ChatResponse, Usage
 
@@ -92,11 +93,13 @@ def run_batch(
     wait: bool = True,
     poll_interval: float = 60.0,
     timeout: Optional[float] = None,
+    validate: Optional[ValidateFn] = None,
     **submit_kwargs,
 ) -> list[ChatResponse] | BatchJob:
     """
-    Submit a chat batch. wait=True blocks and returns ordered ChatResponses;
-    wait=False returns the BatchJob immediately (collect later with run_batch_results).
+    Submit a chat batch. wait=True blocks and returns ordered ChatResponses (validated with
+    `validate` if given); wait=False returns the BatchJob immediately (collect later with
+    run_batch_results, passing `validate` there).
     """
     llm = get_provider(provider)
     job = llm.submit_batch(requests, **submit_kwargs)
@@ -104,13 +107,19 @@ def run_batch(
     if not wait:
         return job
     job = wait_for_batch(job, llm, poll_interval=poll_interval, timeout=timeout)
-    return llm.batch_results(job, requests)
+    return run_batch_results(job, llm, requests, validate=validate)
 
 
 def run_batch_results(
     job: BatchJob | str,
     provider: str | LLMProvider | None = None,
     requests: Optional[Sequence[ChatRequest]] = None,
+    validate: Optional[ValidateFn] = None,
 ) -> list[ChatResponse]:
-    """Fetch results for a finished batch (e.g. submitted in an earlier session)."""
-    return get_provider(provider).batch_results(job, requests)
+    """
+    Fetch results for a finished batch (e.g. submitted in an earlier session). With
+    `validate`, each successful response gets response.validation before being returned,
+    i.e. before you save it.
+    """
+    responses = get_provider(provider).batch_results(job, requests)
+    return apply_validation(responses, validate, requests) if validate else responses

@@ -60,6 +60,10 @@ Precedence, key by key, with later sources winning: `default_extra_body` < `defa
 
 In batch files the fields are merged into each line's `body`. Call `provider.build_chat_body(req)` to see exactly what is sent. OpenAI rejects unknown fields with a 400 error. Featherless silently ignores fields it doesn't recognise, so a typo like `top_kk` fails without warning.
 
+### Validating outputs
+
+`generate_many`, `run_batch` and `run_batch_results` accept `validate=`, a `(response, request) -> dict` function. The result is stored on `response.validation`, with `response.valid` as a shortcut, before `on_result` runs or you save the responses. `apply_validation(responses, validate)` does the same for any other path, including re-validating loaded files. Validators, such as the regex-based tarot checks, live in the separate [`validation`](../validation/README.md) package.
+
 ## Batch (OpenAI)
 
 A batch costs about half the live price and finishes within 24h. Each `ChatRequest.id` becomes the line's `custom_id`. The input file looks like this:

@@ -15,6 +15,7 @@ from typing import Callable, Optional, Sequence
 
 from tqdm.auto import tqdm
 
+from llm.hooks import ValidateFn, attach_validation
 from llm.providers import LLMProvider, get_provider
 from llm.types import ChatRequest, ChatResponse
 
@@ -50,6 +51,7 @@ def generate_many(
     raise_on_error: bool = False,
     on_result: Optional[Callable[[ChatResponse], None]] = None,
     progress: bool = True,
+    validate: Optional[ValidateFn] = None,
     **params,
 ) -> list[ChatResponse]:
     """
@@ -63,6 +65,9 @@ def generate_many(
     raise_on_error — False: a failed request yields ChatResponse(error=...) and the rest continue
     on_result      — called (in the main thread) as each response lands, e.g. to append to a
                      JSONL checkpoint so a crash doesn't lose finished work
+    validate       — (response, request) -> dict, run on each successful response in its worker
+                     thread *before* on_result, so checkpoints already carry response.validation
+                     (see validation.response_validator)
     Returns responses in the same order as `requests`.
     """
     llm = get_provider(provider)
@@ -73,7 +78,7 @@ def generate_many(
 
     def run(req: ChatRequest) -> ChatResponse:
         try:
-            return llm.chat(req)
+            return attach_validation(llm.chat(req), validate, req)
         except Exception as e:
             if raise_on_error:
                 raise

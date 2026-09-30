@@ -98,6 +98,12 @@ class ChatResponse:
     """
     Result of a ChatRequest. On failure `text` is None and `error` holds the message,
     so a large concurrent/batch run doesn't die on one bad request.
+
+    `validation` holds the output of a content validator (see the `validate=` hook on
+    generate_many / run_batch / apply_validation) as a plain JSON dict with at least
+    {"passed": bool | None}. It is kept apart from `metadata` (the request's inputs) and
+    from `error` (the API call itself failing): ok=True, valid=False means the call
+    succeeded but the content is wrong.
     """
     request_id: str
     text: Optional[str]
@@ -106,11 +112,17 @@ class ChatResponse:
     usage: Optional[Usage] = None
     error: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    validation: Optional[dict[str, Any]] = None
     raw: Any = field(default=None, repr=False)  # provider-native response object/dict
 
     @property
     def ok(self) -> bool:
         return self.error is None
+
+    @property
+    def valid(self) -> Optional[bool]:
+        """True/False once validated; None if not validated (or the validator itself crashed)."""
+        return None if self.validation is None else self.validation.get("passed")
 
     def to_dict(self) -> dict:
         """JSON-serialisable view (drops `raw`)."""
