@@ -26,3 +26,6 @@ Thumbs.db
 
 # LLM batch input/output files
 data/llm_batches/
+
+# Generated datasets (tables per run); see data_generation/README.md
+data/generations/

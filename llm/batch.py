@@ -17,12 +17,14 @@ Typical flow (OpenAI; results can take up to 24h, at ~50% of the live price):
 import json
 import time
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence
 
 from llm.hooks import DEFAULT_VALIDATION_RETRIES, ValidateFn, apply_validation, merge_retry, needs_retry
 from llm.inference import generate_many
 from llm.providers import LLMProvider, get_provider
 from llm.types import BatchJob, ChatRequest, ChatResponse, Usage
+
+OnBatchFn = Callable[[BatchJob, int], None]  # (job, round): round 0 = initial batch, 1.. = retries
 
 
 # ---- JSONL ----------------------------------------------------------------------
@@ -96,6 +98,7 @@ def run_batch(
     timeout: Optional[float] = None,
     validate: Optional[ValidateFn] = None,
     validation_retries: int = DEFAULT_VALIDATION_RETRIES,
+    on_batch: Optional[OnBatchFn] = None,
     **submit_kwargs,
 ) -> list[ChatResponse] | BatchJob:
     """
@@ -107,17 +110,25 @@ def run_batch(
     follow-up batch of just those requests, up to `validation_retries` rounds (default 2;
     0 disables). Each round is another batch job, so it can add up to the completion
     window (24h) of waiting per round.
+
+    on_batch(job, round) is called after each submission and again when it finishes
+    (round 0 = initial batch, 1.. = retry rounds), e.g. to record batch jobs.
     """
     llm = get_provider(provider)
     job = llm.submit_batch(requests, **submit_kwargs)
     print(f"Submitted batch {job.id} ({len(requests)} requests) to {llm.name}; input: {job.input_file}")
+    if on_batch:
+        on_batch(job, 0)
     if not wait:
         return job
     job = wait_for_batch(job, llm, poll_interval=poll_interval, timeout=timeout)
+    if on_batch:
+        on_batch(job, 0)
     responses = run_batch_results(job, llm, requests, validate=validate)
     if validate is not None and validation_retries > 0:
         responses = retry_invalid(responses, requests, validate, llm, retries=validation_retries, mode="batch",
-                                  poll_interval=poll_interval, timeout=timeout, **submit_kwargs)
+                                  poll_interval=poll_interval, timeout=timeout, on_batch=on_batch,
+                                  **submit_kwargs)
     return responses
 
 
@@ -136,6 +147,9 @@ def run_batch_results(
     result to retry_invalid (live or as a follow-up batch).
     """
     responses = get_provider(provider).batch_results(job, requests)
+    batch_id = job.id if isinstance(job, BatchJob) else job
+    for r in responses:
+        r.batch_id = batch_id
     return apply_validation(responses, validate, requests) if validate else responses
 
 
@@ -150,6 +164,7 @@ def retry_invalid(
     poll_interval: float = 60.0,
     timeout: Optional[float] = None,
     progress: bool = True,
+    on_batch: Optional[OnBatchFn] = None,
     **submit_kwargs,
 ) -> list[ChatResponse]:
     """
@@ -161,6 +176,7 @@ def retry_invalid(
     `requests` supplies the original request for each response (matched by id). Returns a
     new list in the same order; each regenerated response carries `attempts` and
     `failed_attempts`. Responses that are valid, unvalidated, or API failures are untouched.
+    on_batch(job, round) is called after each retry batch is submitted and when it finishes.
     """
     if mode not in ("live", "batch"):
         raise ValueError(f"mode must be 'live' or 'batch', got {mode!r}")
@@ -179,7 +195,11 @@ def retry_invalid(
                                 validation_retries=0, progress=progress)
         else:
             job = llm.submit_batch(retry_reqs, **submit_kwargs)
+            if on_batch:
+                on_batch(job, round_)
             job = wait_for_batch(job, llm, poll_interval=poll_interval, timeout=timeout, verbose=progress)
+            if on_batch:
+                on_batch(job, round_)
             new = run_batch_results(job, llm, retry_reqs, validate=validate)
         for i, n in zip(bad, new):
             out[i] = merge_retry(out[i], n)

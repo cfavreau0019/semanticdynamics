@@ -1,0 +1,369 @@
+"""
+Generic generation pipeline: inputs -> prompts -> requests -> responses (+ validation),
+persisted as tables by RunStore. Task specifics (what an input is, how it becomes a prompt,
+how outputs are validated) come from an Application; see data_generation/tarot.py.
+
+Order of writes (so an interrupted run can be resumed or collected from the tables alone):
+    runs -> inputs, input_items -> prompts -> requests      (before any API call)
+    responses, response_texts, validations, validation_issues   (as each request finishes,
+                                                                 after validation + retries)
+    batches                                                     (on submit / completion)
+"""
+import copy
+import hashlib
+import json
+import random
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider, retry_invalid, run_batch_results
+from llm.batch import wait_for_batch
+from data_generation.schema import SCHEMA_VERSION
+from data_generation.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
+
+# metadata keys carried on each ChatRequest (never sent to the model)
+INPUT_KEY = "input"
+
+
+class Application(ABC):
+    """What a generation task has to provide."""
+
+    name: str                 # e.g. "tarot_celtic_cross"
+    input_type: str           # e.g. "tarot_draw"
+    default_template: str
+
+    # template name -> render(payload) -> (system prompt or None, user prompt)
+    templates: dict[str, Callable[[dict], tuple[Optional[str], str]]]
+
+    @abstractmethod
+    def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:
+        ...
+
+    def input_items(self, payload: dict) -> list[dict]:
+        """Long-form rows (label, value, entity, qualifier) for input_items; optional."""
+        return []
+
+    def validator(self):
+        """A validation.Validator whose `expected` is the input payload, or None."""
+        return None
+
+    def options(self) -> dict:
+        """Application settings to record in runs.config."""
+        return {}
+
+
+@dataclass
+class GenerationConfig:
+    n: int
+    provider: str
+    model: Optional[str] = None
+    template: Optional[str] = None
+    system: Optional[str] = None              # overrides the template's system prompt
+    params: dict[str, Any] = field(default_factory=dict)
+    extra_body: dict[str, Any] = field(default_factory=dict)
+    mode: str = "live"                        # live | batch | dry_run
+    seed: Optional[int] = None
+    validate: bool = True
+    validation_retries: int = 2
+    retry_mode: str = "live"                  # how batch runs regenerate invalid responses: live | batch
+    max_workers: int = 4
+    poll_interval: float = 60.0
+    name: Optional[str] = None
+    dataset: Optional[str] = None             # label grouping several runs into one dataset
+
+
+# ---- preparing a run -------------------------------------------------------------------
+def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT) -> tuple[RunStore, list[ChatRequest]]:
+    """Create the run and write runs, inputs, input_items, prompts and requests."""
+    if config.mode not in ("live", "batch", "dry_run"):
+        raise ValueError(f"mode must be live, batch or dry_run; got {config.mode!r}")
+    config.template = config.template or app.default_template
+    if config.template not in app.templates:
+        raise ValueError(f"Unknown template {config.template!r}; available: {sorted(app.templates)}")
+    if config.seed is None:
+        config.seed = random.SystemRandom().randrange(2**31)
+
+    store = RunStore.create(root)
+    sha, dirty = code_version()
+    now = utc_now()
+    store.upsert("runs", [{
+        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "application": app.name,
+        "mode": config.mode,
+        "status": "prepared", "provider": config.provider, "model": config.model,
+        "config": {**asdict(config), "application_options": app.options()},
+        "code_version": sha, "code_dirty": dirty, "schema_version": SCHEMA_VERSION,
+        "summary": None, "created_at": now, "updated_at": now,
+    }])
+
+    rng = random.Random(config.seed)
+    payloads = app.sample_inputs(config.n, rng)
+    render = app.templates[config.template]
+    request_mode = "batch" if config.mode == "batch" else "live"
+    inputs, items, prompts, request_rows, requests = [], [], [], [], []
+    for i, payload in enumerate(payloads):
+        input_id, prompt_id, request_id = new_id("inp"), new_id("prm"), new_id("req")
+        inputs.append({"input_id": input_id, "run_id": store.run_id, "input_index": i,
+                       "input_type": app.input_type, "payload": payload, "created_at": now})
+        items += [{"input_id": input_id, "run_id": store.run_id, "item_index": k, **item}
+                  for k, item in enumerate(app.input_items(payload))]
+
+        system, user = render(payload)
+        system = config.system if config.system is not None else system
+        messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]
+        prompts.append({"prompt_id": prompt_id, "input_id": input_id, "run_id": store.run_id,
+                        "template": config.template, "system": system, "user_text": user, "messages": messages,
+                        "prompt_sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
+                        "created_at": now})
+        request_rows.append({"request_id": request_id, "prompt_id": prompt_id, "run_id": store.run_id,
+                             "provider": config.provider, "model": config.model, "params": config.params,
+                             "extra_body": config.extra_body, "mode": request_mode, "created_at": now})
+        requests.append(ChatRequest(messages=messages, model=config.model, params=dict(config.params),
+                                    id=request_id, extra_body=dict(config.extra_body),
+                                    metadata={INPUT_KEY: payload, "input_id": input_id, "prompt_id": prompt_id}))
+
+    store.append("inputs", inputs)
+    store.append("input_items", items)
+    store.append("prompts", prompts)
+    store.append("requests", request_rows)
+    return store, requests
+
+
+def list_runs(root=DEFAULT_ROOT, dataset: Optional[str] = None) -> list[dict]:
+    """The runs rows under `root` (oldest first), optionally only those of one dataset."""
+    root = Path(root)
+    if not root.exists():
+        return []
+    runs = [RunStore(p).run() for p in root.glob("run_*") if (p / "runs.jsonl").exists()]
+    runs.sort(key=lambda r: (r["created_at"], r["run_id"]))
+    return [r for r in runs if dataset is None or r.get("dataset") == dataset]
+
+
+def load_config(store: RunStore) -> GenerationConfig:
+    cfg = dict(store.run()["config"])
+    cfg.pop("application_options", None)
+    return GenerationConfig(**cfg)
+
+
+def rebuild_requests(store: RunStore) -> list[ChatRequest]:
+    """Reconstruct the ChatRequests of a run from its requests/prompts/inputs tables."""
+    prompts = {p["prompt_id"]: p for p in store.read("prompts")}
+    inputs = {i["input_id"]: i for i in store.read("inputs")}
+    out = []
+    for r in store.read("requests"):
+        p = prompts[r["prompt_id"]]
+        payload = inputs[p["input_id"]]["payload"]
+        out.append(ChatRequest(messages=p["messages"], model=r["model"], params=dict(r["params"]),
+                               id=r["request_id"], extra_body=dict(r["extra_body"]),
+                               metadata={INPUT_KEY: payload, "input_id": p["input_id"], "prompt_id": p["prompt_id"]}))
+    return out
+
+
+# ---- writing responses -----------------------------------------------------------------
+def _attempt_rows(store: RunStore, request_id: str, attempt: int, *, text, model, finish_reason,
+                  error, usage, validation, batch_id) -> dict[str, list[dict]]:
+    response_id = f"{request_id}-a{attempt}"
+    usage = usage or {}
+    rows = {
+        "responses": [{"response_id": response_id, "request_id": request_id, "run_id": store.run_id,
+                       "attempt": attempt, "batch_id": batch_id, "model": model,
+                       "finish_reason": finish_reason, "error": error,
+                       "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
+                       "total_tokens": usage.get("total_tokens"), "received_at": utc_now()}],
+        "response_texts": [{"response_id": response_id, "run_id": store.run_id, "text": text,
+                            "n_chars": len(text) if text is not None else None}],
+        "validations": [], "validation_issues": [],
+    }
+    if validation is not None:
+        rows["validations"].append({
+            "response_id": response_id, "run_id": store.run_id, "validator": validation.get("validator"),
+            "passed": validation.get("passed"), "n_errors": validation.get("n_errors"),
+            "n_warnings": validation.get("n_warnings"), "validator_error": validation.get("error"),
+            "details": {name: c.get("details") for name, c in (validation.get("checks") or {}).items()} or None,
+        })
+        rows["validation_issues"] += [{
+            "response_id": response_id, "run_id": store.run_id, "issue_index": k, "check_name": i.get("check"),
+            "code": i.get("code"), "severity": i.get("severity"), "label": i.get("label"),
+            "message": i.get("message"), "data": i.get("data"),
+        } for k, i in enumerate(validation.get("issues") or [])]
+    return rows
+
+
+def write_response(store: RunStore, response: ChatResponse, previous_attempts: int = 0) -> None:
+    """
+    Write every attempt of a finished request: failed attempts first, the returned response
+    last, numbered previous_attempts+1 .. previous_attempts+response.attempts (so a request
+    resumed after an API error continues its numbering, and its highest attempt stays final).
+    """
+    tables: dict[str, list[dict]] = {"responses": [], "response_texts": [], "validations": [], "validation_issues": []}
+    returned = {"text": response.text, "model": response.model, "finish_reason": response.finish_reason,
+                "error": response.error, "usage": asdict(response.usage) if response.usage else None,
+                "validation": response.validation, "batch_id": response.batch_id}
+    for k, a in enumerate([*response.failed_attempts, returned], start=previous_attempts + 1):
+        rows = _attempt_rows(store, response.request_id, k, text=a.get("text"), model=a.get("model"),
+                             finish_reason=a.get("finish_reason"), error=a.get("error"), usage=a.get("usage"),
+                             validation=a.get("validation"), batch_id=a.get("batch_id"))
+        for table, r in rows.items():
+            tables[table] += r
+    for table in ("responses", "response_texts", "validations", "validation_issues"):
+        store.append(table, tables[table])
+
+
+def final_responses(store: RunStore) -> dict[str, dict]:
+    """request_id -> its highest-attempt responses row (same as the final_responses SQL view)."""
+    latest: dict[str, dict] = {}
+    for r in store.read("responses"):
+        if r["request_id"] not in latest or r["attempt"] > latest[r["request_id"]]["attempt"]:
+            latest[r["request_id"]] = r
+    return latest
+
+
+def finished_request_ids(store: RunStore) -> set[str]:
+    """Requests whose final response succeeded at the API level (errors are retried on resume)."""
+    return {rid for rid, r in final_responses(store).items() if r["error"] is None}
+
+
+def _attempt_offsets(store: RunStore) -> dict[str, int]:
+    return {rid: r["attempt"] for rid, r in final_responses(store).items()}
+
+
+# ---- running ---------------------------------------------------------------------------
+def _provider_for(store: RunStore, config: GenerationConfig):
+    llm = get_provider(config.provider)
+    if hasattr(llm, "batch_dir"):  # keep this run's batch files inside its directory
+        llm = copy.copy(llm)
+        llm.batch_dir = store.batch_files_dir
+    return llm
+
+
+def _validate_fn(app: Application, config: GenerationConfig):
+    if not config.validate:
+        return None
+    validator = app.validator()
+    if validator is None:
+        return None
+    from validation import response_validator
+    return response_validator(validator, expected=INPUT_KEY)
+
+
+def run_live(store: RunStore, app: Application, requests: Optional[list[ChatRequest]] = None,
+             progress: bool = True) -> dict:
+    """
+    Generate every request without a successful final response, so it also resumes a run:
+    requests never attempted, interrupted, or whose last attempt was an API error.
+    """
+    config = load_config(store)
+    requests = requests if requests is not None else rebuild_requests(store)
+    done = finished_request_ids(store)
+    offsets = _attempt_offsets(store)
+    pending = [r for r in requests if r.id not in done]
+    if progress and (done or offsets):
+        n_err = sum(1 for r in pending if r.id in offsets)
+        print(f"Resuming: {len(done)} finished; {len(pending)} to go ({n_err} retrying after API errors)")
+    store.update_run(status="running")
+    try:
+        generate_many(pending, provider=_provider_for(store, config), max_workers=config.max_workers,
+                      validate=_validate_fn(app, config), validation_retries=config.validation_retries,
+                      on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0)),
+                      progress=progress)
+    except BaseException:
+        store.update_run(status="interrupted", summary=summarize(store))
+        raise
+    return finalize(store)
+
+
+def record_batch(store: RunStore, job: BatchJob, round_: int, n_requests: Optional[int] = None,
+                 collected: Optional[bool] = None) -> None:
+    prev = {b["batch_id"]: b for b in store.read("batches")}.get(job.id, {})
+    total = (job.request_counts or {}).get("total") or 0
+    now = utc_now()
+    store.upsert("batches", [{
+        "batch_id": job.id, "run_id": store.run_id, "provider": job.provider, "round": round_,
+        "endpoint": job.endpoint, "status": job.status, "raw_status": job.raw_status,
+        "n_requests": n_requests or prev.get("n_requests") or total, "request_counts": job.request_counts or None,
+        "input_file": job.input_file or prev.get("input_file"),
+        "collected": collected if collected is not None else prev.get("collected", False),
+        "created_at": prev.get("created_at", now), "updated_at": now,
+    }])
+
+
+def submit_batch(store: RunStore, requests: Optional[list[ChatRequest]] = None) -> BatchJob:
+    config = load_config(store)
+    requests = requests if requests is not None else rebuild_requests(store)
+    llm = _provider_for(store, config)
+    job = llm.submit_batch(requests, metadata={"run_id": store.run_id})
+    record_batch(store, job, 0, n_requests=len(requests))
+    store.update_run(status="submitted")
+    return job
+
+
+def collect_batch(store: RunStore, app: Application, wait: bool = False, progress: bool = True) -> dict:
+    """
+    Collect the run's initial batch: fetch results, validate, regenerate invalid ones
+    (config.retry_mode: live or follow-up batches), then write everything. Returns the run
+    summary, or the batch's current status if it is still running and wait=False.
+    """
+    config = load_config(store)
+    pending = [b for b in store.read("batches") if b["round"] == 0 and not b["collected"]]
+    if not pending:
+        raise RuntimeError(f"{store.run_id} has no uncollected batch")
+    llm = _provider_for(store, config)
+    job = llm.get_batch(pending[0]["batch_id"])
+    job.input_file = pending[0]["input_file"]
+    record_batch(store, job, 0)
+    if not job.done:
+        if not wait:
+            return {"batch_id": job.id, "status": job.status, "request_counts": job.request_counts}
+        job = wait_for_batch(job, llm, poll_interval=config.poll_interval, verbose=progress)
+        record_batch(store, job, 0)
+
+    requests = [r for r in rebuild_requests(store) if r.id not in finished_request_ids(store)]
+    validate = _validate_fn(app, config)
+    responses = run_batch_results(job, llm, requests, validate=validate)
+    if validate is not None and config.validation_retries > 0:
+        responses = retry_invalid(responses, requests, validate, llm, retries=config.validation_retries,
+                                  mode=config.retry_mode, max_workers=config.max_workers,
+                                  poll_interval=config.poll_interval, progress=progress,
+                                  on_batch=lambda j, rnd: record_batch(store, j, rnd))
+    offsets = _attempt_offsets(store)
+    for r in responses:
+        write_response(store, r, offsets.get(r.request_id, 0))
+    for b in store.read("batches"):
+        record_batch(store, BatchJob(b["batch_id"], b["provider"], b["status"], b["raw_status"], b["endpoint"],
+                                     request_counts=b["request_counts"] or {}, input_file=b["input_file"]),
+                     b["round"], collected=True)
+    return finalize(store)
+
+
+# ---- summaries -------------------------------------------------------------------------
+def summarize(store: RunStore) -> dict:
+    """Counts over each request's final response; token totals over every attempt (= cost)."""
+    responses = store.read("responses")
+    validations = {v["response_id"]: v for v in store.read("validations")}
+    final = [r for r in final_responses(store).values() if r["error"] is None]
+    passed = [validations.get(r["response_id"], {}).get("passed") for r in final]
+    tokens = lambda key: sum(r[key] or 0 for r in responses)
+    n_requests = len(store.read("requests"))
+    return {
+        "n_requests": n_requests,
+        "n_finished": len(final),
+        "n_api_errors": len(final_responses(store)) - len(final),
+        "n_not_attempted": n_requests - len(final_responses(store)),
+        "n_valid": sum(p is True for p in passed),
+        "n_invalid": sum(p is False for p in passed),
+        "n_unvalidated": sum(p is None for p in passed),
+        "n_regenerated": sum(r["attempt"] > 1 for r in final),
+        "n_attempts": len(responses),
+        "prompt_tokens": tokens("prompt_tokens"),
+        "completion_tokens": tokens("completion_tokens"),
+        "total_tokens": tokens("total_tokens"),
+    }
+
+
+def finalize(store: RunStore) -> dict:
+    """completed = every request has a successful final response; otherwise partial (resume/collect again)."""
+    summary = summarize(store)
+    status = "completed" if summary["n_finished"] == summary["n_requests"] else "partial"
+    store.update_run(status=status, summary=summary)
+    return summary

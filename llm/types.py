@@ -118,6 +118,7 @@ class ChatResponse:
     error: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     validation: Optional[dict[str, Any]] = None
+    batch_id: Optional[str] = None                                       # batch that produced it (None = live)
     attempts: int = 1                                                    # generations made for this request
     failed_attempts: list[dict[str, Any]] = field(default_factory=list)  # records of attempts not returned
     raw: Any = field(default=None, repr=False)  # provider-native response object/dict

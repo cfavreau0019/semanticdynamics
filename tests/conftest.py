@@ -53,6 +53,7 @@ class FakeOpenAIClient:
         self.uploaded = []
         self.batch_outputs = batch_outputs or self._default_outputs
         self.batch_errors = None
+        self.n_batches = 0  # each create gets a new id: batch_1, batch_2, ...
 
     # chat / embeddings
     def _chat(self, **kwargs):
@@ -74,10 +75,10 @@ class FakeOpenAIClient:
         self.uploaded = [json.loads(l) for l in file.read().decode("utf-8").splitlines()]
         return NS(id="file-in")
 
-    def _batch(self, status):
+    def _batch(self, status, batch_id=None):
         done = status in ("completed", "expired", "cancelled", "failed")
         return NS(
-            id="batch_1", status=status, endpoint=self.endpoint, created_at=123,
+            id=batch_id or f"batch_{self.n_batches}", status=status, endpoint=self.endpoint, created_at=123,
             metadata={"kind": "embedding" if "embeddings" in self.endpoint else "chat"},
             request_counts=NS(total=len(self.uploaded), completed=len(self.uploaded), failed=0),
             output_file_id="file-out" if done and status != "failed" else None,
@@ -87,15 +88,17 @@ class FakeOpenAIClient:
 
     def _batch_create(self, **kwargs):
         self.calls.append(("batch_create", kwargs))
+        self.n_batches += 1
+        self.status_idx = 0  # a new batch starts from the first status again
         return self._batch(self.statuses[0])
 
     def _batch_retrieve(self, batch_id):
         self.calls.append(("batch_retrieve", {"id": batch_id}))
         self.status_idx = min(self.status_idx + 1, len(self.statuses) - 1)
-        return self._batch(self.statuses[self.status_idx])
+        return self._batch(self.statuses[self.status_idx], batch_id)
 
     def _batch_cancel(self, batch_id):
-        return self._batch("cancelling")
+        return self._batch("cancelling", batch_id)
 
     def _batch_list(self, limit):
         return [self._batch(self.statuses[-1])]

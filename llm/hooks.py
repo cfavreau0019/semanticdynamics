@@ -25,6 +25,8 @@ def attempt_record(response: ChatResponse) -> dict[str, Any]:
         "usage": asdict(response.usage) if response.usage else None,
         "validation": response.validation,
         "error": response.error,
+        "model": response.model,
+        "batch_id": response.batch_id,
     }
 
 
