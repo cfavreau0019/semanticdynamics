@@ -19,6 +19,7 @@ Grow one dataset over several sessions by giving each run the same --dataset lab
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 
 if __package__ in (None, ""):  # allow `python data_generation/generate_tarot.py`
@@ -30,6 +31,7 @@ from data_generation.pipeline import (  # noqa: E402
 )
 from data_generation.store import DEFAULT_ROOT, RunStore  # noqa: E402
 from data_generation.tarot import DRAW_MODES, TarotReadings  # noqa: E402
+from personas import SAMPLING_MODES  # noqa: E402
 
 
 def _json_arg(text: str) -> dict:
@@ -74,10 +76,21 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--pin", type=_pin_arg, action="append", default=[], metavar="POSITION=CARD",
                    help="fix a position's card in every draw (repeatable)")
     g.add_argument("--deck-config", help="deck/spread config JSON (default: $VECTOR_SPACE_CONFIG or sandbox's)")
-    g.add_argument("--template", help="prompt template (default: celtic_cross_v1 for a Celtic Cross deck)")
+    g.add_argument("--template", action="append", default=[], metavar="NAME",
+                   help="prompt template from the prompts library: 'celtic_cross_v2' pins a version, "
+                        "'celtic_cross' takes the latest. Repeat to render every draw with each template "
+                        "(n draws x templates requests) for a paired comparison. Default: celtic_cross_v1, or "
+                        "celtic_cross_v2 with --personas. See `python -m prompts list`.")
     g.add_argument("--system", help="system prompt (overrides the template's)")
+    g.add_argument("--personas", metavar="SET", help="persona set name or JSON path (e.g. tarot_personas); "
+                                                     "each draw is assigned one persona")
+    g.add_argument("--persona-sampling", choices=SAMPLING_MODES, default="random",
+                   help="random: seeded, with replacement; cycle: in order, every persona equally often "
+                        "(default: %(default)s)")
+    g.add_argument("--persona", action="append", default=[], metavar="ID",
+                   help="restrict to this persona (id, number or full name); repeatable")
     # generation params
-    g.add_argument("--max-tokens", type=int, default=2000, help="default: %(default)s")
+    g.add_argument("--max-tokens", type=int, default=2400, help="default: %(default)s")
     g.add_argument("--temperature", type=float)
     g.add_argument("--top-p", type=float)
     g.add_argument("--extra-body", type=_json_arg, default={}, metavar="JSON",
@@ -114,7 +127,12 @@ def print_summary(store: RunStore, summary: dict) -> None:
           f"{'  dataset=' + run['dataset'] if run.get('dataset') else ''}")
     print(f"  tables: {store.dir}")
     for k, v in summary.items():
-        print(f"  {k:>18}: {v}")
+        if k != "by_template":
+            print(f"  {k:>18}: {v}")
+    for template, s in (summary.get("by_template") or {}).items():
+        done = s["n_finished"]
+        rate = f"{s['n_valid'] / done:.0%} valid, {s['n_valid_first_try'] / done:.0%} on the first try" if done else "-"
+        print(f"  {template:>18}: {done}/{s['n_requests']} finished; {rate}")
 
 
 def warn_if_seed_reused(app: TarotReadings, config: GenerationConfig, root) -> None:
@@ -138,14 +156,24 @@ def cmd_generate(args) -> int:
     if args.top_p is not None:
         params["top_p"] = args.top_p
     config = GenerationConfig(
-        n=args.n, provider=args.provider, model=args.model, template=args.template, system=args.system,
+        n=args.n, provider=args.provider, model=args.model, templates=list(args.template), system=args.system,
         params=params, extra_body=args.extra_body, mode="dry_run" if args.dry_run else args.mode, seed=args.seed,
         validate=not args.no_validate, validation_retries=args.validation_retries, retry_mode=args.retry_mode,
         max_workers=args.workers, poll_interval=args.poll_interval, name=args.name, dataset=args.dataset,
+        persona_set=args.personas, persona_sampling=args.persona_sampling, persona_ids=list(args.persona),
     )
     warn_if_seed_reused(app, config, args.out)
-    store, requests = prepare_run(app, config, root=args.out)
-    print(f"Prepared {len(requests)} requests in {store.dir}")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        store, requests = prepare_run(app, config, root=args.out)
+    for w in caught:
+        print(f"note: {w.message}", file=sys.stderr)
+    drafts = [t["template_id"] for t in store.read("prompt_templates") if t["status"] == "draft"]
+    print(f"Prepared {len(requests)} requests in {store.dir}\n"
+          f"  templates: {', '.join(config.templates)}"
+          f"{'  personas: ' + config.persona_set if config.persona_set else ''}")
+    if drafts:
+        print(f"  note: {drafts} not locked yet; lock with `python -m prompts lock` once you keep data from them")
     if config.mode == "dry_run":
         print_summary(store, summarize(store))
         return 0

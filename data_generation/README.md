@@ -8,7 +8,7 @@ data_generation/
   schema.sql         Postgres DDL (generated; don't edit by hand)
   store.py           RunStore: data/generations/<run_id>/<table>.jsonl
   pipeline.py        Application interface; prepare_run, run_live, submit_batch, collect_batch
-  tarot.py           TarotReadings application: card draws, prompt templates, validator
+  tarot.py           TarotReadings application: card draws, prompt variables, validator
   generate_tarot.py  command-line entry point
 ```
 
@@ -56,11 +56,28 @@ python -m data_generation.generate_tarot list --dataset tarot-v1      # runs + c
 | `--validation-retries` | `2` | Regenerations per reading that fails validation |
 | `--retry-mode` | `live` | Batch runs only: regenerate invalid readings live (fast) or as follow-up batches (cheaper, slower) |
 | `--deck-config` | `$VECTOR_SPACE_CONFIG`, else `sandbox/vector_space_config.json` | Supplies the positions, the cards, and whether cards can be reversed |
-| `--template` | `celtic_cross_v1` | The prompt from `population_generator.ipynb`; `spread_v1` is spread-agnostic wording |
+| `--template NAME` | `celtic_cross_v1` (`celtic_cross_v2` with `--personas`) | A template from the [prompts library](../prompts/README.md). `name_vN` pins a version; a bare name takes the latest. Repeat the flag to render every draw with each template. |
+| `--personas SET` | – | Assign one persona per draw from a [persona set](../personas/README.md), e.g. `tarot_personas` |
+| `--persona-sampling` | `random` | `random`: seeded, with replacement. `cycle`: in order, every persona equally often. |
+| `--persona ID` | – | Restrict to specific personas (id, number or full name); repeatable |
+
+### Prompts, personas and comparing prompt versions
+
+Prompt text lives in the `prompts` package as versioned template files; the tarot application only supplies the variables (`cards`, `positions`, `persona`).
+
+```bash
+python -m prompts list                                                     # available templates and their status
+python -m data_generation.generate_tarot generate --n 200 --personas tarot_personas
+python -m data_generation.generate_tarot generate --n 50 --template celtic_cross_v1 --template celtic_cross_v2
+```
+
+With several templates, `--n` is the number of card draws and each draw is sent once per template, so the comparison is paired. The summary and `status` then report, for each template, the valid rate and the first-try valid rate.
 
 ## Tables
 
 ```
+personas ──< inputs                     prompt_templates ──< prompts          (reference tables)
+
 runs ─┬─< inputs ─┬─< input_items
       │           └─< prompts ──< requests ──< responses ──┬── response_texts   (1:1)
       │                                          │          ├── validations      (1:1)
@@ -69,10 +86,12 @@ runs ─┬─< inputs ─┬─< input_items
 
 | Table | One row per | Key columns |
 |---|---|---|
-| `runs` | generation run | dataset (groups runs), config (JSONB: template, params, seed, retries, deck file and its hash), code_version (git sha) + code_dirty, schema_version, status, summary |
-| `inputs` | structured input (card draw) | payload (JSONB `{position: card}`), input_index |
+| `runs` | generation run | dataset (groups runs), config (JSONB: templates, persona set, params, seed, retries, deck file and its hash), code_version (git sha) + code_dirty, schema_version, status, summary |
+| `personas` | persona used by the run | persona_set, persona_number, name, payload (JSONB), content_sha256 |
+| `inputs` | structured input (card draw) | payload (JSONB `{position: card}`), input_index, persona_id |
 | `input_items` | element of an input | label, value, entity, qualifier (position, `"Death reversed"`, `"Death"`, `"reversed"`) |
-| `prompts` | rendered prompt | template, system, user_text, messages (JSONB), prompt_sha256 |
+| `prompt_templates` | template version used by the run | template_id, name, version, system_template, user_template, required, optional, changes, status |
+| `prompts` | rendered prompt | template, template_sha256, system, user_text, messages (JSONB), prompt_sha256 |
 | `requests` | API call spec | provider, model, params, extra_body, mode |
 | `responses` | **generation attempt** | attempt, batch_id, model, finish_reason, error, token counts |
 | `response_texts` | attempt | text, n_chars |
@@ -88,8 +107,10 @@ runs ─┬─< inputs ─┬─< input_items
 - **Two kinds of table:**
   - *Append-only* (most tables) are only ever appended to.
   - *Mutable* (`runs`, `batches`, both small) are rewritten atomically when a status changes. Load them with upsert-by-primary-key.
+- **Reference tables** (`prompt_templates`, `personas`) describe things shared between runs, so they have no `run_id`. Each run's file holds the rows that run used, and the same row appears in every run that used it. Load them with `ON CONFLICT DO NOTHING`, or de-duplicate on the primary key.
+- **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. When querying files from both versions together in DuckDB, pass `union_by_name=true` to `read_json`.
 - **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m data_generation.schema > data_generation/schema.sql`.
-- **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table carries `run_id`, so runs can be combined, deleted or partitioned as units.
+- **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table except the reference tables carries `run_id`, so runs can be combined, deleted or partitioned as units.
 - **JSON columns (JSONB)** hold nested JSON, not strings. Timestamps are ISO-8601 UTC.
 - **Batch files for a run** (provider input, output and error JSONL) are kept in `<run_dir>/batch_files/`.
 
@@ -138,7 +159,8 @@ Load tables in the order they appear in `schema.sql` so foreign keys resolve.
 
 Subclass `pipeline.Application`:
 - `sample_inputs(n, rng)` returns a list of payload dicts;
-- `templates` maps a name to `render(payload) -> (system, user)`;
+- `default_template` (and optionally `persona_template`) name templates in the prompts library;
+- `template_variables(payload, persona)` returns the variables those templates use;
 - optionally `input_items(payload)`, `validator()` and `options()`.
 
 `prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged. `tarot.py` is the reference implementation.

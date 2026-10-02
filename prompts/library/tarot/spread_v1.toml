@@ -1,0 +1,15 @@
+name = "spread"
+version = 1
+description = "Ask for a reading of any tarot spread (wording that doesn't name the Celtic Cross)."
+changes = "Initial version."
+tags = ["tarot"]
+
+# cards: mapping {position: card state}
+required = ["cards"]
+
+[template]
+user = '''
+You're a tarot reader. Please read this tarot spread, interpreting each position and its card, then give an overview of the reading and any thoughts you have.
+
+{{ cards | kv_lines }}
+'''

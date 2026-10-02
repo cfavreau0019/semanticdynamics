@@ -1,6 +1,7 @@
 """
 Tarot readings as a data_generation Application: sampling card draws from the deck config,
-prompt templates, and the regex validator from validation.tarot.
+the variables it hands to prompt templates (from the `prompts` library), and the regex
+validator from validation.tarot.
 
 The deck config (sandbox/vector_space_config.json, or $VECTOR_SPACE_CONFIG) supplies the
 positions (step_aliases), the cards (aliases) and whether cards can be reversed
@@ -39,23 +40,16 @@ def resolve_deck_config(path: Optional[str | Path] = None) -> Path:
     raise FileNotFoundError(f"Deck config not found; tried {[str(c) for c in candidates]}")
 
 
-def celtic_cross_v1(draw: dict) -> tuple[Optional[str], str]:
-    """The prompt used in sandbox/population_generator.ipynb."""
-    cards = "\n".join(f"{pos}: {state}" for pos, state in draw.items())
-    return None, ("You're a tarot reader. Can you read my Celtic cross tarot? Give an overview of the reading "
-                  f"after, any thoughts you have. I'll draw the cards:\n\n{cards}")
-
-
-def spread_v1(draw: dict) -> tuple[Optional[str], str]:
-    """Spread-agnostic wording, for decks/configs other than the Celtic Cross."""
-    cards = "\n".join(f"{pos}: {state}" for pos, state in draw.items())
-    return None, ("You're a tarot reader. Please read this tarot spread, interpreting each position and its card, "
-                  f"then give an overview of the reading and any thoughts you have.\n\n{cards}")
-
-
 class TarotReadings(Application):
+    """
+    Prompt templates live in prompts/library/tarot/ and receive these variables:
+        cards     {position: card state} — the draw
+        positions the spread's position names, in order
+        persona   a persona record, or None
+    Defaults are pinned to exact versions so existing datasets keep their prompt:
+    celtic_cross_v1 without personas, celtic_cross_v2 (which accepts `persona`) with them.
+    """
     input_type = "tarot_draw"
-    templates = {"celtic_cross_v1": celtic_cross_v1, "spread_v1": spread_v1}
 
     def __init__(self, deck_config: Optional[str | Path] = None, draw: str = "replacement",
                  pins: Optional[Mapping[str, str]] = None):
@@ -86,6 +80,10 @@ class TarotReadings(Application):
         self.is_celtic_cross = self.positions == list(CELTIC_CROSS_POSITIONS)
         self.name = "tarot_celtic_cross" if self.is_celtic_cross else "tarot_spread"
         self.default_template = "celtic_cross_v1" if self.is_celtic_cross else "spread_v1"
+        self.persona_template = "celtic_cross_v2" if self.is_celtic_cross else None
+
+    def template_variables(self, payload: dict, persona: Optional[dict]) -> dict:
+        return {"cards": payload, "positions": list(payload), "persona": persona}
 
     def options(self) -> dict:
         return {"deck_config": str(self.deck_config), "deck_sha256": self.deck_sha256, "draw": self.draw,

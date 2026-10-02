@@ -1,0 +1,15 @@
+name = "celtic_cross"
+version = 1
+description = "Ask for a Celtic Cross reading of a given card draw, with an overview at the end."
+changes = "Initial version: the prompt from sandbox/population_generator.ipynb, unchanged."
+tags = ["tarot"]
+
+# cards: mapping {position: card state}, e.g. {"Present": "Death reversed", ...}
+required = ["cards"]
+
+[template]
+user = '''
+You're a tarot reader. Can you read my Celtic cross tarot? Give an overview of the reading after, any thoughts you have. I'll draw the cards:
+
+{{ cards | kv_lines }}
+'''

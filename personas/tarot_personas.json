@@ -1,0 +1,4963 @@
+[
+  {
+    "id": "c22eae13-843b-5b17-9572-9034ed1ccdc5",
+    "persona_number": 1,
+    "name": {
+      "first": "Maya",
+      "last": "Delgado",
+      "full": "Maya Delgado"
+    },
+    "demographics": {
+      "age": 24,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Mexican American)",
+      "location": {
+        "city": "Austin",
+        "state": "TX",
+        "zip_code": "78704",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Junior UX designer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Daily ritual and aesthetic enjoyment",
+      "desired_features": [
+        "Beautiful deck art",
+        "Shareable cards",
+        "Streak counter"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Maya found tarot through TikTok and now pulls a card every morning with her coffee. As a designer she cares as much about the deck art as the meanings, and she often shares her draws to her Instagram stories."
+  },
+  {
+    "id": "3713e356-76fe-543e-940f-74cdbf0d8864",
+    "persona_number": 2,
+    "name": {
+      "first": "Denise",
+      "last": "Whitaker",
+      "full": "Denise Whitaker"
+    },
+    "demographics": {
+      "age": 41,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Columbus",
+        "state": "OH",
+        "zip_code": "43215",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "ICU nurse (BSN)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Divorced",
+      "household_size": 2,
+      "number_of_children": 1,
+      "religion": "Protestant (Baptist)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Decompression and emotional processing",
+      "desired_features": [
+        "Quick readings",
+        "Built-in journal",
+        "Dark mode"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Denise works 12-hour ICU shifts and uses a three-card spread afterward to sort through what she's carrying. She doesn't take the cards literally; for her it works like journaling with prompts."
+  },
+  {
+    "id": "4e4f5839-7b2b-51cd-8541-479842a8935a",
+    "persona_number": 3,
+    "name": {
+      "first": "Javier",
+      "last": "Ruiz",
+      "full": "Javier Ruiz"
+    },
+    "demographics": {
+      "age": 29,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Mexican American)",
+      "location": {
+        "city": "Phoenix",
+        "state": "AZ",
+        "zip_code": "85004",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Some college",
+      "profession": "Bartender",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Catholic (non-practicing)",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Multiple times daily",
+      "primary_device": "Android",
+      "primary_motivation": "Reassurance after a divorce",
+      "desired_features": [
+        "Relationship spreads",
+        "Reassuring tone"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Javier started using the app after his marriage ended and keeps asking variations of the same relationship question. He tends to re-draw until he gets an answer he likes, and he'd never admit how often he opens it."
+  },
+  {
+    "id": "b126b0c4-a331-5b62-8761-7f41096daaa8",
+    "persona_number": 4,
+    "name": {
+      "first": "Priya",
+      "last": "Raman",
+      "full": "Priya Raman"
+    },
+    "demographics": {
+      "age": 33,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Indian American)",
+      "location": {
+        "city": "Seattle",
+        "state": "WA",
+        "zip_code": "98103",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Tamil"
+      ],
+      "education_level": "Master's degree",
+      "profession": "Software engineer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$200,000 or more",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Hindu (cultural)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Structured reflection and interest in symbolism",
+      "desired_features": [
+        "In-depth symbolism",
+        "Historical background",
+        "No fortune-telling claims"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Priya is a skeptic who finds the symbolism genuinely interesting and uses tarot to break out of overthinking. She reads card meanings the way she reads technical documentation, thoroughly and critically."
+  },
+  {
+    "id": "fedf848d-d070-58a6-9f2d-fb6f75145fb6",
+    "persona_number": 5,
+    "name": {
+      "first": "Rosalind",
+      "last": "Pike",
+      "full": "Rosalind Pike"
+    },
+    "demographics": {
+      "age": 58,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Asheville",
+        "state": "NC",
+        "zip_code": "28801",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "Retired schoolteacher",
+      "employment_status": "Retired",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Unitarian Universalist",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Expert",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Reference and travel deck",
+      "desired_features": [
+        "Traditional spreads",
+        "Accurate Rider-Waite-Smith imagery",
+        "Reversals toggle"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Rosalind has read physical cards for 30 years and uses the app as a reference and a travel deck. She is quietly critical of apps that oversimplify card meanings."
+  },
+  {
+    "id": "9f1d1ee8-a498-5d50-804e-071da01528ef",
+    "persona_number": 6,
+    "name": {
+      "first": "Kai",
+      "last": "Nakamura-Brooks",
+      "full": "Kai Nakamura-Brooks"
+    },
+    "demographics": {
+      "age": 19,
+      "generation": "Gen Z",
+      "gender": "Nonbinary",
+      "pronouns": "they/them",
+      "sexual_orientation": "Queer",
+      "race_ethnicity": "Multiracial (Japanese and White)",
+      "location": {
+        "city": "Providence",
+        "state": "RI",
+        "zip_code": "02906",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Japanese"
+      ],
+      "education_level": "Some college",
+      "profession": "College sophomore",
+      "employment_status": "Student",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None (spiritual)",
+      "political_party": "Not registered",
+      "housing_status": "Student housing",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Social fun and personal meaning",
+      "desired_features": [
+        "Free features",
+        "Compatibility readings",
+        "Astrology integration"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Kai pulls cards with friends in the dorm, half as entertainment and half sincerely. Tarot overlaps with their interest in astrology and witchy aesthetics."
+  },
+  {
+    "id": "73ce128b-c7e4-52a0-883e-86cfdf26868a",
+    "persona_number": 7,
+    "name": {
+      "first": "Tasha",
+      "last": "Greene",
+      "full": "Tasha Greene"
+    },
+    "demographics": {
+      "age": 36,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Atlanta",
+        "state": "GA",
+        "zip_code": "30310",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Owner of a candle and crystal shop",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Spiritual (raised Baptist)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Practicing readings for customers",
+      "desired_features": [
+        "Multiple decks",
+        "Custom spreads",
+        "Saved client readings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Tasha runs a small metaphysical shop and sometimes offers readings to customers. She uses the app to practice and to learn new decks before stocking them."
+  },
+  {
+    "id": "69743ddd-781e-5c42-ba3f-1c3b0cfd09eb",
+    "persona_number": 8,
+    "name": {
+      "first": "Brendan",
+      "last": "O'Malley",
+      "full": "Brendan O'Malley"
+    },
+    "demographics": {
+      "age": 45,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Irish American)",
+      "location": {
+        "city": "Chicago",
+        "state": "IL",
+        "zip_code": "60614",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "Novelist and freelance writer",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Catholic (lapsed)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Creative prompts for fiction",
+      "desired_features": [
+        "Random generation",
+        "Optional mystical framing",
+        "Export draws"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Brendan uses random draws as creative prompts for characters and plot twists, a trick borrowed from novelists who have done it for decades. He has no interest in the mystical side."
+  },
+  {
+    "id": "639f0e4b-43f4-5232-99cb-8ec1cd3f01c4",
+    "persona_number": 9,
+    "name": {
+      "first": "Lucia",
+      "last": "Ferreira",
+      "full": "Lucia Ferreira"
+    },
+    "demographics": {
+      "age": 27,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Brazilian American)",
+      "location": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "zip_code": "55414",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Portuguese"
+      ],
+      "education_level": "Master's degree",
+      "profession": "PhD candidate and graduate research assistant",
+      "employment_status": "Student, working part-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 3,
+      "number_of_children": 0,
+      "religion": "Agnostic (raised Catholic)",
+      "political_party": "Democratic-Farmer-Labor (DFL)",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Stress relief during a dissertation",
+      "desired_features": [
+        "Reading history",
+        "Pattern tracking across readings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Lucia is stressed about her dissertation, her funding, and whether academia is worth it. She tells herself tarot is just reflection, but she notices which cards keep repeating."
+  },
+  {
+    "id": "d899fc0b-0380-5ab0-84f1-af77bc7fa2d4",
+    "persona_number": 10,
+    "name": {
+      "first": "Grace",
+      "last": "Tanaka",
+      "full": "Grace Tanaka"
+    },
+    "demographics": {
+      "age": 63,
+      "generation": "Baby Boomer",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Japanese American)",
+      "location": {
+        "city": "Sacramento",
+        "state": "CA",
+        "zip_code": "95818",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Retired state government administrator",
+      "employment_status": "Retired",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Widowed",
+      "household_size": 1,
+      "number_of_children": 2,
+      "religion": "Protestant (Methodist)",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Comfort and ritual after losing her husband",
+      "desired_features": [
+        "Large text",
+        "Simple navigation",
+        "Gentle tone"
+      ],
+      "accessibility_needs": [
+        "Large text"
+      ]
+    },
+    "description": "Grace's daughter installed the app for her after her husband died. She finds comfort in the ritual and the gentle, hopeful language, and avoids anything that sounds ominous."
+  },
+  {
+    "id": "bff311ce-cb5e-5b1e-980a-0bf5a5f67a3b",
+    "persona_number": 11,
+    "name": {
+      "first": "Dev",
+      "last": "Malhotra",
+      "full": "Dev Malhotra"
+    },
+    "demographics": {
+      "age": 31,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Indian American)",
+      "location": {
+        "city": "Philadelphia",
+        "state": "PA",
+        "zip_code": "19104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Hindi"
+      ],
+      "education_level": "Doctor of Medicine (MD)",
+      "profession": "Emergency medicine resident",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Hindu",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A 30-second mental reset between shifts",
+      "desired_features": [
+        "Instant load times",
+        "No ads"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Dev sleeps about four hours a night and uses a single-card pull to check in with his own mood before it spills over onto patients. Speed matters more to him than depth."
+  },
+  {
+    "id": "1506aa62-749b-5062-ac38-e6518eb627cc",
+    "persona_number": 12,
+    "name": {
+      "first": "Hannah",
+      "last": "Feldman",
+      "full": "Hannah Feldman"
+    },
+    "demographics": {
+      "age": 22,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Bisexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Los Angeles",
+        "state": "CA",
+        "zip_code": "90026",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Barista and aspiring actress",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 3,
+      "number_of_children": 0,
+      "religion": "Jewish (cultural)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Confidence before auditions",
+      "desired_features": [
+        "Lock-screen widget",
+        "Card of the day"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Hannah pulls a card before auditions to get into a confident headspace. She knows it's partly superstition and doesn't mind."
+  },
+  {
+    "id": "50bf1ed4-4443-5929-8dfa-eac9282e79fc",
+    "persona_number": 13,
+    "name": {
+      "first": "Marcus",
+      "last": "Bell",
+      "full": "Marcus Bell"
+    },
+    "demographics": {
+      "age": 38,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Charlotte",
+        "state": "NC",
+        "zip_code": "28203",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree (MBA)",
+      "profession": "Financial analyst",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Protestant (AME)",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Private calming ritual",
+      "desired_features": [
+        "Discreet app icon",
+        "Passcode lock",
+        "No social features"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Marcus started during a layoff scare and found the ritual calming. Nobody at work knows, and he wants to keep it that way."
+  },
+  {
+    "id": "780a1074-0135-5580-83b9-158a7478744f",
+    "persona_number": 14,
+    "name": {
+      "first": "Yuki",
+      "last": "Mori",
+      "full": "Yuki Mori"
+    },
+    "demographics": {
+      "age": 26,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Japanese American)",
+      "location": {
+        "city": "Portland",
+        "state": "OR",
+        "zip_code": "97214",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Japanese"
+      ],
+      "education_level": "Bachelor's degree (BFA)",
+      "profession": "Freelance illustrator",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Pacific Green",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Collecting and studying deck art",
+      "desired_features": [
+        "Large deck library",
+        "Artist credits",
+        "High-resolution card views"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Yuki collects digital decks the way other people collect sneakers. She studies how different artists reinterpret the same card."
+  },
+  {
+    "id": "ab58e11e-2277-5126-a4d0-7fcb7e973cbf",
+    "persona_number": 15,
+    "name": {
+      "first": "Carol",
+      "last": "Begay",
+      "full": "Carol Begay"
+    },
+    "demographics": {
+      "age": 52,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "American Indian or Alaska Native (Diné)",
+      "location": {
+        "city": "Albuquerque",
+        "state": "NM",
+        "zip_code": "87106",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Navajo"
+      ],
+      "education_level": "Master's degree (MDiv)",
+      "profession": "Hospice chaplain",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Episcopalian",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Personal reflective practice",
+      "desired_features": [
+        "Non-predictive interpretations",
+        "Archetype notes"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Carol uses tarot imagery in her own reflective practice and never with patients. She is interested in archetypes and their overlap with religious symbolism."
+  },
+  {
+    "id": "724f7587-2e29-5b54-a7da-785da36e73dd",
+    "persona_number": 16,
+    "name": {
+      "first": "Tyler",
+      "last": "Brandt",
+      "full": "Tyler Brandt"
+    },
+    "demographics": {
+      "age": 34,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Denver",
+        "state": "CO",
+        "zip_code": "80205",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Software sales representative",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Unaffiliated",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Strategic thinking before big pitches",
+      "desired_features": [
+        "Minimalist design",
+        "No mystical clutter"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Tyler's girlfriend got him into tarot, and now he pulls cards before big pitches. He calls them strategic thinking prompts when his friends ask."
+  },
+  {
+    "id": "c7e04404-c19e-54de-bf6e-4881203de2ee",
+    "persona_number": 17,
+    "name": {
+      "first": "Aaliyah",
+      "last": "Brooks",
+      "full": "Aaliyah Brooks"
+    },
+    "demographics": {
+      "age": 29,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Baltimore",
+        "state": "MD",
+        "zip_code": "21218",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree (MSW)",
+      "profession": "Licensed clinical social worker (therapist)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Processing her own reactions to sessions",
+      "desired_features": [
+        "Journaling with tags",
+        "Mood tracking"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Aaliyah uses tarot privately to process her reactions to difficult sessions, and keeps it strictly separate from her clinical work."
+  },
+  {
+    "id": "c8187197-59fe-5f3b-b2c9-c50e2405ddf0",
+    "persona_number": 18,
+    "name": {
+      "first": "Frank",
+      "last": "Novak",
+      "full": "Frank Novak"
+    },
+    "demographics": {
+      "age": 67,
+      "generation": "Baby Boomer",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Czech American)",
+      "location": {
+        "city": "Milwaukee",
+        "state": "WI",
+        "zip_code": "53207",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "High school diploma",
+      "profession": "Retired machinist",
+      "employment_status": "Retired",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 3,
+      "religion": "Catholic",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Curiosity and history trivia",
+      "desired_features": [
+        "History and background content",
+        "Large buttons"
+      ],
+      "accessibility_needs": [
+        "Large buttons",
+        "Larger text"
+      ]
+    },
+    "description": "Frank's granddaughter showed him the app, and now he reads the card history like trivia. He enjoyed learning that tarot began as a card game in 15th-century Italy."
+  },
+  {
+    "id": "b71d6f49-1b50-51c4-8355-302f26d2255d",
+    "persona_number": 19,
+    "name": {
+      "first": "Sofia",
+      "last": "Mendoza",
+      "full": "Sofia Mendoza"
+    },
+    "demographics": {
+      "age": 35,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Cuban American)",
+      "location": {
+        "city": "Miami",
+        "state": "FL",
+        "zip_code": "33135",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "Spanish",
+      "other_languages": [
+        "English"
+      ],
+      "education_level": "Associate degree",
+      "profession": "Paralegal",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Divorced",
+      "household_size": 3,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "No Party Affiliation",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "A moment for herself after bedtime",
+      "desired_features": [
+        "Quick readings",
+        "Encouraging tone"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Sofia is a single mom with ten quiet minutes after her kids are asleep, and a reading is her one moment just for herself. She often asks about money and her children's futures."
+  },
+  {
+    "id": "5a506d85-7642-5cfe-8ff2-dbd67e4ad5f5",
+    "persona_number": 20,
+    "name": {
+      "first": "River",
+      "last": "Ashby",
+      "full": "River Ashby"
+    },
+    "demographics": {
+      "age": 23,
+      "generation": "Gen Z",
+      "gender": "Nonbinary",
+      "pronouns": "they/them",
+      "sexual_orientation": "Queer",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Burlington",
+        "state": "VT",
+        "zip_code": "05401",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Barista and poet",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Pagan (eclectic)",
+      "political_party": "Vermont Progressive Party",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Part of a broader spiritual practice",
+      "desired_features": [
+        "Moon phase tracking",
+        "Community spreads",
+        "Inclusive deck"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "For River, tarot sits alongside moon cycles and meditation in a broader spiritual practice. They want a community of other readers."
+  },
+  {
+    "id": "36aff972-25f1-55e8-af3e-e815cef642c6",
+    "persona_number": 21,
+    "name": {
+      "first": "Nadia",
+      "last": "Haddad",
+      "full": "Nadia Haddad"
+    },
+    "demographics": {
+      "age": 44,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Middle Eastern or North African (Lebanese American)",
+      "location": {
+        "city": "Detroit",
+        "state": "MI",
+        "zip_code": "48201",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Arabic"
+      ],
+      "education_level": "Doctor of Pharmacy (PharmD)",
+      "profession": "ICU clinical pharmacist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Agnostic (raised Maronite Catholic)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A randomized prompt for introspection",
+      "desired_features": [
+        "No-woo mode",
+        "Clean typography"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Nadia treats tarot as a randomized prompt generator for introspection. As a scientist she is slightly embarrassed by how much she enjoys it."
+  },
+  {
+    "id": "1f1ebba3-f662-5577-87f2-b6957a6c8234",
+    "persona_number": 22,
+    "name": {
+      "first": "Owen",
+      "last": "Fitzgerald",
+      "full": "Owen Fitzgerald"
+    },
+    "demographics": {
+      "age": 27,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Raleigh",
+        "state": "NC",
+        "zip_code": "27601",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Game developer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Atheist",
+      "political_party": "Unaffiliated",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Started as UX research and stayed",
+      "desired_features": [
+        "Polished card-flip animations",
+        "Transparent shuffle explanation"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Owen first studied tarot apps for UX inspiration and ended up using one himself. He appreciates good randomization and well-made animations."
+  },
+  {
+    "id": "1d4e8df6-5810-51ca-b31a-d03f78c0f8f1",
+    "persona_number": 23,
+    "name": {
+      "first": "Gloria",
+      "last": "Treviño",
+      "full": "Gloria Treviño"
+    },
+    "demographics": {
+      "age": 70,
+      "generation": "Baby Boomer",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Mexican American)",
+      "location": {
+        "city": "San Antonio",
+        "state": "TX",
+        "zip_code": "78210",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "Spanish",
+      "other_languages": [
+        "English"
+      ],
+      "education_level": "Associate degree (ADN)",
+      "profession": "Retired nurse",
+      "employment_status": "Retired",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Widowed",
+      "household_size": 3,
+      "number_of_children": 4,
+      "religion": "Catholic",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Nostalgia for her grandmother's card readings",
+      "desired_features": [
+        "Traditional decks",
+        "Spanish-language option"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Gloria grew up around her grandmother's Spanish-deck card readings, and the app feels nostalgic. She is skeptical of new-age packaging."
+  },
+  {
+    "id": "684df183-0a46-500b-a4e2-8b44fda9ee7a",
+    "persona_number": 24,
+    "name": {
+      "first": "Liam",
+      "last": "Sullivan",
+      "full": "Liam Sullivan"
+    },
+    "demographics": {
+      "age": 32,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Irish American)",
+      "location": {
+        "city": "Boston",
+        "state": "MA",
+        "zip_code": "02130",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Vocational certificate",
+      "profession": "Licensed electrician",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Catholic (returning)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Daily reflection in recovery",
+      "desired_features": [
+        "Reflection prompts",
+        "Non-fatalistic language"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Liam is eighteen months sober and uses a daily card as a reflection tool next to his recovery readings. He is careful not to let it replace his sponsor or his meetings."
+  },
+  {
+    "id": "7d580ac9-fd2c-5183-a3e2-827f001ccad8",
+    "persona_number": 25,
+    "name": {
+      "first": "Bethany",
+      "last": "Cole",
+      "full": "Bethany Cole"
+    },
+    "demographics": {
+      "age": 39,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Tulsa",
+        "state": "OK",
+        "zip_code": "74104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Associate degree",
+      "profession": "Dental hygienist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 5,
+      "number_of_children": 3,
+      "religion": "Evangelical Christian (questioning)",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Exploring spirituality beyond her upbringing",
+      "desired_features": [
+        "Educational framing",
+        "Non-preachy tone"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Bethany was raised in a megachurch and is exploring spirituality outside it. Opening the app feels a little rebellious, and she has mixed feelings about it."
+  },
+  {
+    "id": "b632e3b0-6d52-5575-9726-ac660d5a0265",
+    "persona_number": 26,
+    "name": {
+      "first": "Ahmed",
+      "last": "Hassan",
+      "full": "Ahmed Hassan"
+    },
+    "demographics": {
+      "age": 30,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Middle Eastern or North African (Egyptian American)",
+      "location": {
+        "city": "Dallas",
+        "state": "TX",
+        "zip_code": "75208",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Arabic"
+      ],
+      "education_level": "Some college",
+      "profession": "Rideshare driver",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Muslim (non-practicing)",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Habit during downtime between fares",
+      "desired_features": [
+        "Offline mode",
+        "Low data usage"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ahmed pulls a card while waiting between fares, mostly out of boredom, and it has become a habit. He likes the short daily messages."
+  },
+  {
+    "id": "e3eb92ab-0ead-5c05-baa8-705adcfee930",
+    "persona_number": 27,
+    "name": {
+      "first": "Jenna",
+      "last": "Morrow",
+      "full": "Jenna Morrow"
+    },
+    "demographics": {
+      "age": 25,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Nashville",
+        "state": "TN",
+        "zip_code": "37206",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Wedding planner",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Engaged",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Protestant (Methodist)",
+      "political_party": "Republican",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Monthly",
+      "primary_device": "iOS",
+      "primary_motivation": "Group readings at bachelorette parties",
+      "desired_features": [
+        "Group spreads",
+        "Party mode"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Jenna does readings for bridesmaids at bachelorette parties and uses the app to prep. For her, tarot is a social activity first."
+  },
+  {
+    "id": "e2d8937c-b9ab-544e-b585-336514cd8f89",
+    "persona_number": 28,
+    "name": {
+      "first": "Theo",
+      "last": "Washington",
+      "full": "Theo Washington"
+    },
+    "demographics": {
+      "age": 48,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Pittsburgh",
+        "state": "PA",
+        "zip_code": "15213",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "High school English teacher",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Protestant (Presbyterian)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Teaching archetypes and the hero's journey",
+      "desired_features": [
+        "Educational content",
+        "Classroom-friendly mode"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Theo uses the major arcana to teach archetypes and the hero's journey alongside literature units. He appreciates the Fool's journey as a narrative structure."
+  },
+  {
+    "id": "e5f30995-3147-5237-a645-13b1ef898429",
+    "persona_number": 29,
+    "name": {
+      "first": "Mei",
+      "last": "Chen",
+      "full": "Mei Chen"
+    },
+    "demographics": {
+      "age": 37,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Chinese American)",
+      "location": {
+        "city": "San Francisco",
+        "state": "CA",
+        "zip_code": "94110",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Mandarin"
+      ],
+      "education_level": "Master's degree",
+      "profession": "Product designer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$200,000 or more",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Buddhist (cultural)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Soothing ritual during IVF",
+      "desired_features": [
+        "Compassionate language",
+        "No predictions about pregnancy or health"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Mei is in a hard, uncertain season of IVF and finds the ritual soothing during the two-week waits. She is careful not to read too much into any single draw."
+  },
+  {
+    "id": "d178ed5d-f83a-5c48-84c0-f607c2597e68",
+    "persona_number": 30,
+    "name": {
+      "first": "Rick",
+      "last": "Halvorsen",
+      "full": "Rick Halvorsen"
+    },
+    "demographics": {
+      "age": 55,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Norwegian American)",
+      "location": {
+        "city": "Cheyenne",
+        "state": "WY",
+        "zip_code": "82001",
+        "country": "United States",
+        "urbanicity": "Small town"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "High school diploma",
+      "profession": "Long-haul truck driver",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 2,
+      "religion": "None",
+      "political_party": "Libertarian",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Companionship and reflection on the road",
+      "desired_features": [
+        "Audio readings",
+        "Voice-guided mode"
+      ],
+      "accessibility_needs": [
+        "Audio/voice mode"
+      ]
+    },
+    "description": "Rick picked up tarot from a podcast on long drives along I-80. He is surprisingly deep into the symbolism and relates to the solitude of The Hermit."
+  },
+  {
+    "id": "8c4af78c-e93b-5c5c-a3c5-1bc988da616c",
+    "persona_number": 31,
+    "name": {
+      "first": "Chloe",
+      "last": "Park",
+      "full": "Chloe Park"
+    },
+    "demographics": {
+      "age": 28,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Korean American)",
+      "location": {
+        "city": "Boise",
+        "state": "ID",
+        "zip_code": "83702",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Korean"
+      ],
+      "education_level": "Bachelor's degree (BSN)",
+      "profession": "Registered nurse",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Protestant (Presbyterian, lapsed)",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Company after a cross-country move",
+      "desired_features": [
+        "Evening reflection prompts"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Chloe moved across the country for a job and doesn't know anyone yet. A nightly card is a small piece of company."
+  },
+  {
+    "id": "f1ee55d9-648f-544a-a194-c5239e392e0c",
+    "persona_number": 32,
+    "name": {
+      "first": "Gabe",
+      "last": "Castillo",
+      "full": "Gabe Castillo"
+    },
+    "demographics": {
+      "age": 42,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Reno",
+        "state": "NV",
+        "zip_code": "89502",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Vocational certificate",
+      "profession": "HVAC technician",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 1,
+      "religion": "Catholic",
+      "political_party": "Nonpartisan",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Reflection in recovery from gambling",
+      "desired_features": [
+        "No streaks or rewards",
+        "No luck-based language"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Gabe is in recovery from a gambling habit and is wary of anything that feels like chance. He chose this app carefully because it avoids gamified rewards."
+  },
+  {
+    "id": "a3d805c2-bb9c-5141-ae75-7853658bd8db",
+    "persona_number": 33,
+    "name": {
+      "first": "Ifeoma",
+      "last": "Okafor",
+      "full": "Ifeoma Okafor"
+    },
+    "demographics": {
+      "age": 34,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American (Nigerian American)",
+      "location": {
+        "city": "Houston",
+        "state": "TX",
+        "zip_code": "77036",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Igbo"
+      ],
+      "education_level": "Master's degree (MPH)",
+      "profession": "Public health analyst",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Christian (Anglican)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Reflecting on belonging as a new citizen",
+      "desired_features": [
+        "Multilingual support"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ifeoma recently became a U.S. citizen and is building a new sense of identity. She uses readings to reflect on belonging."
+  },
+  {
+    "id": "3d730923-b5e8-500a-b20b-c3443ac7ffb6",
+    "persona_number": 34,
+    "name": {
+      "first": "Paul",
+      "last": "Gustafson",
+      "full": "Paul Gustafson"
+    },
+    "demographics": {
+      "age": 61,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Swedish American)",
+      "location": {
+        "city": "Spokane",
+        "state": "WA",
+        "zip_code": "99205",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Retired mechanical engineer",
+      "employment_status": "Retired",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Lutheran",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Finding identity in retirement",
+      "desired_features": [
+        "Guided new-chapter spread"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Paul is newly retired and trying to figure out who he is without a job title. He finds The Fool card weirdly relevant."
+  },
+  {
+    "id": "3318a819-d55d-5753-9845-38813c7d4363",
+    "persona_number": 35,
+    "name": {
+      "first": "Destiny",
+      "last": "Harris",
+      "full": "Destiny Harris"
+    },
+    "demographics": {
+      "age": 21,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Memphis",
+        "state": "TN",
+        "zip_code": "38104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Retail associate and community college student",
+      "employment_status": "Student, working part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Protestant (Baptist)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "A sense of guidance after aging out of foster care",
+      "desired_features": [
+        "Encouraging language",
+        "Links to real-world resources"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Destiny recently aged out of foster care and craves guidance she never had. She uses the app often, which is why supportive, grounded language matters."
+  },
+  {
+    "id": "fdc88f83-4516-5c0f-ba1a-b11a0adc80bc",
+    "persona_number": 36,
+    "name": {
+      "first": "Sam",
+      "last": "Whitfield",
+      "full": "Sam Whitfield"
+    },
+    "demographics": {
+      "age": 33,
+      "generation": "Millennial",
+      "gender": "Nonbinary",
+      "pronouns": "they/them",
+      "sexual_orientation": "Queer",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Columbus",
+        "state": "OH",
+        "zip_code": "43202",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree (MLIS)",
+      "profession": "Public librarian",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Spiritual (raised Methodist)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A private space while coming out",
+      "desired_features": [
+        "Privacy",
+        "Inclusive interpretations"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Sam recently came out and is still telling people. The readings are a private space to process something that is still unfolding."
+  },
+  {
+    "id": "bafc8278-43ab-5bc4-ba4f-9ff651d11478",
+    "persona_number": 37,
+    "name": {
+      "first": "Lauren",
+      "last": "Mitchell",
+      "full": "Lauren Mitchell"
+    },
+    "demographics": {
+      "age": 40,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Raleigh",
+        "state": "NC",
+        "zip_code": "27609",
+        "country": "United States",
+        "urbanicity": "Suburban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "HR manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Separated",
+      "household_size": 3,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Processing a separation privately",
+      "desired_features": [
+        "Journal locked by default"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Lauren is separating from her husband and uses readings to process grief without burdening her friends."
+  },
+  {
+    "id": "512a87f2-073a-5631-8654-5441fbff3b47",
+    "persona_number": 38,
+    "name": {
+      "first": "Kwame",
+      "last": "Asante",
+      "full": "Kwame Asante"
+    },
+    "demographics": {
+      "age": 26,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American (Ghanaian American)",
+      "location": {
+        "city": "Newark",
+        "state": "NJ",
+        "zip_code": "07102",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Twi"
+      ],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Junior civil engineer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 4,
+      "number_of_children": 0,
+      "religion": "Christian (Pentecostal upbringing)",
+      "political_party": "Democrat",
+      "housing_status": "Lives with family",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Guidance on career choices",
+      "desired_features": [
+        "Decision-making spreads"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Kwame is a first-generation college graduate facing big career decisions without a family roadmap. He uses spreads to lay out his options."
+  },
+  {
+    "id": "7b9e4389-b635-5970-bfcf-383919d4b91b",
+    "persona_number": 39,
+    "name": {
+      "first": "Ingrid",
+      "last": "Larson",
+      "full": "Ingrid Larson"
+    },
+    "demographics": {
+      "age": 49,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Norwegian American)",
+      "location": {
+        "city": "Fargo",
+        "state": "ND",
+        "zip_code": "58103",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Bank branch manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Lutheran (ELCA)",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A new daily ritual as an empty nester",
+      "desired_features": [
+        "Daily rituals",
+        "Gentle prompts"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ingrid's youngest just left for college, and the quiet house prompted a new daily habit."
+  },
+  {
+    "id": "ace0bf3c-3926-59b8-a1bb-6371d686db9f",
+    "persona_number": 40,
+    "name": {
+      "first": "Ray",
+      "last": "Jackson",
+      "full": "Ray Jackson"
+    },
+    "demographics": {
+      "age": 37,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Fayetteville",
+        "state": "NC",
+        "zip_code": "28301",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Logistics coordinator (Army veteran)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Protestant (Baptist)",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": true
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Structure during the move to civilian life",
+      "desired_features": [
+        "No-nonsense design",
+        "Short readings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ray left the Army and is adjusting to civilian work. He's skeptical of tarot but values the structure of a daily routine."
+  },
+  {
+    "id": "9b923696-665c-5b0e-98bf-f3819da49309",
+    "persona_number": 41,
+    "name": {
+      "first": "Elena",
+      "last": "Vasquez-Hart",
+      "full": "Elena Vasquez-Hart"
+    },
+    "demographics": {
+      "age": 45,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "zip_code": "55405",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Doctorate (PhD, organizational psychology)",
+      "profession": "Executive coach",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democratic-Farmer-Labor (DFL)",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Conversation starters for self-reflection",
+      "desired_features": [
+        "Printable spreads",
+        "Neutral framing"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Elena uses cards privately to generate conversation starters for her own coaching practice and personal reflection."
+  },
+  {
+    "id": "a0effea8-0fc8-5224-b882-4ce1808e1e90",
+    "persona_number": 42,
+    "name": {
+      "first": "Jordan",
+      "last": "Lee",
+      "full": "Jordan Lee"
+    },
+    "demographics": {
+      "age": 30,
+      "generation": "Millennial",
+      "gender": "Nonbinary",
+      "pronouns": "they/them",
+      "sexual_orientation": "Pansexual",
+      "race_ethnicity": "Multiracial (Black and Korean)",
+      "location": {
+        "city": "Brooklyn",
+        "state": "NY",
+        "zip_code": "11216",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Marketing strategist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Working Families Party",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Breaking creative blocks",
+      "desired_features": [
+        "Quick single-card pulls"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Jordan uses random draws to break creative blocks during brainstorming sessions at work."
+  },
+  {
+    "id": "1a025832-0dcd-576d-8cf8-cf56297713b4",
+    "persona_number": 43,
+    "name": {
+      "first": "Marisol",
+      "last": "Ortega",
+      "full": "Marisol Ortega"
+    },
+    "demographics": {
+      "age": 39,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Hispano / New Mexican)",
+      "location": {
+        "city": "Santa Fe",
+        "state": "NM",
+        "zip_code": "87501",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Some college",
+      "profession": "Professional tarot reader",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Divorced",
+      "household_size": 2,
+      "number_of_children": 1,
+      "religion": "Spiritual (Catholic upbringing)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Expert",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Managing client sessions and practicing decks",
+      "desired_features": [
+        "Client notes",
+        "Custom spreads"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Marisol reads tarot professionally and uses the app to track client sessions and practice with new decks."
+  },
+  {
+    "id": "ec5fcb95-8eea-5ae5-b537-f606cc1a2b46",
+    "persona_number": 44,
+    "name": {
+      "first": "Noah",
+      "last": "Goldberg",
+      "full": "Noah Goldberg"
+    },
+    "demographics": {
+      "age": 29,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Gay",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Seattle",
+        "state": "WA",
+        "zip_code": "98122",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Hebrew"
+      ],
+      "education_level": "Master's degree (MS, HCI)",
+      "profession": "UX researcher",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Jewish (Reform)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Professional study that turned personal",
+      "desired_features": [
+        "Transparency about data use"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Noah studies the app professionally and kept using it because he likes it. He pays close attention to how the app handles user data."
+  },
+  {
+    "id": "c13a9fc3-caa3-5ba7-8840-f4b554f4fc45",
+    "persona_number": 45,
+    "name": {
+      "first": "Beatrice",
+      "last": "Lyle",
+      "full": "Beatrice Lyle"
+    },
+    "demographics": {
+      "age": 56,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Providence",
+        "state": "RI",
+        "zip_code": "02903",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "Art therapist",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 1,
+      "religion": "Episcopalian",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Exploring imagery for her own practice",
+      "desired_features": [
+        "High-quality art",
+        "Symbolism notes"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Beatrice explores tarot imagery for her own creative practice and keeps a strict line between that and her clients."
+  },
+  {
+    "id": "180f6866-598a-5da0-8ef2-223c7551f3d3",
+    "persona_number": 46,
+    "name": {
+      "first": "Victor",
+      "last": "Alvarez",
+      "full": "Victor Alvarez"
+    },
+    "demographics": {
+      "age": 47,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Los Angeles",
+        "state": "CA",
+        "zip_code": "90039",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Master's degree (MFA)",
+      "profession": "Screenwriter",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Catholic (lapsed)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Shaking up stuck story structures",
+      "desired_features": [
+        "Character archetype guides"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Victor draws cards to shake up stuck second acts and to rethink characters' motivations."
+  },
+  {
+    "id": "a1576e0f-97ed-595e-9c56-b79d219b9f80",
+    "persona_number": 47,
+    "name": {
+      "first": "Anjali",
+      "last": "Mehta",
+      "full": "Anjali Mehta"
+    },
+    "demographics": {
+      "age": 32,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Indian American)",
+      "location": {
+        "city": "San Jose",
+        "state": "CA",
+        "zip_code": "95112",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Gujarati"
+      ],
+      "education_level": "Master's degree (MBA)",
+      "profession": "Product manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$200,000 or more",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Hindu",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Quarterly",
+      "primary_device": "iOS",
+      "primary_motivation": "Quarterly personal planning retrospectives",
+      "desired_features": [
+        "Saved readings with dates"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Anjali does a quarterly retro spread as a personal planning ritual, then compares it against the previous quarter."
+  },
+  {
+    "id": "41254a40-ac69-58c1-a50b-89de107315ac",
+    "persona_number": 48,
+    "name": {
+      "first": "Curtis",
+      "last": "Freeman",
+      "full": "Curtis Freeman"
+    },
+    "demographics": {
+      "age": 50,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Atlanta",
+        "state": "GA",
+        "zip_code": "30318",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Podcast host",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Protestant (non-denominational)",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "A weekly segment on his show",
+      "desired_features": [
+        "Reliable randomization",
+        "Easy screenshots"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Curtis pulls a card live on his show each week and riffs on it with his co-host."
+  },
+  {
+    "id": "2ca35b09-79ea-5acf-860a-8cc79cc551ae",
+    "persona_number": 49,
+    "name": {
+      "first": "Wren",
+      "last": "Callahan",
+      "full": "Wren Callahan"
+    },
+    "demographics": {
+      "age": 27,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Lesbian",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Portland",
+        "state": "OR",
+        "zip_code": "97217",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Tattoo artist",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Non-affiliated",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Researching iconography for designs",
+      "desired_features": [
+        "High-resolution zoom on card details"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Wren studies card iconography for client tattoo designs and has started reading for herself along the way."
+  },
+  {
+    "id": "4418f669-4396-5769-8745-f8dc6e2e0454",
+    "persona_number": 50,
+    "name": {
+      "first": "Malik",
+      "last": "Thompson",
+      "full": "Malik Thompson"
+    },
+    "demographics": {
+      "age": 36,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Philadelphia",
+        "state": "PA",
+        "zip_code": "19143",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Life coach",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Journaling prompts for workshops",
+      "desired_features": [
+        "Exportable prompts"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Malik uses spreads as journaling prompts in the workshops he runs, framed as reflection exercises rather than predictions."
+  },
+  {
+    "id": "f143ac4f-24f6-5cad-9c05-b71749f8600d",
+    "persona_number": 51,
+    "name": {
+      "first": "Iris",
+      "last": "Bergstrom",
+      "full": "Iris Bergstrom"
+    },
+    "demographics": {
+      "age": 24,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Bisexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "zip_code": "55406",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Fantasy novelist and bookstore clerk",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democratic-Farmer-Labor (DFL)",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Building characters and worlds",
+      "desired_features": [
+        "Randomized multi-card prompts"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Iris draws cards to build character backstories for the fantasy novel she writes between bookstore shifts."
+  },
+  {
+    "id": "fdd902e8-930e-5d13-a0a1-071350d63f04",
+    "persona_number": 52,
+    "name": {
+      "first": "Hector",
+      "last": "Salazar",
+      "full": "Hector Salazar"
+    },
+    "demographics": {
+      "age": 44,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Tucson",
+        "state": "AZ",
+        "zip_code": "85705",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Associate degree",
+      "profession": "IT support specialist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Plot twists for his D&D campaign",
+      "desired_features": [
+        "Offline mode",
+        "Fast draw"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Hector runs a weekly Dungeons and Dragons campaign and uses tarot for NPC fortunes and plot twists at the table."
+  },
+  {
+    "id": "d27a2525-f13f-5833-872c-5c0812aa17e9",
+    "persona_number": 53,
+    "name": {
+      "first": "Penelope",
+      "last": "Hargrove",
+      "full": "Penelope Hargrove"
+    },
+    "demographics": {
+      "age": 31,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Richmond",
+        "state": "VA",
+        "zip_code": "23220",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "Museum registrar",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Expert",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Collecting decks",
+      "desired_features": [
+        "Large deck library",
+        "Deck comparison views"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Penelope owns forty physical decks and wants digital versions too. She likes comparing how each deck handles the same card."
+  },
+  {
+    "id": "d2fefcbb-d3eb-5fb7-a407-a9392ad9d024",
+    "persona_number": 54,
+    "name": {
+      "first": "Arturo",
+      "last": "Benavides",
+      "full": "Arturo Benavides"
+    },
+    "demographics": {
+      "age": 58,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "San Diego",
+        "state": "CA",
+        "zip_code": "92104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Municipal records manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Monthly",
+      "primary_device": "Android",
+      "primary_motivation": "Interest in tarot's history",
+      "desired_features": [
+        "Historical essays"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Arturo is an amateur historian fascinated by tarot's Renaissance origins and its later esoteric history."
+  },
+  {
+    "id": "83d20999-5759-5132-b131-e3f4de0047c0",
+    "persona_number": 55,
+    "name": {
+      "first": "Zoe",
+      "last": "Adeyemi",
+      "full": "Zoe Adeyemi"
+    },
+    "demographics": {
+      "age": 20,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American (Nigerian American)",
+      "location": {
+        "city": "Savannah",
+        "state": "GA",
+        "zip_code": "31401",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Yoruba"
+      ],
+      "education_level": "Some college",
+      "profession": "Art student (illustration)",
+      "employment_status": "Student",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Christian (raised)",
+      "political_party": "Democrat",
+      "housing_status": "Student housing",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Reference while designing her own deck",
+      "desired_features": [
+        "Artist credits",
+        "Side-by-side deck view"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Zoe is designing her own deck for a class project and studies existing decks for reference."
+  },
+  {
+    "id": "022166ac-79f5-5edc-a9d2-94aac1bf704e",
+    "persona_number": 56,
+    "name": {
+      "first": "Felix",
+      "last": "Moreau",
+      "full": "Felix Moreau"
+    },
+    "demographics": {
+      "age": 35,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (French Canadian heritage)",
+      "location": {
+        "city": "Nashville",
+        "state": "TN",
+        "zip_code": "37207",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "French"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Songwriter",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Sparking lyric themes",
+      "desired_features": [
+        "Mood and keyword views"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Felix uses card imagery to spark themes for songs when he's stuck."
+  },
+  {
+    "id": "3eeb00f3-18f2-5177-8e98-b0bf87313077",
+    "persona_number": 57,
+    "name": {
+      "first": "Rachel",
+      "last": "Abrams",
+      "full": "Rachel Abrams"
+    },
+    "demographics": {
+      "age": 42,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Iowa City",
+        "state": "IA",
+        "zip_code": "52240",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree (MFA)",
+      "profession": "Adjunct instructor and poet",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Divorced",
+      "household_size": 2,
+      "number_of_children": 1,
+      "religion": "Jewish (secular)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "A weekly poem from a single draw",
+      "desired_features": [
+        "History of past draws"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Rachel writes one poem a week based on a single draw and keeps a record of every card she's written from."
+  },
+  {
+    "id": "d015b933-e2b0-50db-b24c-9e0b13e6834c",
+    "persona_number": 58,
+    "name": {
+      "first": "Dmitri",
+      "last": "Volkov",
+      "full": "Dmitri Volkov"
+    },
+    "demographics": {
+      "age": 38,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Russian American)",
+      "location": {
+        "city": "Austin",
+        "state": "TX",
+        "zip_code": "78702",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Russian"
+      ],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Game designer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Russian Orthodox (cultural)",
+      "political_party": "Libertarian",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Studying tarot mechanics for a card game",
+      "desired_features": [
+        "Clear explanation of deck structure"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Dmitri is studying tarot's structure and mechanics for a card-based video game he's designing."
+  },
+  {
+    "id": "691e5469-a476-526d-9886-fb7662866c5c",
+    "persona_number": 59,
+    "name": {
+      "first": "Luna",
+      "last": "Martinez",
+      "full": "Luna Martinez"
+    },
+    "demographics": {
+      "age": 26,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Asheville",
+        "state": "NC",
+        "zip_code": "28806",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Some college",
+      "profession": "Etsy jewelry maker",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Symbolism reference for her jewelry",
+      "desired_features": [
+        "Card symbolism reference"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Luna makes tarot-inspired jewelry and uses the app to get the symbolism right."
+  },
+  {
+    "id": "5f370ba9-e86a-52c0-a28c-55c0d08b8c1e",
+    "persona_number": 60,
+    "name": {
+      "first": "Simone",
+      "last": "Hartman",
+      "full": "Simone Hartman"
+    },
+    "demographics": {
+      "age": 53,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Lancaster",
+        "state": "PA",
+        "zip_code": "17603",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "High school diploma",
+      "profession": "Quilter and fabric store associate",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 3,
+      "religion": "Protestant (Methodist)",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Inspiration for a quilt series",
+      "desired_features": [
+        "Color-palette views of cards"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Simone is designing a quilt series based on the major arcana and studies each card's colors and composition."
+  },
+  {
+    "id": "45dee87a-b1c0-55ac-a7eb-cc28ca2419f1",
+    "persona_number": 61,
+    "name": {
+      "first": "Bill",
+      "last": "Anderson",
+      "full": "Bill Anderson"
+    },
+    "demographics": {
+      "age": 72,
+      "generation": "Baby Boomer",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Omaha",
+        "state": "NE",
+        "zip_code": "68104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "High school diploma",
+      "profession": "Retired postal worker",
+      "employment_status": "Retired",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Widowed",
+      "household_size": 1,
+      "number_of_children": 2,
+      "religion": "Lutheran",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Feeling close to his late wife",
+      "desired_features": [
+        "Simple interface",
+        "His wife's favorite deck"
+      ],
+      "accessibility_needs": [
+        "Large text"
+      ]
+    },
+    "description": "Bill's late wife read tarot, and using the app makes him feel close to her."
+  },
+  {
+    "id": "73557e7b-2d07-5705-a303-425bf38b8952",
+    "persona_number": 62,
+    "name": {
+      "first": "Tamara",
+      "last": "Reid",
+      "full": "Tamara Reid"
+    },
+    "demographics": {
+      "age": 34,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Denver",
+        "state": "CO",
+        "zip_code": "80210",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Former teacher, on disability leave",
+      "employment_status": "Not working (disability)",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Something gentle to do on flare days",
+      "desired_features": [
+        "Low-effort readings",
+        "Compassionate tone"
+      ],
+      "accessibility_needs": [
+        "Low-energy mode"
+      ]
+    },
+    "description": "Tamara lives with a chronic illness. On flare days, a reading is something gentle she can do from bed."
+  },
+  {
+    "id": "ccd03ddc-20c2-5511-8eb9-321966d1e99b",
+    "persona_number": 63,
+    "name": {
+      "first": "Ethan",
+      "last": "Zhou",
+      "full": "Ethan Zhou"
+    },
+    "demographics": {
+      "age": 29,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Chinese American)",
+      "location": {
+        "city": "Miami",
+        "state": "FL",
+        "zip_code": "33130",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Mandarin"
+      ],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Startup founder",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "No Party Affiliation",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A pressure valve during fundraising",
+      "desired_features": [
+        "Quick calming rituals"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ethan is anxious during his company's fundraising round and uses readings as a pressure valve."
+  },
+  {
+    "id": "38b91afd-7e44-5ccf-9249-a6c55d759e5c",
+    "persona_number": 64,
+    "name": {
+      "first": "Grace-Ann",
+      "last": "Pruitt",
+      "full": "Grace-Ann Pruitt"
+    },
+    "demographics": {
+      "age": 47,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Birmingham",
+        "state": "AL",
+        "zip_code": "35205",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Associate degree",
+      "profession": "Medical billing specialist (remote)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Divorced",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Protestant (Baptist)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Five minutes for herself while caregiving",
+      "desired_features": [
+        "Short readings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Grace-Ann cares for her mother while raising a teenager. A single card is her five minutes to herself."
+  },
+  {
+    "id": "7446ee22-52c3-5020-b084-a0910ba012b6",
+    "persona_number": 65,
+    "name": {
+      "first": "Omar",
+      "last": "Siddiqui",
+      "full": "Omar Siddiqui"
+    },
+    "demographics": {
+      "age": 40,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Pakistani American)",
+      "location": {
+        "city": "Austin",
+        "state": "TX",
+        "zip_code": "78745",
+        "country": "United States",
+        "urbanicity": "Suburban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Urdu"
+      ],
+      "education_level": "Master's degree (MS)",
+      "profession": "Software engineer (recently laid off)",
+      "employment_status": "Unemployed, seeking work",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Agnostic (raised Muslim)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Reframing setbacks during a job search",
+      "desired_features": [
+        "Encouraging, non-predictive framing"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Omar was laid off from a tech job and has found the search demoralizing. Readings help him reframe setbacks."
+  },
+  {
+    "id": "5f74e7ff-bb59-5da2-9165-a007013091c5",
+    "persona_number": 66,
+    "name": {
+      "first": "Kelsey",
+      "last": "Brennan",
+      "full": "Kelsey Brennan"
+    },
+    "demographics": {
+      "age": 31,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Kansas City",
+        "state": "MO",
+        "zip_code": "64111",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Marketing coordinator",
+      "employment_status": "Employed full-time (on parental leave)",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Catholic",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Late-night company while feeding her baby",
+      "desired_features": [
+        "One-handed use",
+        "Dark mode"
+      ],
+      "accessibility_needs": [
+        "One-handed use"
+      ]
+    },
+    "description": "Kelsey is postpartum and sleep-deprived, and pulls cards during late-night feedings."
+  },
+  {
+    "id": "18b609c7-fce5-50b8-96c3-d74f7ca977fe",
+    "persona_number": 67,
+    "name": {
+      "first": "Harold",
+      "last": "Pierce",
+      "full": "Harold Pierce"
+    },
+    "demographics": {
+      "age": 64,
+      "generation": "Baby Boomer",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "Cleveland",
+        "state": "OH",
+        "zip_code": "44102",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Vocational certificate",
+      "profession": "Retired city bus mechanic",
+      "employment_status": "Retired",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 3,
+      "religion": "Protestant (AME)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Comfort that began during cancer treatment",
+      "desired_features": [
+        "Calm, non-medical language"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Harold found unexpected comfort in the ritual during cancer treatment and kept going after he recovered."
+  },
+  {
+    "id": "81cf3675-2df0-5f5b-bafc-148b73633b08",
+    "persona_number": 68,
+    "name": {
+      "first": "Jasmine",
+      "last": "Ortiz",
+      "full": "Jasmine Ortiz"
+    },
+    "demographics": {
+      "age": 23,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Puerto Rican)",
+      "location": {
+        "city": "Ann Arbor",
+        "state": "MI",
+        "zip_code": "48104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Graduate student (public policy)",
+      "employment_status": "Student",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Catholic (raised)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Grounding alongside therapy for anxiety",
+      "desired_features": [
+        "Grounding prompts"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Jasmine manages anxiety and uses readings alongside therapy, not instead of it."
+  },
+  {
+    "id": "9a407cdc-a797-5024-9bef-c4a798126d73",
+    "persona_number": 69,
+    "name": {
+      "first": "Luis",
+      "last": "Ochoa",
+      "full": "Luis Ochoa"
+    },
+    "demographics": {
+      "age": 52,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Mexican American)",
+      "location": {
+        "city": "Caruthers",
+        "state": "CA",
+        "zip_code": "93609",
+        "country": "United States",
+        "urbanicity": "Rural"
+      },
+      "preferred_language": "Spanish",
+      "other_languages": [
+        "English"
+      ],
+      "education_level": "High school diploma",
+      "profession": "Small farmer",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 5,
+      "number_of_children": 3,
+      "religion": "Catholic",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Steadiness during a drought year",
+      "desired_features": [
+        "Spanish-language support"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Luis runs a small farm outside Fresno. In a drought year full of financial worry, the ritual steadies him."
+  },
+  {
+    "id": "e7e0309e-d70f-5a2e-bfd9-1ab124ee3e6c",
+    "persona_number": 70,
+    "name": {
+      "first": "Morgan",
+      "last": "Fletcher",
+      "full": "Morgan Fletcher"
+    },
+    "demographics": {
+      "age": 28,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "South Burlington",
+        "state": "VT",
+        "zip_code": "05403",
+        "country": "United States",
+        "urbanicity": "Suburban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Associate degree",
+      "profession": "Veterinary technician",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Processing the loss of her dog",
+      "desired_features": [
+        "Gentle grief interpretations"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Morgan's dog died last month, and she reads cards about grief and memory."
+  },
+  {
+    "id": "a77c65db-8ed9-5ec3-a10f-ae9724884075",
+    "persona_number": 71,
+    "name": {
+      "first": "Brianna",
+      "last": "Walker",
+      "full": "Brianna Walker"
+    },
+    "demographics": {
+      "age": 22,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Tuscaloosa",
+        "state": "AL",
+        "zip_code": "35401",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "College senior",
+      "employment_status": "Student",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 3,
+      "number_of_children": 0,
+      "religion": "Protestant (Methodist)",
+      "political_party": "Republican",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Group readings at chapter events",
+      "desired_features": [
+        "Party mode",
+        "Shareable results"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Brianna does group readings at sorority events. It's entertainment first, with the occasional surprisingly real moment."
+  },
+  {
+    "id": "f89d61ae-03e8-5af8-afb6-7177f814c036",
+    "persona_number": 72,
+    "name": {
+      "first": "Diego",
+      "last": "Ramírez",
+      "full": "Diego Ramírez"
+    },
+    "demographics": {
+      "age": 27,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Phoenix",
+        "state": "AZ",
+        "zip_code": "85008",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Some college",
+      "profession": "Twitch streamer",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Catholic (lapsed)",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Readings for his stream's chat",
+      "desired_features": [
+        "Streaming overlay"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Diego does tarot readings for his chat between games, and the segment has become a fan favorite."
+  },
+  {
+    "id": "28f00bb6-e713-52b0-a755-864c3e986701",
+    "persona_number": 73,
+    "name": {
+      "first": "Ashley",
+      "last": "Carter",
+      "full": "Ashley Carter"
+    },
+    "demographics": {
+      "age": 30,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Denver",
+        "state": "CO",
+        "zip_code": "80211",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Elementary school teacher",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Relationship check-ins with her partner",
+      "desired_features": [
+        "Couple spreads"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ashley and her partner Tom do relationship check-in spreads together on date night. It gets them talking about things they'd otherwise skip.",
+    "notes": "Uses the app jointly with partner Tom Reilly, 32."
+  },
+  {
+    "id": "fc787feb-115a-5d87-a04e-8ecf7368a91c",
+    "persona_number": 74,
+    "name": {
+      "first": "Ruth",
+      "last": "Feinberg",
+      "full": "Ruth Feinberg"
+    },
+    "demographics": {
+      "age": 76,
+      "generation": "Baby Boomer",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Sarasota",
+        "state": "FL",
+        "zip_code": "34231",
+        "country": "United States",
+        "urbanicity": "Suburban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Yiddish"
+      ],
+      "education_level": "High school diploma",
+      "profession": "Retired bookkeeper",
+      "employment_status": "Retired",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Widowed",
+      "household_size": 1,
+      "number_of_children": 3,
+      "religion": "Jewish (Conservative)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Fun at bridge club",
+      "desired_features": [
+        "Big text",
+        "Easy shuffling"
+      ],
+      "accessibility_needs": [
+        "Large text"
+      ]
+    },
+    "description": "Ruth reads cards for her bridge club as a fun twist on their weekly game, and her grandchildren call her Grandma Ruth the oracle."
+  },
+  {
+    "id": "8c47d614-d780-5832-80b1-5496ab300402",
+    "persona_number": 75,
+    "name": {
+      "first": "Nate",
+      "last": "Boudreaux",
+      "full": "Nate Boudreaux"
+    },
+    "demographics": {
+      "age": 24,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Cajun)",
+      "location": {
+        "city": "New Orleans",
+        "state": "LA",
+        "zip_code": "70117",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Bartender",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 3,
+      "number_of_children": 0,
+      "religion": "Catholic",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Readings for regulars on slow nights",
+      "desired_features": [
+        "Quick draw",
+        "Fun tone"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Nate reads for regulars on slow nights, which has turned into a bit of a bar tradition."
+  },
+  {
+    "id": "d17c3201-ea38-59bd-ac4a-f83db1acf1c0",
+    "persona_number": 76,
+    "name": {
+      "first": "Priyanka",
+      "last": "Sharma",
+      "full": "Priyanka Sharma"
+    },
+    "demographics": {
+      "age": 26,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Indian American)",
+      "location": {
+        "city": "Chicago",
+        "state": "IL",
+        "zip_code": "60657",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Hindi"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Management consultant",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Hindu (cultural)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Monthly",
+      "primary_device": "iOS",
+      "primary_motivation": "Discussion fodder for her book club",
+      "desired_features": [
+        "Character-mapping spreads"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Priyanka hosts a book club and pulls a card for each novel's protagonist to spark discussion."
+  },
+  {
+    "id": "6e6a9ee0-ea92-5ac4-bb8a-7a212c8843c7",
+    "persona_number": 77,
+    "name": {
+      "first": "Cody",
+      "last": "Pruett",
+      "full": "Cody Pruett"
+    },
+    "demographics": {
+      "age": 18,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Lubbock",
+        "state": "TX",
+        "zip_code": "79415",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some high school (in progress)",
+      "profession": "High school senior and fast-food crew member",
+      "employment_status": "Student, working part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 4,
+      "number_of_children": 0,
+      "religion": "Protestant (Baptist)",
+      "political_party": "Not registered",
+      "housing_status": "Lives with family",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Curiosity because his friends do it",
+      "desired_features": [
+        "Free beginner content"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Cody started because his friends were doing it and found it more interesting than he expected."
+  },
+  {
+    "id": "af5a87d0-387b-5112-af44-e46c590ae832",
+    "persona_number": 78,
+    "name": {
+      "first": "Fiona",
+      "last": "MacLeod",
+      "full": "Fiona MacLeod"
+    },
+    "demographics": {
+      "age": 35,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Scottish American)",
+      "location": {
+        "city": "Salem",
+        "state": "MA",
+        "zip_code": "01970",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Historical tour guide",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Wiccan",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Seasonal (daily in October)",
+      "primary_device": "iOS",
+      "primary_motivation": "Celebrating October as tarot season",
+      "desired_features": [
+        "Seasonal decks"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Fiona leads historical tours in Salem and treats October as tarot season every year."
+  },
+  {
+    "id": "8fd1f4b1-19db-50eb-a6c6-87617893ca3e",
+    "persona_number": 79,
+    "name": {
+      "first": "Jamal",
+      "last": "Prince",
+      "full": "Jamal Prince"
+    },
+    "demographics": {
+      "age": 33,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American",
+      "location": {
+        "city": "New York",
+        "state": "NY",
+        "zip_code": "10025",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Comedy writer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Material for comedy bits",
+      "desired_features": [
+        "Random spreads",
+        "Funny mode"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Jamal uses absurd draws as material for comedy bits."
+  },
+  {
+    "id": "1287a623-5ccf-56af-a76f-9c2f740713ca",
+    "persona_number": 80,
+    "name": {
+      "first": "Ann",
+      "last": "Kowalski",
+      "full": "Ann Kowalski"
+    },
+    "demographics": {
+      "age": 44,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Polish American)",
+      "location": {
+        "city": "Milwaukee",
+        "state": "WI",
+        "zip_code": "53215",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Associate degree",
+      "profession": "Dental office manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Independent",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Monthly",
+      "primary_device": "Android",
+      "primary_motivation": "A monthly ritual with her sisters",
+      "desired_features": [
+        "Shared readings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Ann and her two sisters, who live in other states, do a sister spread together over video call every month.",
+    "notes": "Reads jointly with her two sisters over video call."
+  },
+  {
+    "id": "749f333d-2467-54e3-8649-5e12b2201308",
+    "persona_number": 81,
+    "name": {
+      "first": "Aurora",
+      "last": "Bennett",
+      "full": "Aurora Bennett"
+    },
+    "demographics": {
+      "age": 37,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Sedona",
+        "state": "AZ",
+        "zip_code": "86336",
+        "country": "United States",
+        "urbanicity": "Small town"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Yoga instructor",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Part of a holistic practice",
+      "desired_features": [
+        "Meditation pairings"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Aurora is a yoga instructor for whom tarot is part of a broader holistic practice."
+  },
+  {
+    "id": "db68d9c5-8cee-5d62-b323-0a5ddc5d6158",
+    "persona_number": 82,
+    "name": {
+      "first": "Esperanza",
+      "last": "Durán",
+      "full": "Esperanza Durán"
+    },
+    "demographics": {
+      "age": 45,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino (Mexican American)",
+      "location": {
+        "city": "El Paso",
+        "state": "TX",
+        "zip_code": "79902",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "Spanish",
+      "other_languages": [
+        "English"
+      ],
+      "education_level": "Associate degree",
+      "profession": "Community health worker (promotora)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "Married",
+      "household_size": 5,
+      "number_of_children": 3,
+      "religion": "Catholic (with family folk traditions)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Connection to family traditions",
+      "desired_features": [
+        "Respectful, non-appropriative content"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Esperanza blends tarot with healing traditions passed down in her family."
+  },
+  {
+    "id": "89e55143-e95b-57aa-966b-8b4461b9bc01",
+    "persona_number": 83,
+    "name": {
+      "first": "Rowan",
+      "last": "Hollis",
+      "full": "Rowan Hollis"
+    },
+    "demographics": {
+      "age": 30,
+      "generation": "Millennial",
+      "gender": "Nonbinary",
+      "pronouns": "they/them",
+      "sexual_orientation": "Queer",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Eugene",
+        "state": "OR",
+        "zip_code": "97405",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree (BS)",
+      "profession": "Nursery horticulturist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$25,000–$49,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Pagan (eclectic)",
+      "political_party": "Pacific Green",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Advanced",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Part of a seasonal pagan practice",
+      "desired_features": [
+        "Seasonal spreads",
+        "Sabbat tie-ins"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Rowan is a practicing pagan, and tarot sits alongside the wheel of the year in their practice."
+  },
+  {
+    "id": "fa49f070-6093-5be4-97f1-a4b197a4270d",
+    "persona_number": 84,
+    "name": {
+      "first": "Desmond",
+      "last": "Batiste",
+      "full": "Desmond Batiste"
+    },
+    "demographics": {
+      "age": 50,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Black or African American (Louisiana Creole)",
+      "location": {
+        "city": "New Orleans",
+        "state": "LA",
+        "zip_code": "70119",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Jazz musician and music instructor",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Exploring his family's folk traditions",
+      "desired_features": [
+        "Historical context"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Desmond is exploring his family's Southern folk traditions and is especially interested in their history."
+  },
+  {
+    "id": "51e02a5e-2971-5e94-b36d-b13663038890",
+    "persona_number": 85,
+    "name": {
+      "first": "Sienna",
+      "last": "Blake",
+      "full": "Sienna Blake"
+    },
+    "demographics": {
+      "age": 28,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Multiracial (White and Filipino)",
+      "location": {
+        "city": "Los Angeles",
+        "state": "CA",
+        "zip_code": "90034",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Tagalog"
+      ],
+      "education_level": "Bachelor's degree",
+      "profession": "Social media manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Pairing tarot with astrology",
+      "desired_features": [
+        "Astrology integration"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Sienna is an astrology devotee who cross-references her cards with current transits."
+  },
+  {
+    "id": "203598cb-2786-502b-8e1d-eee998b57564",
+    "persona_number": 86,
+    "name": {
+      "first": "Matteo",
+      "last": "Russo",
+      "full": "Matteo Russo"
+    },
+    "demographics": {
+      "age": 41,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Italian American)",
+      "location": {
+        "city": "Providence",
+        "state": "RI",
+        "zip_code": "02908",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Italian"
+      ],
+      "education_level": "Some college",
+      "profession": "Restaurant owner",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Curiosity about tarot's Italian roots",
+      "desired_features": [
+        "Historical decks such as Visconti-Sforza"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Matteo got curious about tarot after learning about its Italian roots and enjoys the historical decks most."
+  },
+  {
+    "id": "7eae923f-9622-55b2-b93d-aee6f81d4534",
+    "persona_number": 87,
+    "name": {
+      "first": "Hazel",
+      "last": "Pennington",
+      "full": "Hazel Pennington"
+    },
+    "demographics": {
+      "age": 33,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Philadelphia",
+        "state": "PA",
+        "zip_code": "19119",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree",
+      "profession": "Nonprofit program manager",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Quaker (Religious Society of Friends)",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Silent contemplation",
+      "desired_features": [
+        "Minimal, quiet design"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Hazel was raised Quaker and treats the cards as a focus for silent reflection, not divination."
+  },
+  {
+    "id": "45b56b57-3fb9-5adf-8d62-a11000daecf7",
+    "persona_number": 88,
+    "name": {
+      "first": "Tariq",
+      "last": "Bazzi",
+      "full": "Tariq Bazzi"
+    },
+    "demographics": {
+      "age": 39,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Middle Eastern or North African (Lebanese American)",
+      "location": {
+        "city": "Dearborn",
+        "state": "MI",
+        "zip_code": "48126",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Arabic"
+      ],
+      "education_level": "Master's degree (MS)",
+      "profession": "County civil engineer",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 5,
+      "number_of_children": 3,
+      "religion": "Muslim (Shia)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Parallels with mystical poetry",
+      "desired_features": [
+        "Symbolism deep-dives"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Tariq loves Sufi poetry and enjoys tracing parallels between its imagery and the cards' symbolism."
+  },
+  {
+    "id": "8da8933d-555e-5a9e-a0e5-f2828c8903d8",
+    "persona_number": 89,
+    "name": {
+      "first": "Juniper",
+      "last": "Rhodes",
+      "full": "Juniper Rhodes"
+    },
+    "demographics": {
+      "age": 25,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Bisexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Asheville",
+        "state": "NC",
+        "zip_code": "28803",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Herbalist and apothecary clerk",
+      "employment_status": "Employed part-time",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 3,
+      "number_of_children": 0,
+      "religion": "Spiritual but not religious",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "A calming tea-and-cards ritual",
+      "desired_features": [
+        "Calm aesthetic"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Juniper pairs her card pulls with a daily tea ritual."
+  },
+  {
+    "id": "f134ab3c-db75-501d-994e-fa6732dcde61",
+    "persona_number": 90,
+    "name": {
+      "first": "Celeste",
+      "last": "Moreland",
+      "full": "Celeste Moreland"
+    },
+    "demographics": {
+      "age": 60,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "San Rafael",
+        "state": "CA",
+        "zip_code": "94901",
+        "country": "United States",
+        "urbanicity": "Suburban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Astrologer (retired real estate agent)",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$200,000 or more",
+      "marital_status": "Divorced",
+      "household_size": 1,
+      "number_of_children": 1,
+      "religion": "Spiritual (Theosophy-influenced)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Expert",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Lifelong practice",
+      "desired_features": [
+        "Thoth and Marseille decks, not just Rider-Waite-Smith"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Celeste has been reading since the 1970s and is skeptical of apps that only offer one deck tradition."
+  },
+  {
+    "id": "12b9aef7-af23-5628-9ae3-9fd6bd49ec48",
+    "persona_number": 91,
+    "name": {
+      "first": "Alan",
+      "last": "Brightman",
+      "full": "Alan Brightman"
+    },
+    "demographics": {
+      "age": 54,
+      "generation": "Gen X",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Madison",
+        "state": "WI",
+        "zip_code": "53703",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Doctorate (PhD)",
+      "profession": "Psychology professor",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$150,000–$199,999",
+      "marital_status": "Married",
+      "household_size": 3,
+      "number_of_children": 1,
+      "religion": "Agnostic (raised Jewish)",
+      "political_party": "Democrat",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Research interest that became a habit",
+      "desired_features": [
+        "Neutral, academic tone"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Alan researches projective techniques and, somewhat ironically, got hooked on daily draws himself."
+  },
+  {
+    "id": "950dfda7-8f4e-5e5c-b173-01e7d66520cb",
+    "persona_number": 92,
+    "name": {
+      "first": "Brooke",
+      "last": "Nguyen",
+      "full": "Brooke Nguyen"
+    },
+    "demographics": {
+      "age": 30,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Asian (Vietnamese American)",
+      "location": {
+        "city": "Pittsburgh",
+        "state": "PA",
+        "zip_code": "15206",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Vietnamese"
+      ],
+      "education_level": "Master's degree (MS)",
+      "profession": "Data scientist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "In a relationship",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Testing whether the shuffle is truly random",
+      "desired_features": [
+        "Data export"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Brooke logs every draw to test whether the app's shuffle is truly random, and has kept drawing well after the experiment ended."
+  },
+  {
+    "id": "ce766751-6efa-5480-a732-379f8c657278",
+    "persona_number": 93,
+    "name": {
+      "first": "Gary",
+      "last": "Mathis",
+      "full": "Gary Mathis"
+    },
+    "demographics": {
+      "age": 66,
+      "generation": "Baby Boomer",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Phoenix",
+        "state": "AZ",
+        "zip_code": "85032",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Associate degree",
+      "profession": "Retired police officer",
+      "employment_status": "Retired",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Protestant",
+      "political_party": "Republican",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "Android",
+      "primary_motivation": "Took a dare from his wife",
+      "desired_features": [
+        "No-frills design"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Gary's wife dared him to try tarot. He now pulls a card daily but won't admit he likes it."
+  },
+  {
+    "id": "328ae35f-ce95-5898-8509-010e67a1d753",
+    "persona_number": 94,
+    "name": {
+      "first": "Lena",
+      "last": "Torres",
+      "full": "Lena Torres"
+    },
+    "demographics": {
+      "age": 27,
+      "generation": "Gen Z",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Hispanic or Latino",
+      "location": {
+        "city": "Washington",
+        "state": "DC",
+        "zip_code": "20009",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [
+        "Spanish"
+      ],
+      "education_level": "Master's degree",
+      "profession": "Journalist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$50,000–$74,999",
+      "marital_status": "Single, never married",
+      "household_size": 2,
+      "number_of_children": 0,
+      "religion": "Catholic (lapsed)",
+      "political_party": "Independent",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Reporting on wellness apps, then personal use",
+      "desired_features": [
+        "Transparent business practices"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Lena started using the app while reporting a story on the wellness-app boom and stayed on as a user."
+  },
+  {
+    "id": "73f8aaa1-0e10-5030-9356-8702aecefc86",
+    "persona_number": 95,
+    "name": {
+      "first": "Isaac",
+      "last": "Weller",
+      "full": "Isaac Weller"
+    },
+    "demographics": {
+      "age": 22,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Berkeley",
+        "state": "CA",
+        "zip_code": "94704",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Philosophy undergraduate",
+      "employment_status": "Student",
+      "annual_household_income": "Under $25,000",
+      "marital_status": "Single, never married",
+      "household_size": 4,
+      "number_of_children": 0,
+      "religion": "Atheist",
+      "political_party": "Democrat",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Studying meaning-making and synchronicity",
+      "desired_features": [
+        "Jungian references"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Isaac is interested in tarot as a case study in how people make meaning from chance."
+  },
+  {
+    "id": "c53e8725-b3b0-59f3-8d74-d524ce743cdb",
+    "persona_number": 96,
+    "name": {
+      "first": "Pat",
+      "last": "Donnelly",
+      "full": "Pat Donnelly"
+    },
+    "demographics": {
+      "age": 58,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Hartford",
+        "state": "CT",
+        "zip_code": "06106",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Bachelor's degree",
+      "profession": "Accountant (CPA)",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 2,
+      "number_of_children": 2,
+      "religion": "Catholic",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Daily",
+      "primary_device": "iOS",
+      "primary_motivation": "Light daily fun",
+      "desired_features": [
+        "Daily trivia-style content"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Pat uses the app purely for fun and never asks it serious questions."
+  },
+  {
+    "id": "25be5862-1f12-5d99-a565-4a5de6235dc9",
+    "persona_number": 97,
+    "name": {
+      "first": "Xavier",
+      "last": "Dunn",
+      "full": "Xavier Dunn"
+    },
+    "demographics": {
+      "age": 34,
+      "generation": "Millennial",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "Multiracial (Black and White)",
+      "location": {
+        "city": "Las Vegas",
+        "state": "NV",
+        "zip_code": "89104",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Some college",
+      "profession": "Stage magician",
+      "employment_status": "Self-employed",
+      "annual_household_income": "$75,000–$99,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Atheist",
+      "political_party": "Libertarian",
+      "housing_status": "Rents",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Expert",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Research for his stage act",
+      "desired_features": [
+        "Full meanings reference"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Xavier studies tarot for the cold-reading segment of his stage act."
+  },
+  {
+    "id": "cc468487-dddf-5956-a1d4-ff5f279cfad4",
+    "persona_number": 98,
+    "name": {
+      "first": "Monica",
+      "last": "Shaw",
+      "full": "Monica Shaw"
+    },
+    "demographics": {
+      "age": 46,
+      "generation": "Gen X",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Colorado Springs",
+        "state": "CO",
+        "zip_code": "80909",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Master's degree (MEd)",
+      "profession": "School administrator",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Married",
+      "household_size": 4,
+      "number_of_children": 2,
+      "religion": "None (former evangelical)",
+      "political_party": "Unaffiliated",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "iOS",
+      "primary_motivation": "Cautious spiritual exploration",
+      "desired_features": [
+        "Non-judgmental framing"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Monica left evangelical Christianity and is cautiously exploring other spiritual ideas, with some lingering guilt."
+  },
+  {
+    "id": "2ee00080-5c8c-533c-a607-1d29b24ad96f",
+    "persona_number": 99,
+    "name": {
+      "first": "Aiden",
+      "last": "Walsh",
+      "full": "Aiden Walsh"
+    },
+    "demographics": {
+      "age": 18,
+      "generation": "Gen Z",
+      "gender": "Male",
+      "pronouns": "he/him",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White",
+      "location": {
+        "city": "Edina",
+        "state": "MN",
+        "zip_code": "55424",
+        "country": "United States",
+        "urbanicity": "Suburban",
+        "current_location": "Lisbon, Portugal (traveling)"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "High school diploma",
+      "profession": "Gap-year traveler",
+      "employment_status": "Gap year (not working)",
+      "annual_household_income": "$200,000 or more",
+      "marital_status": "Single, never married",
+      "household_size": 4,
+      "number_of_children": 0,
+      "religion": "None",
+      "political_party": "Not registered",
+      "housing_status": "Traveling (home base with parents)",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Beginner",
+      "usage_frequency": "Weekly",
+      "primary_device": "Android",
+      "primary_motivation": "Choosing his next destination",
+      "desired_features": [
+        "Offline mode"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Aiden is traveling through Europe on a gap year and pulls a card before choosing his next city."
+  },
+  {
+    "id": "b8a27cd5-b667-5722-9218-b422994cf11f",
+    "persona_number": 100,
+    "name": {
+      "first": "Lucia",
+      "last": "Moretti",
+      "full": "Lucia Moretti"
+    },
+    "demographics": {
+      "age": 36,
+      "generation": "Millennial",
+      "gender": "Female",
+      "pronouns": "she/her",
+      "sexual_orientation": "Heterosexual",
+      "race_ethnicity": "White (Italian American)",
+      "location": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "zip_code": "55408",
+        "country": "United States",
+        "urbanicity": "Urban"
+      },
+      "preferred_language": "English",
+      "other_languages": [],
+      "education_level": "Doctorate (PhD, chemistry)",
+      "profession": "Senior research chemist",
+      "employment_status": "Employed full-time",
+      "annual_household_income": "$100,000–$149,999",
+      "marital_status": "Single, never married",
+      "household_size": 1,
+      "number_of_children": 0,
+      "religion": "Agnostic (raised Catholic)",
+      "political_party": "Democratic-Farmer-Labor (DFL)",
+      "housing_status": "Owns",
+      "veteran_status": false
+    },
+    "tarot_profile": {
+      "experience_level": "Intermediate",
+      "usage_frequency": "Occasionally",
+      "primary_device": "iOS",
+      "primary_motivation": "Reflection, approached skeptically",
+      "desired_features": [
+        "Readings that synthesize the whole spread"
+      ],
+      "accessibility_needs": []
+    },
+    "description": "Lucia critiques every reading she gets and then quietly thinks about it all week. She wants spreads with real synthesis rather than ten parallel mini-readings."
+  }
+]

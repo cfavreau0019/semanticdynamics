@@ -13,11 +13,13 @@ from llm.providers import LLMProvider, register_provider
 from data_generation import schema
 from data_generation.generate_tarot import main
 from data_generation.pipeline import (
-    GenerationConfig, collect_batch, final_responses, list_runs, prepare_run, rebuild_requests, run_live,
+    GenerationConfig, collect_batch, final_responses, list_runs, load_config, prepare_run, rebuild_requests,
+    run_live,
     submit_batch, summarize,
 )
 from data_generation.store import RunStore
-from data_generation.tarot import TarotReadings, celtic_cross_v1
+from data_generation.tarot import TarotReadings
+from prompts import get_template, parse_id as parse_template_id
 from conftest import FakeOpenAIClient, batch_body
 from llm.providers.openai_compatible import OpenAICompatibleProvider
 
@@ -185,14 +187,16 @@ def test_input_items_and_template():
     items = app.input_items(draw)
     assert [i["label"] for i in items] == app.positions
     assert all(i["value"] == (i["entity"] + (" reversed" if i["qualifier"] == "reversed" else "")) for i in items)
-    system, user = celtic_cross_v1(draw)
-    assert system is None and user.startswith("You're a tarot reader.") and "Outcome: " in user
+    variables = app.template_variables(draw, None)
+    assert variables == {"cards": draw, "positions": app.positions, "persona": None}
+    prompt = get_template(app.default_template).render_from(variables)
+    assert prompt.system is None and prompt.user.startswith("You're a tarot reader.") and "Outcome: " in prompt.user
 
 
 def test_tarot_validator_accepts_a_reading_of_the_draw():
     app = TarotReadings()
     draw = app.sample_inputs(1, random.Random(5))[0]
-    text = reading_from_prompt(celtic_cross_v1(draw)[1])
+    text = reading_from_prompt(get_template("celtic_cross_v1").render(cards=draw).user)
     assert app.validator().validate(text, expected=draw, finish_reason="stop").passed
 
 
@@ -224,7 +228,7 @@ def test_live_run_writes_all_tables(tmp_path, scripted):
     assert summary["n_regenerated"] == 1 and summary["n_attempts"] == 6
     assert summary["total_tokens"] == 6 * 110          # every attempt counts toward cost
     run = store.run()
-    assert run["status"] == "completed" and run["summary"] == summary and run["schema_version"] == 1
+    assert run["status"] == "completed" and run["summary"] == summary and run["schema_version"] == schema.SCHEMA_VERSION
     assert run["config"]["application_options"]["draw"] == "replacement"
 
     retried = [r for r in store.read("responses") if r["request_id"] == requests[0].id]
@@ -356,13 +360,13 @@ def test_batch_collect_retries_live_by_default(tmp_path, batch_provider):
 def test_cli_generate_status_list_resume(tmp_path, scripted, capsys):
     out = str(tmp_path)
     assert main(["--out", out, "generate", "--n", "2", "--provider", "tarot-scripted", "--seed", "5",
-                 "--temperature", "0.7", "--extra-body", '{"top_k": 40}', "--pin", "Outcome=Death",
+                 "--temperature", "0.7", "--max-tokens", "1234", "--extra-body", '{"top_k": 40}', "--pin", "Outcome=Death",
                  "--name", "cli-test"]) == 0
     [run_dir] = list(tmp_path.glob("run_*"))
     store = RunStore.open(run_dir.name, tmp_path)
     run = store.run()
     assert run["status"] == "completed" and run["name"] == "cli-test"
-    assert run["config"]["params"] == {"max_tokens": 2000, "temperature": 0.7}
+    assert run["config"]["params"] == {"max_tokens": 1234, "temperature": 0.7}
     assert run["config"]["extra_body"] == {"top_k": 40}
     assert all(i["payload"]["Outcome"] == "Death" for i in store.read("inputs"))
     assert main(["--out", out, "status", run_dir.name]) == 0
@@ -426,3 +430,126 @@ def test_cli_batch_collect(tmp_path, batch_provider):
     assert main(["--out", out, "collect", run_dir.name]) == 0
     assert RunStore.open(run_dir.name, tmp_path).run()["status"] == "completed"
     assert main(["--out", out, "resume", run_dir.name]) == 2            # resume is live-only
+
+
+# ---- prompts library + personas in the pipeline --------------------------------------------
+def test_default_templates_are_pinned(tmp_path, scripted):
+    app = TarotReadings()
+    plain, _ = prepare_run(app, config(n=1, mode="dry_run"), root=tmp_path)
+    with_people, _ = prepare_run(app, config(n=1, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
+    assert plain.run()["config"]["templates"] == ["celtic_cross_v1"]          # existing datasets' prompt
+    assert with_people.run()["config"]["templates"] == ["celtic_cross_v2"]    # the persona-aware version
+    assert plain.read("personas") == [] and plain.read("inputs")[0]["persona_id"] is None
+
+
+def test_template_reference_resolves_to_a_pinned_version(tmp_path, scripted):
+    store, _ = prepare_run(TarotReadings(), config(n=1, mode="dry_run", templates=["celtic_cross"]), root=tmp_path)
+    [t] = store.read("prompt_templates")
+    assert store.run()["config"]["templates"] == [t["template_id"]] and parse_template_id(t["template_id"])
+    assert t["template_sha256"] == get_template(t["template_id"]).sha256
+    assert t["user_template"] == get_template(t["template_id"]).user
+    with pytest.raises(KeyError, match="No prompt template"):
+        prepare_run(TarotReadings(), config(n=1, templates=["nope"]), root=tmp_path)
+    assert len(list(tmp_path.glob("run_*"))) == 1            # the failed run left nothing behind
+
+
+def test_personas_and_two_templates_end_to_end(tmp_path, scripted):
+    app = TarotReadings()
+    cfg = config(n=4, persona_set="tarot_personas", persona_sampling="cycle",
+                 templates=["celtic_cross_v1", "celtic_cross_v2"])
+    with pytest.warns(UserWarning, match="celtic_cross_v1.*take no"):
+        store, requests = prepare_run(app, cfg, root=tmp_path)
+    assert len(requests) == 8 and len(store.read("inputs")) == 4 and len(store.read("prompts")) == 8
+
+    inputs = store.read("inputs")
+    personas = {p["persona_id"]: p for p in store.read("personas")}
+    assert [personas[i["persona_id"]]["persona_number"] for i in inputs] == [1, 2, 3, 4]   # cycle order
+    assert all(p["persona_set"] == "tarot_personas" and p["content_sha256"] for p in personas.values())
+
+    by_input = {}
+    for p in store.read("prompts"):
+        by_input.setdefault(p["input_id"], {})[p["template"]] = p
+    for inp in inputs:
+        v1, v2 = by_input[inp["input_id"]]["celtic_cross_v1"], by_input[inp["input_id"]]["celtic_cross_v2"]
+        first_name = personas[inp["persona_id"]]["payload"]["name"]["first"]
+        assert f"- Name: {first_name}" in v2["user_text"] and "about me" not in v1["user_text"]
+        cards = "\n".join(f"{k}: {v}" for k, v in inp["payload"].items())
+        assert v1["user_text"].endswith(cards) and v2["user_text"].endswith(cards)     # same draw in both
+        assert v1["template_sha256"] != v2["template_sha256"]
+
+    assert [r.to_dict() for r in rebuild_requests(store)] == [r.to_dict() for r in requests]
+    assert requests[1].metadata["persona_id"] == inputs[0]["persona_id"]
+    assert requests[1].metadata["template"] == "celtic_cross_v2"
+
+    summary = run_live(store, app, requests, progress=False)
+    assert summary["n_finished"] == summary["n_valid"] == 8
+    assert summary["by_template"] == {
+        t: {"n_requests": 4, "n_finished": 4, "n_valid": 4, "n_invalid": 0, "n_valid_first_try": 4}
+        for t in ("celtic_cross_v1", "celtic_cross_v2")}
+    cfg_row = store.run()["config"]
+    assert cfg_row["persona_set_sha256"] and cfg_row["persona_sampling"] == "cycle"
+    check_foreign_keys(store)
+    check_primary_keys(store)
+
+
+def test_seed_gives_same_draws_with_or_without_personas(tmp_path, scripted):
+    app = TarotReadings()
+    a, _ = prepare_run(app, config(n=5, seed=9, mode="dry_run"), root=tmp_path)
+    b, _ = prepare_run(app, config(n=5, seed=9, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
+    assert [i["payload"] for i in a.read("inputs")] == [i["payload"] for i in b.read("inputs")]
+
+
+def test_persona_restriction_and_errors(tmp_path, scripted):
+    app = TarotReadings()
+    store, _ = prepare_run(app, config(n=6, mode="dry_run", persona_set="tarot_personas",
+                                       persona_ids=["3", "Maya Delgado"]), root=tmp_path)
+    assert sorted(p["persona_number"] for p in store.read("personas")) == [1, 3]
+    with pytest.raises(ValueError, match="without a persona_set"):
+        prepare_run(app, config(n=1, persona_ids=["1"]), root=tmp_path)
+    with pytest.raises(KeyError, match="No persona"):
+        prepare_run(app, config(n=1, persona_set="tarot_personas", persona_ids=["nobody"]), root=tmp_path)
+    with pytest.raises(FileNotFoundError):
+        prepare_run(app, config(n=1, persona_set="no_such_set"), root=tmp_path)
+
+
+def test_first_try_validity_per_template(tmp_path, scripted):
+    app = TarotReadings()
+    store, requests = prepare_run(app, config(n=3), root=tmp_path)
+    scripted.plan = {requests[0].metadata["input_id"]: ["invalid", "ok"]}
+    stats = run_live(store, app, requests, progress=False)["by_template"]["celtic_cross_v1"]
+    assert stats == {"n_requests": 3, "n_finished": 3, "n_valid": 3, "n_invalid": 0, "n_valid_first_try": 2}
+
+
+def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
+    """Old runs have config['template'] (a string) and no persona/template-hash columns."""
+    app = TarotReadings()
+    store, requests = prepare_run(app, config(n=2), root=tmp_path)
+    run = store.run()
+    old_config = {k: v for k, v in run["config"].items()
+                  if k not in ("templates", "persona_set", "persona_sampling", "persona_ids", "persona_set_sha256")}
+    old_config["template"] = "celtic_cross_v1"
+    store.upsert("runs", [{**run, "config": old_config, "schema_version": 1}])
+    for table, drop in (("inputs", "persona_id"), ("prompts", "template_sha256")):
+        rows = [{k: v for k, v in r.items() if k != drop} for r in store.read(table)]
+        store.path(table).write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    store.path("prompt_templates").unlink()
+
+    assert load_config(store).templates == ["celtic_cross_v1"]
+    rebuilt = rebuild_requests(store)
+    assert [r.messages for r in rebuilt] == [r.messages for r in requests]
+    assert all(r.metadata["persona_id"] is None for r in rebuilt)
+    summary = run_live(store, app, progress=False)                     # resume an old run
+    assert summary["n_valid"] == 2 and summary["by_template"]["celtic_cross_v1"]["n_finished"] == 2
+
+
+def test_cli_personas_and_templates(tmp_path, scripted, capsys):
+    out = str(tmp_path)
+    assert main(["--out", out, "generate", "--n", "2", "--provider", "tarot-scripted", "--personas", "tarot_personas",
+                 "--persona", "7", "--template", "celtic_cross_v1", "--template", "celtic_cross_v2"]) == 0
+    captured = capsys.readouterr()
+    assert "templates: celtic_cross_v1, celtic_cross_v2  personas: tarot_personas" in captured.out
+    assert "celtic_cross_v2: 2/2 finished; 100% valid, 100% on the first try" in captured.out
+    assert "note: Personas were requested but ['celtic_cross_v1']" in captured.err
+    [run_dir] = list(tmp_path.glob("run_*"))
+    store = RunStore.open(run_dir.name, tmp_path)
+    assert [p["persona_number"] for p in store.read("personas")] == [7] and len(store.read("requests")) == 4

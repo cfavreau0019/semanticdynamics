@@ -1,0 +1,38 @@
+name = "celtic_cross"
+version = 2
+description = "Celtic Cross reading request that can include a short first-person note about who is asking."
+changes = """
+Adds an optional `persona` block between the request and the cards. The request wording and \
+the card list are the same as v1, so v1 and v2 differ only in the persona block (and in \
+"I'll draw the cards:" starting its own paragraph), which keeps comparisons between them clean.
+
+Only five persona fields are disclosed, chosen as what someone would plausibly mention to a \
+reader: first name, age, occupation, tarot experience, and why they use tarot. Sensitive \
+demographics (race/ethnicity, religion, politics, sexual orientation, income) are deliberately \
+left out; add them in a new version if an experiment calls for them.\
+"""
+based_on = "celtic_cross_v1"
+tags = ["tarot", "persona"]
+
+# cards:   mapping {position: card state}
+# persona: a persona record (see personas/); omit it for a reading with no personal context
+required = ["cards"]
+optional = ["persona"]
+
+[template]
+user = '''
+You're a tarot reader. Can you read my Celtic cross tarot? Give an overview of the reading after, any thoughts you have.
+{% if persona %}
+
+A little about me, in case it helps:
+- Name: {{ persona.name.first }}
+- Age: {{ persona.demographics.age }}
+- Occupation: {{ persona.demographics.profession }}
+- Experience with tarot: {{ persona.tarot_profile.experience_level }}
+- What I use tarot for: {{ persona.tarot_profile.primary_motivation }}
+{% endif %}
+
+I'll draw the cards:
+
+{{ cards | kv_lines }}
+'''

@@ -1,10 +1,13 @@
 """
 Generic generation pipeline: inputs -> prompts -> requests -> responses (+ validation),
-persisted as tables by RunStore. Task specifics (what an input is, how it becomes a prompt,
-how outputs are validated) come from an Application; see data_generation/tarot.py.
+persisted as tables by RunStore. Task specifics (what an input is, which prompt variables
+it provides, how outputs are validated) come from an Application; see
+data_generation/tarot.py. Prompt text comes from the `prompts` library and optional
+personas from the `personas` package.
 
 Order of writes (so an interrupted run can be resumed or collected from the tables alone):
-    runs -> inputs, input_items -> prompts -> requests      (before any API call)
+    runs -> prompt_templates, personas -> inputs, input_items -> prompts -> requests
+                                                                (before any API call)
     responses, response_texts, validations, validation_issues   (as each request finishes,
                                                                  after validation + retries)
     batches                                                     (on submit / completion)
@@ -13,15 +16,18 @@ import copy
 import hashlib
 import json
 import random
+import warnings
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider, retry_invalid, run_batch_results
 from llm.batch import wait_for_batch
 from data_generation.schema import SCHEMA_VERSION
 from data_generation.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
+from personas import SAMPLING_MODES, PersonaSet
+from prompts import PromptLibrary, PromptTemplate, default_library
 
 # metadata keys carried on each ChatRequest (never sent to the model)
 INPUT_KEY = "input"
@@ -30,16 +36,22 @@ INPUT_KEY = "input"
 class Application(ABC):
     """What a generation task has to provide."""
 
-    name: str                 # e.g. "tarot_celtic_cross"
-    input_type: str           # e.g. "tarot_draw"
-    default_template: str
-
-    # template name -> render(payload) -> (system prompt or None, user prompt)
-    templates: dict[str, Callable[[dict], tuple[Optional[str], str]]]
+    name: str                               # e.g. "tarot_celtic_cross"
+    input_type: str                         # e.g. "tarot_draw"
+    default_template: str                   # prompt library reference used when none is given
+    persona_template: Optional[str] = None  # default when personas are supplied (must accept `persona`)
 
     @abstractmethod
     def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:
         ...
+
+    def template_variables(self, payload: dict, persona: Optional[dict]) -> dict[str, Any]:
+        """
+        Everything a prompt template may use for this input. Each template takes the
+        variables it declares from this pool, so one application can serve templates with
+        different needs (e.g. with and without `persona`).
+        """
+        return {"input": payload, "persona": persona}
 
     def input_items(self, payload: dict) -> list[dict]:
         """Long-form rows (label, value, entity, qualifier) for input_items; optional."""
@@ -56,11 +68,13 @@ class Application(ABC):
 
 @dataclass
 class GenerationConfig:
-    n: int
+    n: int                                    # number of inputs; requests = n x len(templates)
     provider: str
     model: Optional[str] = None
-    template: Optional[str] = None
-    system: Optional[str] = None              # overrides the template's system prompt
+    # prompt library refs ("name_vN" pinned, "name" = latest); [] = the application's default.
+    # With several, every input is rendered with each one (a paired comparison).
+    templates: list[str] = field(default_factory=list)
+    system: Optional[str] = None              # overrides the templates' system prompt
     params: dict[str, Any] = field(default_factory=dict)
     extra_body: dict[str, Any] = field(default_factory=dict)
     mode: str = "live"                        # live | batch | dry_run
@@ -72,18 +86,61 @@ class GenerationConfig:
     poll_interval: float = 60.0
     name: Optional[str] = None
     dataset: Optional[str] = None             # label grouping several runs into one dataset
+    persona_set: Optional[str] = None         # persona set name or path; None = no personas
+    persona_sampling: str = "random"          # random (seeded, with replacement) | cycle (balanced)
+    persona_ids: list[str] = field(default_factory=list)   # restrict to these ids / numbers / names
 
 
 # ---- preparing a run -------------------------------------------------------------------
-def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT) -> tuple[RunStore, list[ChatRequest]]:
-    """Create the run and write runs, inputs, input_items, prompts and requests."""
+def resolve_templates(app: Application, config: GenerationConfig,
+                      library: Optional[PromptLibrary] = None) -> list[PromptTemplate]:
+    """The templates a run will use, pinned to exact versions (also written back to config.templates)."""
+    library = library or default_library()
+    refs = list(config.templates)
+    if not refs:
+        refs = [app.persona_template if config.persona_set and app.persona_template else app.default_template]
+    templates = [library.get(r) for r in refs]
+    if len({t.id for t in templates}) != len(templates):
+        raise ValueError(f"The same template is listed twice: {[t.id for t in templates]}")
+    if config.persona_set:
+        ignoring = [t.id for t in templates if not t.uses("persona")]
+        if ignoring:
+            warnings.warn(f"Personas were requested but {ignoring} take no `persona` variable; "
+                          f"those prompts will not mention the persona.", stacklevel=2)
+    config.templates = [t.id for t in templates]
+    return templates
+
+
+def resolve_personas(config: GenerationConfig) -> Optional[PersonaSet]:
+    if not config.persona_set:
+        if config.persona_ids:
+            raise ValueError("persona_ids given without a persona_set")
+        return None
+    if config.persona_sampling not in SAMPLING_MODES:
+        raise ValueError(f"persona_sampling must be one of {SAMPLING_MODES}")
+    people = PersonaSet.load(config.persona_set)
+    return people.select(config.persona_ids) if config.persona_ids else people
+
+
+def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
+                library: Optional[PromptLibrary] = None) -> tuple[RunStore, list[ChatRequest]]:
+    """
+    Create the run and write runs, prompt_templates, personas, inputs, input_items, prompts
+    and requests. Each of the n sampled inputs (with its persona, if any) is rendered with
+    every template, giving n x len(templates) requests.
+    """
     if config.mode not in ("live", "batch", "dry_run"):
         raise ValueError(f"mode must be live, batch or dry_run; got {config.mode!r}")
-    config.template = config.template or app.default_template
-    if config.template not in app.templates:
-        raise ValueError(f"Unknown template {config.template!r}; available: {sorted(app.templates)}")
+    library = library or default_library()
+    templates = resolve_templates(app, config, library)      # fail before anything is written
+    people = resolve_personas(config)
     if config.seed is None:
         config.seed = random.SystemRandom().randrange(2**31)
+
+    rng = random.Random(config.seed)
+    payloads = app.sample_inputs(config.n, rng)
+    # personas are drawn after the inputs, so a seed gives the same inputs with or without them
+    assigned = people.sample(rng, len(payloads), config.persona_sampling) if people else [None] * len(payloads)
 
     store = RunStore.create(root)
     sha, dirty = code_version()
@@ -92,42 +149,62 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT) -
         "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "application": app.name,
         "mode": config.mode,
         "status": "prepared", "provider": config.provider, "model": config.model,
-        "config": {**asdict(config), "application_options": app.options()},
+        "config": {**asdict(config), "persona_set_sha256": people.sha256 if people else None,
+                   "application_options": app.options()},
         "code_version": sha, "code_dirty": dirty, "schema_version": SCHEMA_VERSION,
         "summary": None, "created_at": now, "updated_at": now,
     }])
+    store.append("prompt_templates", [{
+        "template_sha256": t.sha256, "template_id": t.id, "name": t.name, "version": t.version,
+        "system_template": t.system, "user_template": t.user, "required": list(t.required),
+        "optional": list(t.optional), "description": t.description, "changes": t.changes,
+        "based_on": t.based_on, "status": library.status(t),
+    } for t in templates])
+    if people:
+        used = {p["id"]: p for p in assigned}
+        store.append("personas", [people.row(p) for p in used.values()])
 
-    rng = random.Random(config.seed)
-    payloads = app.sample_inputs(config.n, rng)
-    render = app.templates[config.template]
     request_mode = "batch" if config.mode == "batch" else "live"
     inputs, items, prompts, request_rows, requests = [], [], [], [], []
-    for i, payload in enumerate(payloads):
-        input_id, prompt_id, request_id = new_id("inp"), new_id("prm"), new_id("req")
+    for i, (payload, persona) in enumerate(zip(payloads, assigned)):
+        input_id = new_id("inp")
+        persona_id = persona["id"] if persona else None
         inputs.append({"input_id": input_id, "run_id": store.run_id, "input_index": i,
-                       "input_type": app.input_type, "payload": payload, "created_at": now})
+                       "input_type": app.input_type, "payload": payload, "persona_id": persona_id,
+                       "created_at": now})
         items += [{"input_id": input_id, "run_id": store.run_id, "item_index": k, **item}
                   for k, item in enumerate(app.input_items(payload))]
+        variables = app.template_variables(payload, persona)
 
-        system, user = render(payload)
-        system = config.system if config.system is not None else system
-        messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]
-        prompts.append({"prompt_id": prompt_id, "input_id": input_id, "run_id": store.run_id,
-                        "template": config.template, "system": system, "user_text": user, "messages": messages,
-                        "prompt_sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
-                        "created_at": now})
-        request_rows.append({"request_id": request_id, "prompt_id": prompt_id, "run_id": store.run_id,
-                             "provider": config.provider, "model": config.model, "params": config.params,
-                             "extra_body": config.extra_body, "mode": request_mode, "created_at": now})
-        requests.append(ChatRequest(messages=messages, model=config.model, params=dict(config.params),
-                                    id=request_id, extra_body=dict(config.extra_body),
-                                    metadata={INPUT_KEY: payload, "input_id": input_id, "prompt_id": prompt_id}))
+        for template in templates:
+            prompt_id, request_id = new_id("prm"), new_id("req")
+            rendered = template.render_from(variables)
+            system = config.system if config.system is not None else rendered.system
+            messages = ([{"role": "system", "content": system}] if system else []) + \
+                       [{"role": "user", "content": rendered.user}]
+            prompts.append({"prompt_id": prompt_id, "input_id": input_id, "run_id": store.run_id,
+                            "template": template.id, "template_sha256": template.sha256, "system": system,
+                            "user_text": rendered.user, "messages": messages,
+                            "prompt_sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
+                            "created_at": now})
+            request_rows.append({"request_id": request_id, "prompt_id": prompt_id, "run_id": store.run_id,
+                                 "provider": config.provider, "model": config.model, "params": config.params,
+                                 "extra_body": config.extra_body, "mode": request_mode, "created_at": now})
+            requests.append(ChatRequest(
+                messages=messages, model=config.model, params=dict(config.params), id=request_id,
+                extra_body=dict(config.extra_body),
+                metadata=_metadata(payload, input_id, prompt_id, persona_id, template.id)))
 
     store.append("inputs", inputs)
     store.append("input_items", items)
     store.append("prompts", prompts)
     store.append("requests", request_rows)
     return store, requests
+
+
+def _metadata(payload, input_id, prompt_id, persona_id, template_id) -> dict[str, Any]:
+    return {INPUT_KEY: payload, "input_id": input_id, "prompt_id": prompt_id, "persona_id": persona_id,
+            "template": template_id}
 
 
 def list_runs(root=DEFAULT_ROOT, dataset: Optional[str] = None) -> list[dict]:
@@ -141,9 +218,13 @@ def list_runs(root=DEFAULT_ROOT, dataset: Optional[str] = None) -> list[dict]:
 
 
 def load_config(store: RunStore) -> GenerationConfig:
+    """The run's GenerationConfig; also reads runs written by earlier schema versions."""
     cfg = dict(store.run()["config"])
-    cfg.pop("application_options", None)
-    return GenerationConfig(**cfg)
+    if "template" in cfg:                       # schema version 1: a single template name
+        template = cfg.pop("template")
+        cfg.setdefault("templates", [template] if template else [])
+    known = {f.name for f in fields(GenerationConfig)}
+    return GenerationConfig(**{k: v for k, v in cfg.items() if k in known})
 
 
 def rebuild_requests(store: RunStore) -> list[ChatRequest]:
@@ -153,10 +234,11 @@ def rebuild_requests(store: RunStore) -> list[ChatRequest]:
     out = []
     for r in store.read("requests"):
         p = prompts[r["prompt_id"]]
-        payload = inputs[p["input_id"]]["payload"]
-        out.append(ChatRequest(messages=p["messages"], model=r["model"], params=dict(r["params"]),
-                               id=r["request_id"], extra_body=dict(r["extra_body"]),
-                               metadata={INPUT_KEY: payload, "input_id": p["input_id"], "prompt_id": p["prompt_id"]}))
+        inp = inputs[p["input_id"]]
+        out.append(ChatRequest(
+            messages=p["messages"], model=r["model"], params=dict(r["params"]), id=r["request_id"],
+            extra_body=dict(r["extra_body"]),
+            metadata=_metadata(inp["payload"], p["input_id"], p["prompt_id"], inp.get("persona_id"), p["template"])))
     return out
 
 
@@ -344,8 +426,27 @@ def summarize(store: RunStore) -> dict:
     final = [r for r in final_responses(store).values() if r["error"] is None]
     passed = [validations.get(r["response_id"], {}).get("passed") for r in final]
     tokens = lambda key: sum(r[key] or 0 for r in responses)
-    n_requests = len(store.read("requests"))
+    requests = store.read("requests")
+    n_requests = len(requests)
+
+    # per prompt template: how the final responses fared, and how often the first attempt was already valid
+    template_of_prompt = {p["prompt_id"]: p["template"] for p in store.read("prompts")}
+    template_of_request = {r["request_id"]: template_of_prompt[r["prompt_id"]] for r in requests}
+    by_template: dict[str, dict[str, int]] = {}
+    for request_id, template in template_of_request.items():
+        by_template.setdefault(template, {"n_requests": 0, "n_finished": 0, "n_valid": 0, "n_invalid": 0,
+                                          "n_valid_first_try": 0})["n_requests"] += 1
+    for r, ok in zip(final, passed):
+        stats = by_template[template_of_request[r["request_id"]]]
+        stats["n_finished"] += 1
+        stats["n_valid"] += ok is True
+        stats["n_invalid"] += ok is False
+    for r in responses:
+        if r["attempt"] == 1 and validations.get(r["response_id"], {}).get("passed") is True:
+            by_template[template_of_request[r["request_id"]]]["n_valid_first_try"] += 1
+
     return {
+        "by_template": by_template,
         "n_requests": n_requests,
         "n_finished": len(final),
         "n_api_errors": len(final_responses(store)) - len(final),

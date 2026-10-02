@@ -11,11 +11,19 @@ Conventions
   as a unit
 - append-only tables are never rewritten; `mutable` tables (runs, batches) are small and
   rewritten in full when a row changes (load them with upsert-by-primary-key)
+- `reference` tables (prompt_templates, personas) describe things shared between runs. They
+  have no run_id: each run's file holds the rows that run used, so the same row appears in
+  every run that used it (load with ON CONFLICT DO NOTHING / de-duplicate on the primary key)
+
+Schema versions
+  1  initial
+  2  prompt_templates and personas reference tables; inputs.persona_id; prompts.template_sha256
+     (all new columns are nullable, so version 1 runs load unchanged)
 """
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -34,14 +42,15 @@ class Table:
     primary_key: tuple[str, ...]
     doc: str = ""
     mutable: bool = False
+    reference: bool = False
 
     @property
     def column_names(self) -> list[str]:
         return [c.name for c in self.columns]
 
 
-def _t(name, pk, doc, *columns, mutable=False) -> Table:
-    return Table(name, tuple(columns), tuple(pk), doc, mutable)
+def _t(name, pk, doc, *columns, mutable=False, reference=False) -> Table:
+    return Table(name, tuple(columns), tuple(pk), doc, mutable, reference)
 
 
 RUN = Column("run_id", "TEXT", False, "runs(run_id)", "run this row belongs to")
@@ -65,12 +74,21 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("created_at", "TIMESTAMPTZ", False),
        Column("updated_at", "TIMESTAMPTZ", False),
        mutable=True),
+    _t("personas", ["persona_id"], "People used as prompt inputs (a snapshot of each persona a run used).",
+       Column("persona_id", "TEXT", False, doc="the persona's own id (stable across runs)"),
+       Column("persona_set", "TEXT", False, doc="set it came from, e.g. tarot_personas"),
+       Column("persona_number", "INTEGER"),
+       Column("name", "TEXT"),
+       Column("payload", "JSONB", False, doc="the full persona record"),
+       Column("content_sha256", "TEXT", False, doc="hash of payload; differs if a persona was edited"),
+       reference=True),
     _t("inputs", ["input_id"], "Structured inputs the prompts are built from (e.g. a card draw).",
        Column("input_id", "TEXT", False),
        RUN,
        Column("input_index", "INTEGER", False, doc="position within the run"),
        Column("input_type", "TEXT", False, doc="e.g. celtic_cross_draw"),
        Column("payload", "JSONB", False, doc="the input itself, e.g. {position: card state}"),
+       Column("persona_id", "TEXT", True, "personas(persona_id)", "who the prompt is written for; NULL = none"),
        Column("created_at", "TIMESTAMPTZ", False)),
     _t("input_items", ["input_id", "item_index"], "Long form of inputs: one row per labelled element.",
        Column("input_id", "TEXT", False, "inputs(input_id)"),
@@ -80,11 +98,28 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("value", "TEXT", False, doc="full value, e.g. 'Death reversed'"),
        Column("entity", "TEXT", doc="value without qualifiers, e.g. 'Death'"),
        Column("qualifier", "TEXT", doc="e.g. 'reversed' / 'upright'")),
+    _t("prompt_templates", ["template_sha256"],
+       "Prompt template versions used by runs: the exact text behind each rendered prompt.",
+       Column("template_sha256", "TEXT", False, doc="hash of name, version and template text"),
+       Column("template_id", "TEXT", False, doc="<name>_v<version>, e.g. celtic_cross_v2"),
+       Column("name", "TEXT", False),
+       Column("version", "INTEGER", False),
+       Column("system_template", "TEXT"),
+       Column("user_template", "TEXT", False),
+       Column("required", "JSONB", False, doc="variables that must be supplied"),
+       Column("optional", "JSONB", False, doc="variables that may be omitted, e.g. persona"),
+       Column("description", "TEXT"),
+       Column("changes", "TEXT", doc="what changed from the previous version, and why"),
+       Column("based_on", "TEXT", doc="template_id this version was derived from"),
+       Column("status", "TEXT", doc="locked | draft at the time of the run"),
+       reference=True),
     _t("prompts", ["prompt_id"], "Rendered prompts (one input can have several templates).",
        Column("prompt_id", "TEXT", False),
        Column("input_id", "TEXT", False, "inputs(input_id)"),
        RUN,
-       Column("template", "TEXT", False, doc="template name incl. version, e.g. celtic_cross_v1"),
+       Column("template", "TEXT", False, doc="template id, e.g. celtic_cross_v1"),
+       Column("template_sha256", "TEXT", True, "prompt_templates(template_sha256)",
+              "exact template content used (NULL for schema version 1 runs)"),
        Column("system", "TEXT"),
        Column("user_text", "TEXT", False),
        Column("messages", "JSONB", False, doc="exact message list sent"),

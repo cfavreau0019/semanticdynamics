@@ -1,0 +1,42 @@
+name = "ner_coref"
+version = 1
+description = "Extract entity mentions from a text and group them into coreference clusters, as JSON."
+changes = "Initial version: the prompt from sandbox/population_generator.ipynb."
+tags = ["extraction", "json"]
+
+# text: the passage to annotate
+required = ["text"]
+
+# The JSON example sits in a raw block so its braces are never read as template syntax.
+[template]
+user = '''
+You are an information extraction system. Given the text below, identify all entity mentions and group them into coreference clusters.
+
+Instructions:
+1. Find every mention that refers to a real-world entity - this includes proper nouns (e.g., "John Smith"), definite noun phrases (e.g., "the patient", "the company"), and pronouns (e.g., "he", "it", "they").
+2. Assign each mention a character start/end offset within the text.
+3. Group mentions that refer to the same real-world entity into a single cluster.
+4. For each cluster, assign an entity type from this list: PERSON, ORGANIZATION, LOCATION, ROLE, DATE, OTHER.
+5. Within each cluster, pick the most specific/informative mention as the "canonical_name".
+6. Return ONLY valid JSON, no preamble, no markdown code fences, matching this schema:
+
+{% raw %}
+{
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "entity_type": "PERSON",
+      "canonical_name": "John Smith",
+      "mentions": [
+        {"text": "John Smith", "start": 0, "end": 10}
+      ]
+    }
+  ]
+}
+{% endraw %}
+
+Text:
+<<<START_TEXT>>>
+{{ text }}
+<<<END_TEXT>>>
+'''
