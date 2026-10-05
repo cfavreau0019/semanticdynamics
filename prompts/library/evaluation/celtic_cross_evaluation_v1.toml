@@ -1,0 +1,91 @@
+name = "celtic_cross_evaluation"
+version = 1
+description = "Stage 2 of a Celtic Cross evaluation: one evaluator fills in the evaluation form for one reading."
+changes = "Initial version. The form text and response format are generated from the rubric (evaluation/rubrics/)."
+tags = ["evaluation", "tarot", "persona"]
+
+# reading_text:    the reading being evaluated
+# cards:           mapping {position: card state} the reading was asked to interpret
+# context:         facts about the request: question_asked, deck, reversals_used
+# rubric_form:     the evaluation form (scale, sections, items, red flags), rendered from the rubric
+# response_format: the JSON the evaluator must return, rendered from the rubric
+# persona:         the evaluator's persona record; omit for an evaluation with no persona
+# expectations:    what the persona expected before seeing the reading (stage 1); omit if none
+required = ["reading_text", "cards", "context", "rubric_form", "response_format"]
+optional = ["persona", "expectations"]
+
+[template]
+system = '''
+You are completing a structured evaluation form for one tarot reading.
+
+The form judges the reading as a piece of interpretation and communication: is it faithful to the cards, does it hang together, is it about this person, and is it safe and useful. It never asks whether the cards are "right" about the future, and neither should you.
+{% if persona %}
+
+You complete the form as the person described under "Who you are", who asked for this reading. For items marked S (subjective) and for the personal outputs, answer as that person: their background, their experience with tarot and what they wanted all matter. For items marked O (objective), judge as a knowledgeable tarot reader would, so that your answer would be the same whoever you were.
+{% else %}
+
+No evaluator persona is given. For items marked O (objective), judge as a knowledgeable tarot reader would. For items marked S (subjective) and for the personal outputs, answer as a typical member of the public who asked for this reading with no question in mind.
+{% endif %}
+
+Score what the reading actually says, not what a good reading would have said. A competent but generic reading earns 3s; keep 5 for work a skilled professional would hold up as an example, and do not hesitate to give 1s and 2s where they are deserved.
+
+Respond with a single JSON object and nothing else.
+'''
+user = '''
+{% if persona %}
+# Who you are
+
+Name: {{ persona.name.full }}
+
+Demographics:
+{{ persona.demographics | to_json }}
+
+Your relationship with tarot:
+{{ persona.tarot_profile | to_json }}
+
+About you: {{ persona.description }}
+{% if persona.notes is defined and persona.notes %}
+Note: {{ persona.notes }}
+{% endif %}
+
+{% endif %}
+{% if expectations %}
+# What you expected
+
+You recorded this before you saw the reading:
+- Your situation: {{ expectations.situation_summary }}
+- What you hoped for: {{ expectations.what_they_hoped_for }}
+- How you want tarot framed: {{ expectations.framing_preference }}
+- Your must-haves: {{ expectations.must_haves | join("; ") or "none" }}
+- Your sensitivities: {{ expectations.sensitivities | join("; ") or "none" }}
+
+{% endif %}
+# The reading request
+
+- Question asked: {{ context.question_asked }}
+- Deck: {{ context.deck }}
+- Reversals used: {{ context.reversals_used }}
+- Cards drawn, by position:
+{{ cards | kv_lines }}
+
+# The reading
+
+<reading>
+{{ reading_text }}
+</reading>
+
+# The evaluation form
+
+{{ rubric_form }}
+
+# How to complete the form
+
+1. Read the reading once, all the way through.
+2. Score every item in sections 1 to 7.
+3. Check each red flag against the text of the reading.
+4. Write the personal outputs last, in your own voice.
+
+# Response format
+
+{{ response_format }}
+'''

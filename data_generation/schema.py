@@ -19,11 +19,13 @@ Schema versions
   1  initial
   2  prompt_templates and personas reference tables; inputs.persona_id; prompts.template_sha256
      (all new columns are nullable, so version 1 runs load unchanged)
+  3  evaluation tables: rubrics (reference), persona_expectations, evaluations,
+     evaluation_item_scores, evaluation_red_flags (new tables only; earlier runs load unchanged)
 """
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -190,6 +192,70 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("label", "TEXT"),
        Column("message", "TEXT"),
        Column("data", "JSONB")),
+
+    # ---- evaluation (written by the `evaluation` package; an evaluation run is a normal run whose
+    #      responses are an evaluator's answers) -------------------------------------------------
+    _t("rubrics", ["rubric_sha256"], "Rubric versions used by evaluation runs: the full form definition.",
+       Column("rubric_sha256", "TEXT", False, doc="hash of the rubric file's content"),
+       Column("rubric_id", "TEXT", False, doc="<name>_v<version>, e.g. celtic_cross_reading_v1"),
+       Column("name", "TEXT", False),
+       Column("version", "INTEGER", False),
+       Column("title", "TEXT"),
+       Column("definition", "JSONB", False, doc="scale, sections, items, red flags, grades, outputs"),
+       reference=True),
+    _t("persona_expectations", ["response_id"],
+       "What a persona expected before seeing the thing evaluated (recorded first, so hindsight can't colour it).",
+       Column("response_id", "TEXT", False, "responses(response_id)", "the response these were parsed from"),
+       RUN,
+       Column("persona_id", "TEXT", False, "personas(persona_id)"),
+       Column("context", "JSONB", doc="what the persona was told they were about to receive, e.g. the question"),
+       Column("situation_summary", "TEXT"),
+       Column("what_they_hoped_for", "TEXT"),
+       Column("framing_preference", "TEXT", doc="predictive | reflective | creative | no_preference"),
+       Column("must_haves", "JSONB"),
+       Column("sensitivities", "JSONB")),
+    _t("evaluations", ["evaluation_id"],
+       "One completed evaluation form: a subject (e.g. a reading) scored against a rubric by one evaluator.",
+       Column("evaluation_id", "TEXT", False),
+       RUN,
+       Column("response_id", "TEXT", False, "responses(response_id)", "the evaluator's answer this was parsed from"),
+       Column("request_id", "TEXT", False, "requests(request_id)"),
+       Column("subject_type", "TEXT", False, doc="what was evaluated, e.g. tarot_reading"),
+       Column("subject_response_id", "TEXT", False,
+              doc="responses.response_id of the evaluated output, in the run that generated it (subject_run_id)"),
+       Column("subject_run_id", "TEXT", doc="run that generated the subject"),
+       Column("persona_id", "TEXT", True, "personas(persona_id)", "evaluator persona; NULL = no persona"),
+       Column("evaluator_type", "TEXT", False, doc="llm | human | human_as_persona"),
+       Column("rubric_id", "TEXT", False),
+       Column("rubric_sha256", "TEXT", False, "rubrics(rubric_sha256)"),
+       Column("expectations", "JSONB", doc="the persona's expectations the evaluator was given"),
+       Column("section_scores", "JSONB", False, doc="{section key: average on the rubric scale}"),
+       Column("score_before_caps", "DOUBLE PRECISION", False),
+       Column("cap_applied", "DOUBLE PRECISION", doc="red-flag cap that lowered the total; NULL if none did"),
+       Column("total_score", "DOUBLE PRECISION", False, doc="0-100 after caps, one decimal"),
+       Column("grade", "TEXT", False),
+       Column("n_red_flags", "INTEGER", False),
+       Column("outputs", "JSONB", doc="the rubric's qualitative outputs, e.g. persona_reaction, felt_seen"),
+       Column("subject_length_words", "INTEGER"),
+       Column("evaluated_at", "TIMESTAMPTZ", False)),
+    _t("evaluation_item_scores", ["evaluation_id", "item_key"], "One row per scored rubric item.",
+       Column("evaluation_id", "TEXT", False, "evaluations(evaluation_id)"),
+       RUN,
+       Column("item_key", "TEXT", False, doc="item id, or <item id>.<n> for per-label items, e.g. 2a.3"),
+       Column("item_id", "TEXT", False),
+       Column("section_key", "TEXT", False),
+       Column("item_type", "TEXT", False, doc="O = objective, S = subjective"),
+       Column("label", "TEXT", doc="the label a per-label score refers to, e.g. the position"),
+       Column("score", "INTEGER", doc="NULL when N/A"),
+       Column("is_na", "BOOLEAN", False),
+       Column("justification", "TEXT")),
+    _t("evaluation_red_flags", ["evaluation_id", "flag_id"], "Red flags an evaluation raised.",
+       Column("evaluation_id", "TEXT", False, "evaluations(evaluation_id)"),
+       RUN,
+       Column("flag_id", "TEXT", False),
+       Column("severity", "TEXT"),
+       Column("cap", "DOUBLE PRECISION"),
+       Column("quote", "TEXT", doc="the offending passage, quoted from the subject")),
 ]}
 
 

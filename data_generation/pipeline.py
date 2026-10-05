@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider, retry_invalid, run_batch_results
 from llm.batch import wait_for_batch
-from data_generation.schema import SCHEMA_VERSION
+from data_generation.schema import SCHEMA_VERSION, TABLES
 from data_generation.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
 from personas import SAMPLING_MODES, PersonaSet
 from prompts import PromptLibrary, PromptTemplate, default_library
@@ -53,9 +53,29 @@ class Application(ABC):
         """
         return {"input": payload, "persona": persona}
 
+    def assign_personas(self, payloads: list[dict], people: PersonaSet, rng: random.Random,
+                        mode: str) -> list[Optional[dict]]:
+        """One persona (or None) per payload. Override to control the pairing, e.g. distinct personas per subject."""
+        return people.sample(rng, len(payloads), mode)
+
     def input_items(self, payload: dict) -> list[dict]:
         """Long-form rows (label, value, entity, qualifier) for input_items; optional."""
         return []
+
+    def reference_rows(self) -> dict[str, list[dict]]:
+        """Rows for reference tables this application uses (e.g. its rubric), written when a run is prepared."""
+        return {}
+
+    def validation_expected(self, metadata: dict) -> Any:
+        """What the validator compares a response against (`expected`); default: the input payload."""
+        return metadata.get(INPUT_KEY)
+
+    def derived_rows(self, response: ChatResponse, response_id: str) -> dict[str, list[dict]]:
+        """
+        Extra table rows computed from a finished request's returned response, e.g. parsed
+        scores: {table: [rows]}. Called once per request after its responses are written.
+        """
+        return {}
 
     def validator(self):
         """A validation.Validator whose `expected` is the input payload, or None."""
@@ -140,7 +160,12 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
     rng = random.Random(config.seed)
     payloads = app.sample_inputs(config.n, rng)
     # personas are drawn after the inputs, so a seed gives the same inputs with or without them
-    assigned = people.sample(rng, len(payloads), config.persona_sampling) if people else [None] * len(payloads)
+    if people:
+        assigned = app.assign_personas(payloads, people, rng, config.persona_sampling)
+    else:
+        assigned = [None] * len(payloads)
+    if len(assigned) != len(payloads):
+        raise ValueError("assign_personas must return one entry per payload")
 
     store = RunStore.create(root)
     sha, dirty = code_version()
@@ -161,8 +186,10 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
         "based_on": t.based_on, "status": library.status(t),
     } for t in templates])
     if people:
-        used = {p["id"]: p for p in assigned}
+        used = {p["id"]: p for p in assigned if p is not None}
         store.append("personas", [people.row(p) for p in used.values()])
+    for table, rows in app.reference_rows().items():
+        store.append(table, rows)
 
     request_mode = "batch" if config.mode == "batch" else "live"
     inputs, items, prompts, request_rows, requests = [], [], [], [], []
@@ -272,7 +299,8 @@ def _attempt_rows(store: RunStore, request_id: str, attempt: int, *, text, model
     return rows
 
 
-def write_response(store: RunStore, response: ChatResponse, previous_attempts: int = 0) -> None:
+def write_response(store: RunStore, response: ChatResponse, previous_attempts: int = 0,
+                   app: Optional[Application] = None) -> None:
     """
     Write every attempt of a finished request: failed attempts first, the returned response
     last, numbered previous_attempts+1 .. previous_attempts+response.attempts (so a request
@@ -290,6 +318,16 @@ def write_response(store: RunStore, response: ChatResponse, previous_attempts: i
             tables[table] += r
     for table in ("responses", "response_texts", "validations", "validation_issues"):
         store.append(table, tables[table])
+    if app is not None and response.ok:
+        returned_id = f"{response.request_id}-a{previous_attempts + response.attempts}"
+        try:
+            derived = app.derived_rows(response, returned_id)
+        except Exception as e:  # the response itself is already saved; don't lose the run over a parser bug
+            warnings.warn(f"derived_rows failed for {returned_id}: {type(e).__name__}: {e}")
+            derived = {}
+        for table, rows in derived.items():  # the application needn't know the run id
+            has_run_id = "run_id" in TABLES[table].column_names
+            store.append(table, [{**r, "run_id": store.run_id} if has_run_id else r for r in rows])
 
 
 def final_responses(store: RunStore) -> dict[str, dict]:
@@ -326,7 +364,11 @@ def _validate_fn(app: Application, config: GenerationConfig):
     if validator is None:
         return None
     from validation import response_validator
-    return response_validator(validator, expected=INPUT_KEY)
+
+    def expected(response, request):
+        return app.validation_expected(response.metadata or (request.metadata if request is not None else {}))
+
+    return response_validator(validator, expected=expected)
 
 
 def run_live(store: RunStore, app: Application, requests: Optional[list[ChatRequest]] = None,
@@ -347,7 +389,7 @@ def run_live(store: RunStore, app: Application, requests: Optional[list[ChatRequ
     try:
         generate_many(pending, provider=_provider_for(store, config), max_workers=config.max_workers,
                       validate=_validate_fn(app, config), validation_retries=config.validation_retries,
-                      on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0)),
+                      on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0), app),
                       progress=progress)
     except BaseException:
         store.update_run(status="interrupted", summary=summarize(store))
@@ -410,7 +452,7 @@ def collect_batch(store: RunStore, app: Application, wait: bool = False, progres
                                   on_batch=lambda j, rnd: record_batch(store, j, rnd))
     offsets = _attempt_offsets(store)
     for r in responses:
-        write_response(store, r, offsets.get(r.request_id, 0))
+        write_response(store, r, offsets.get(r.request_id, 0), app)
     for b in store.read("batches"):
         record_batch(store, BatchJob(b["batch_id"], b["provider"], b["status"], b["raw_status"], b["endpoint"],
                                      request_counts=b["request_counts"] or {}, input_file=b["input_file"]),

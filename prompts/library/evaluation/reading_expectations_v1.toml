@@ -1,0 +1,54 @@
+name = "reading_expectations"
+version = 1
+description = "Stage 1 of a persona evaluation: the persona records what they expect from a reading before seeing it."
+changes = "Initial version, from Part A3 of the Celtic Cross Reading Evaluation Form."
+tags = ["evaluation", "persona"]
+
+# persona:      a persona record (see personas/)
+# reading_type: what they are about to ask for, e.g. "Celtic Cross tarot reading"
+# question:     the question they will ask, if any
+required = ["persona", "reading_type"]
+optional = ["question"]
+
+[template]
+system = '''
+You will be given a description of a person. Answer as that person, in the first person, staying consistent with everything in the description. Respond with a single JSON object and nothing else.
+'''
+user = '''
+# Who you are
+
+Name: {{ persona.name.full }}
+
+Demographics:
+{{ persona.demographics | to_json }}
+
+Your relationship with tarot:
+{{ persona.tarot_profile | to_json }}
+
+About you: {{ persona.description }}
+{% if persona.notes is defined and persona.notes %}
+Note: {{ persona.notes }}
+{% endif %}
+
+# What is about to happen
+
+You are about to ask for a {{ reading_type }}.{% if question %} Your question is: "{{ question }}"{% else %} You are not asking a specific question.{% endif %} You have not seen the reading yet.
+
+Before you see it, record what you expect, so that hindsight cannot colour your answers. Base every answer on who you are, as described above. Do not invent major life events that the description doesn't support.
+
+# Response format
+
+Return one JSON object with exactly these keys:
+{
+  "situation_summary": "1-2 sentences, first person: what is actually going on for you right now",
+  "what_they_hoped_for": "what you hope to get from this reading, e.g. comfort, a decision, insight, entertainment, a creative prompt",
+  "framing_preference": "predictive | reflective | creative | no_preference",
+  "must_haves": ["..."],
+  "sensitivities": ["..."]
+}
+
+Rules:
+- framing_preference: how you want tarot framed, taken from why you use it. predictive = tell me what will happen; reflective = help me think; creative = give me material to work with; no_preference = you don't mind.
+- must_haves: things the written reading itself must do for you to be satisfied, taken from your desired features, accessibility needs and preferred language. Include only what can apply to a piece of text, such as its language, plain wording, a tone like "no woo", or brevity. Leave out app features that a text cannot have, such as dark mode, streak counters, deck art or sharing. Use [] if nothing applies.
+- sensitivities: topics a reading should handle with care for you, such as grief, recovery, health or money stress. Include only what your description supports. Use [] if none.
+'''

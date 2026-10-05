@@ -108,7 +108,7 @@ runs ─┬─< inputs ─┬─< input_items
   - *Append-only* (most tables) are only ever appended to.
   - *Mutable* (`runs`, `batches`, both small) are rewritten atomically when a status changes. Load them with upsert-by-primary-key.
 - **Reference tables** (`prompt_templates`, `personas`) describe things shared between runs, so they have no `run_id`. Each run's file holds the rows that run used, and the same row appears in every run that used it. Load them with `ON CONFLICT DO NOTHING`, or de-duplicate on the primary key.
-- **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. When querying files from both versions together in DuckDB, pass `union_by_name=true` to `read_json`.
+- **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. Version 3 added the evaluation tables (`rubrics`, `persona_expectations`, `evaluations`, `evaluation_item_scores`, `evaluation_red_flags`), which are written by the [evaluation](../evaluation/README.md) package. When querying files from both versions together in DuckDB, pass `union_by_name=true` to `read_json`.
 - **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m data_generation.schema > data_generation/schema.sql`.
 - **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table except the reference tables carries `run_id`, so runs can be combined, deleted or partitioned as units.
 - **JSON columns (JSONB)** hold nested JSON, not strings. Timestamps are ISO-8601 UTC.
@@ -161,6 +161,11 @@ Subclass `pipeline.Application`:
 - `sample_inputs(n, rng)` returns a list of payload dicts;
 - `default_template` (and optionally `persona_template`) name templates in the prompts library;
 - `template_variables(payload, persona)` returns the variables those templates use;
-- optionally `input_items(payload)`, `validator()` and `options()`.
+- optionally `input_items(payload)`, `validator()` and `options()`;
+- optionally, for richer applications such as evaluation:
+  - `assign_personas(...)` controls persona pairing;
+  - `reference_rows()` supplies reference-table rows written at preparation;
+  - `validation_expected(metadata)` sets what the validator compares against;
+  - `derived_rows(response, response_id)` supplies extra tables parsed from responses.
 
 `prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged. `tarot.py` is the reference implementation.

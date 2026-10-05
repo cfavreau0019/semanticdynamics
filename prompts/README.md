@@ -4,11 +4,12 @@ Versioned prompt templates, independent of any one task. A template is a text fi
 
 ```
 prompts/
-  template.py     PromptTemplate, RenderedPrompt, filters (kv_lines, bullets, numbered)
+  template.py     PromptTemplate, RenderedPrompt, filters (kv_lines, bullets, numbered, to_json)
   library.py      PromptLibrary: loads the TOML files, resolves versions, enforces the lock
   __main__.py     python -m prompts list | show | diff | render | verify | lock
   library/
     tarot/celtic_cross_v1.toml, celtic_cross_v2.toml, spread_v1.toml
+    evaluation/celtic_cross_evaluation_v1.toml, reading_expectations_v1.toml
     extraction/ner_coref_v1.toml
     prompts.lock.json          {template_id: content hash} for versions that must not change
 ```
@@ -64,6 +65,7 @@ Filters turn structured values into text:
 - `kv_lines`: mapping → `key: value` lines
 - `bullets`: list → `- item`
 - `numbered`: list → `1. item`
+- `to_json`: any nested value → indented JSON
 - your own, via `prompts.register_filter(name, fn)`
 
 **Rendering is strict.** A prompt that silently renders a blank corrupts a dataset, so these all raise `PromptError`:

@@ -47,9 +47,14 @@ def numbered(items) -> str:
     return "\n".join(f"{n}. {i}" for n, i in enumerate(items, 1))
 
 
+def to_json(value, indent: int = 2) -> str:
+    """Readable JSON for a nested value (unlike Jinja's built-in tojson, no HTML escaping)."""
+    return json.dumps(value, indent=indent, ensure_ascii=False)
+
+
 _env = SandboxedEnvironment(undefined=StrictUndefined, trim_blocks=True, lstrip_blocks=True,
                             keep_trailing_newline=False, autoescape=False)
-_env.filters.update(kv_lines=kv_lines, bullets=bullets, numbered=numbered)
+_env.filters.update(kv_lines=kv_lines, bullets=bullets, numbered=numbered, to_json=to_json)
 
 
 def register_filter(name: str, fn: Callable) -> None:
