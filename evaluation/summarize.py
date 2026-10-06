@@ -361,7 +361,7 @@ def summarize(variables: Mapping[str, Any], provider: str = DEFAULT_PROVIDER, mo
             "finish_reason": response.finish_reason, "template": prompt.template_id,
             "template_sha256": prompt.template_sha256, "params": params, "messages": prompt.messages,
             "usage": {"prompt_tokens": usage.prompt_tokens, "completion_tokens": usage.completion_tokens,
-                      "total_tokens": usage.total_tokens} if usage else None}
+                      "total_tokens": usage.total_tokens, "cached_tokens": usage.cached_tokens} if usage else None}
 
 
 def _slug(text: str) -> str:

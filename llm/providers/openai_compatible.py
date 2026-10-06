@@ -43,10 +43,13 @@ def _usage(u: Any) -> Optional[Usage]:
     if u is None:
         return None
     get = u.get if isinstance(u, dict) else lambda k, d=0: getattr(u, k, d)
+    details = get("prompt_tokens_details", None)      # absent on providers that don't report caching
+    cached = (details.get("cached_tokens") if isinstance(details, dict) else getattr(details, "cached_tokens", 0))
     return Usage(
         prompt_tokens=get("prompt_tokens", 0) or 0,
         completion_tokens=get("completion_tokens", 0) or 0,
         total_tokens=get("total_tokens", 0) or 0,
+        cached_tokens=cached or 0,
     )
 
 

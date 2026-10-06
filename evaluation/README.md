@@ -16,7 +16,7 @@ evaluation/
   rubrics/celtic_cross_reading_v1.toml    the Celtic Cross Reading Evaluation Form as data
 ```
 
-Prompts are in the prompts library, under `prompts/library/evaluation/`: `celtic_cross_evaluation_v1.toml`, `reading_expectations_v1.toml` and `evaluation_summary_v1.toml`.
+Prompts are in the prompts library, under `prompts/library/evaluation/`: `celtic_cross_evaluation_v2.toml` (the default; `_v1` is the earlier order), `reading_expectations_v1.toml` and `evaluation_summary_v1.toml`.
 
 ## Evaluating Celtic Cross readings
 
@@ -94,6 +94,17 @@ Deviations from the form, all in `celtic_cross_reading_v1.toml` or the prompt:
 - **N/A on 7.4.** The form allows N/A only on 1.2; without must-haves, 7.4 has nothing to score.
 - **"The person", not "the persona".** Item texts were reworded so the same form reads correctly with or without a persona.
 - **A calibration line.** The evaluation prompt adds a sentence saying a competent but generic reading earns 3s.
+
+### Prompt caching
+
+A provider's prompt (KV) cache reuses the longest beginning a prompt shares with an earlier one, so the evaluation prompt is ordered from least to most variable:
+1. the form, how to complete it and the response format (identical for every request of a run);
+2. the reading request and the reading (shared by the personas evaluating that reading);
+3. the persona and their expectations.
+
+That is `celtic_cross_evaluation_v2`, the default. `celtic_cross_evaluation_v1` has the same wording with the persona first and the form last, which leaves almost nothing to reuse; pass `--template celtic_cross_evaluation_v1` to reproduce earlier runs. Scores from the two are not strictly comparable, because the evaluator reads the form before the reading in v2.
+
+Every response records `cached_tokens`, the part of its prompt tokens the provider served from cache, and `status` shows the run's total. Providers that don't report it count as 0.
 
 ### Running without expectations
 

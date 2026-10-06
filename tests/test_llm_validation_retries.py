@@ -60,7 +60,8 @@ def test_merge_retry_success_and_error():
     merged = merge_retry(first, second)
     assert merged is second and merged.attempts == 2
     assert merged.failed_attempts == [{"text": "bad", "finish_reason": None, "validation": {"passed": False},
-                                       "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+                                       "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3,
+                                                     "cached_tokens": 0},
                                        "error": None, "model": None, "batch_id": None}]
     errored = merge_retry(merged, ChatResponse("a", None, error="boom"))
     assert errored is second and errored.attempts == 3

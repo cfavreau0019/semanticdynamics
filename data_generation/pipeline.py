@@ -279,7 +279,8 @@ def _attempt_rows(store: RunStore, request_id: str, attempt: int, *, text, model
                        "attempt": attempt, "batch_id": batch_id, "model": model,
                        "finish_reason": finish_reason, "error": error,
                        "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
-                       "total_tokens": usage.get("total_tokens"), "received_at": utc_now()}],
+                       "total_tokens": usage.get("total_tokens"), "cached_tokens": usage.get("cached_tokens"),
+                       "received_at": utc_now()}],
         "response_texts": [{"response_id": response_id, "run_id": store.run_id, "text": text,
                             "n_chars": len(text) if text is not None else None}],
         "validations": [], "validation_issues": [],
@@ -467,7 +468,7 @@ def summarize(store: RunStore) -> dict:
     validations = {v["response_id"]: v for v in store.read("validations")}
     final = [r for r in final_responses(store).values() if r["error"] is None]
     passed = [validations.get(r["response_id"], {}).get("passed") for r in final]
-    tokens = lambda key: sum(r[key] or 0 for r in responses)
+    tokens = lambda key: sum(r.get(key) or 0 for r in responses)    # .get: columns added later
     requests = store.read("requests")
     n_requests = len(requests)
 
@@ -501,6 +502,7 @@ def summarize(store: RunStore) -> dict:
         "prompt_tokens": tokens("prompt_tokens"),
         "completion_tokens": tokens("completion_tokens"),
         "total_tokens": tokens("total_tokens"),
+        "cached_tokens": tokens("cached_tokens"),
     }
 
 

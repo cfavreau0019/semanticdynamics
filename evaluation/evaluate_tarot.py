@@ -121,7 +121,8 @@ def build_parser() -> argparse.ArgumentParser:
                                                             "first for the personas in scope)")
     e.add_argument("--no-expectations", action="store_true", help="skip stage 1; evaluators get no expectations")
     e.add_argument("--rubric", help="rubric reference (default: celtic_cross_reading_v1)")
-    e.add_argument("--template", help="evaluation prompt template (default: celtic_cross_evaluation_v1)")
+    e.add_argument("--template", help="evaluation prompt template (default: celtic_cross_evaluation_v2, ordered for prompt caching; "
+                                        "celtic_cross_evaluation_v1 is the earlier order)")
     e.add_argument("--mode", choices=["live", "batch"], default="live")
     e.add_argument("--wait", action="store_true", help="batch mode: wait for the batch and collect it")
     e.add_argument("--no-validate", action="store_true", help="skip answer validation (and retries)")
@@ -184,7 +185,8 @@ def print_summary(store: RunStore, summary: dict) -> None:
     print(f"\nrun {store.run_id}  [{run['status']}]  {run['application']}  {run['provider']}/"
           f"{run['model'] or '(default model)'}{'  dataset=' + run['dataset'] if run.get('dataset') else ''}")
     print(f"  tables: {store.dir}")
-    for k in ("n_requests", "n_finished", "n_api_errors", "n_valid", "n_invalid", "n_regenerated", "total_tokens"):
+    for k in ("n_requests", "n_finished", "n_api_errors", "n_valid", "n_invalid", "n_regenerated", "total_tokens",
+              "cached_tokens"):
         print(f"  {k:>14}: {summary.get(k)}")
     for line in score_report(store):
         print(line)
