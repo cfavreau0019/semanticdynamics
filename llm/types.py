@@ -81,15 +81,22 @@ class ChatRequest:
 
 @dataclass
 class Usage:
+    """
+    cached_tokens — how many of prompt_tokens the provider served from its prompt (KV) cache,
+                    because the prompt began like an earlier one. 0 when the provider reports
+                    none, or does not report them.
+    """
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    cached_tokens: int = 0
 
     def __add__(self, other: "Usage") -> "Usage":
         return Usage(
             self.prompt_tokens + other.prompt_tokens,
             self.completion_tokens + other.completion_tokens,
             self.total_tokens + other.total_tokens,
+            self.cached_tokens + other.cached_tokens,
         )
 
 

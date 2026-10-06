@@ -21,11 +21,12 @@ Schema versions
      (all new columns are nullable, so version 1 runs load unchanged)
   3  evaluation tables: rubrics (reference), persona_expectations, evaluations,
      evaluation_item_scores, evaluation_red_flags (new tables only; earlier runs load unchanged)
+  4  responses.cached_tokens (nullable; earlier runs load unchanged and count as 0 cached)
 """
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,7 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("prompt_tokens", "INTEGER"),
        Column("completion_tokens", "INTEGER"),
        Column("total_tokens", "INTEGER"),
+       Column("cached_tokens", "INTEGER", doc="part of prompt_tokens served from the provider's prompt cache"),
        Column("received_at", "TIMESTAMPTZ", False, doc="when the row was written")),
     _t("response_texts", ["response_id"], "Generated text, kept apart from the narrow metadata table.",
        Column("response_id", "TEXT", False, "responses(response_id)"),

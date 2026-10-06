@@ -126,6 +126,21 @@ def test_check_row():
 
 
 # ---- store ------------------------------------------------------------------------------
+def test_run_ids_name_the_task_then_the_time(tmp_path, scripted):
+    from data_generation.store import new_run_id
+    assert re.fullmatch(r"run_tarot_celtic_cross_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id("tarot_celtic_cross"))
+    assert re.fullmatch(r"run_my_task_2_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id("My Task/2"))     # made folder-safe
+    assert re.fullmatch(r"run_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id())                          # the old form
+    store, _ = prepare_run(TarotReadings(), config(n=1, mode="dry_run"), root=tmp_path)
+    assert store.run_id.startswith("run_tarot_celtic_cross_2") and store.run()["run_id"] == store.run_id
+    assert store.dir.name == store.run_id and all(r["run_id"] == store.run_id for r in store.read("inputs"))
+    # runs created under the old naming are still found, and listing is by start time, not by name
+    old = RunStore.create(tmp_path, run_id="run_20200101_000000_abcdef")
+    old.upsert("runs", [{**store.run(), "run_id": old.run_id, "created_at": "2020-01-01T00:00:00+00:00"}])
+    assert [r["run_id"] for r in list_runs(tmp_path)] == [old.run_id, store.run_id]
+    assert RunStore.open(old.run_id, tmp_path).run()["run_id"] == old.run_id
+
+
 def test_store_append_upsert_read(tmp_path):
     s = RunStore.create(tmp_path, run_id="run_test")
     s.append("response_texts", [{"response_id": "a", "run_id": "run_test", "text": "é"}])

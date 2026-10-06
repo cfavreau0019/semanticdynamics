@@ -3,7 +3,8 @@ Celtic Cross reading evaluation: the tarot-specific configuration of EvaluationA
 
 Rubric:   evaluation/rubrics/celtic_cross_reading_v1.toml (the Celtic Cross Reading
           Evaluation Form)
-Prompts:  prompts/library/evaluation/celtic_cross_evaluation_v1.toml (stage 2: scoring)
+Prompts:  prompts/library/evaluation/celtic_cross_evaluation_v2.toml (stage 2: scoring; v1 is the
+          same wording in an order that a prompt cache cannot reuse)
           prompts/library/evaluation/reading_expectations_v1.toml    (stage 1: Part A3)
 
 Tarot-specific facts supplied here:
@@ -27,7 +28,7 @@ class CelticCrossEvaluation(EvaluationApplication):
     name = "celtic_cross_evaluation"
     subject_type = "tarot_reading"
     rubric_ref = "celtic_cross_reading_v1"
-    default_template = persona_template = "celtic_cross_evaluation_v1"
+    default_template = persona_template = "celtic_cross_evaluation_v2"
 
     def labels(self, payload: dict) -> Labels:
         return {"positions": list(payload["subject_input"])}
