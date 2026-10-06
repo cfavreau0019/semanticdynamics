@@ -4,9 +4,9 @@ data/generations/<run_id>/ (see data_generation/README.md).
 
     python -m data_generation.generate_tarot generate --n 20 --provider featherless --max-tokens 2000
     python -m data_generation.generate_tarot generate --n 500 --provider openai --model gpt-4o-mini --mode batch
-    python -m data_generation.generate_tarot collect run_20261001_101500_ab12cd --wait
-    python -m data_generation.generate_tarot resume run_20261001_101500_ab12cd
-    python -m data_generation.generate_tarot status run_20261001_101500_ab12cd
+    python -m data_generation.generate_tarot collect run_tarot_celtic_cross_20261001_101500_ab12cd --wait
+    python -m data_generation.generate_tarot resume run_tarot_celtic_cross_20261001_101500_ab12cd
+    python -m data_generation.generate_tarot status run_tarot_celtic_cross_20261001_101500_ab12cd
     python -m data_generation.generate_tarot list [--dataset tarot-v1]
 
 Grow one dataset over several sessions by giving each run the same --dataset label:
@@ -225,7 +225,8 @@ def cmd_list(args) -> int:
         s = r["summary"] or {}
         for k in totals:
             totals[k] += s.get(k) or 0
-        print(f"{r['run_id']}  {r['status']:<11} {r['mode']:<7} {r['provider']}/{r['model'] or '-'}  "
+        print(f"{r['run_id']}  {r['status']:<11} {r['application']:<19} {r['mode']:<7} "
+              f"{r['provider']}/{r['model'] or '-'}  "
               f"{s.get('n_finished', 0)}/{s.get('n_requests', '?')} finished, {s.get('n_valid', 0)} valid"
               f"  dataset={r.get('dataset') or '-'}{'  ' + r['name'] if r['name'] else ''}")
     if args.dataset and runs:

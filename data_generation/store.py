@@ -7,6 +7,7 @@ Every row is checked against data_generation.schema before it is written.
 """
 import json
 import os
+import re
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -27,8 +28,15 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:16]}"
 
 
-def new_run_id() -> str:
-    return f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+def new_run_id(task: Optional[str] = None) -> str:
+    """
+    run_<task>_<YYYYMMDD>_<HHMMSS>_<6 hex>, e.g. run_celtic_cross_evaluation_20261005_142210_3fa9c1.
+    The task (the application's name) comes first so that run folders group by task and
+    sort by start time (UTC) within a task. Without a task: run_<YYYYMMDD>_<HHMMSS>_<6 hex>.
+    """
+    stamp = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    slug = re.sub(r"[^a-z0-9]+", "_", (task or "").lower()).strip("_")
+    return f"run_{slug}_{stamp}" if slug else f"run_{stamp}"
 
 
 def code_version() -> tuple[Optional[str], Optional[bool]]:
@@ -49,8 +57,10 @@ class RunStore:
         self.run_id = self.dir.name
 
     @classmethod
-    def create(cls, root: str | Path = DEFAULT_ROOT, run_id: Optional[str] = None) -> "RunStore":
-        run_dir = Path(root) / (run_id or new_run_id())
+    def create(cls, root: str | Path = DEFAULT_ROOT, run_id: Optional[str] = None,
+               task: Optional[str] = None) -> "RunStore":
+        """A new run directory: `run_id` if given, otherwise a fresh id naming the task."""
+        run_dir = Path(root) / (run_id or new_run_id(task))
         run_dir.mkdir(parents=True, exist_ok=False)
         return cls(run_dir)
 

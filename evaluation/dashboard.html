@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluation dashboard</title>
+<!-- Template for evaluation/dashboard.py, which replaces the data marker below. -->
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface-1: #fcfcfb; --surface-2: #f0efec;
+  --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --series-1: #2a78d6; --box-fill: #b7d3f6; --box-line: #1c5cab;
+  --seq-lo: #cde2fb; --seq-hi: #0d366b; --seq-ink-lo: #0b0b0b; --seq-ink-hi: #ffffff;
+  --g1: #86b6ef; --g2: #5598e7; --g3: #2a78d6; --g4: #1c5cab; --g5: #0d366b;
+  --critical: #d03b3b; --serious: #ec835a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --surface-2: #2c2c2a;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --box-fill: #184f95; --box-line: #86b6ef;
+    --seq-lo: #104281; --seq-hi: #b7d3f6; --seq-ink-lo: #ffffff; --seq-ink-hi: #0b0b0b;
+    --g1: #184f95; --g2: #256abf; --g3: #3987e5; --g4: #6da7ec; --g5: #9ec5f4;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text-primary);
+       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1320px; margin: 0 auto; padding: 0 20px 60px; }
+header.top { padding: 22px 0 6px; }
+h1 { font-size: 22px; margin: 0 0 2px; }
+h2 { font-size: 16px; margin: 0; }
+h3 { font-size: 13px; margin: 0 0 6px; color: var(--text-secondary); font-weight: 600; }
+.sub { color: var(--text-secondary); font-size: 13px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+main > * { min-width: 0; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+        margin-top: 16px; }
+.card > .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 12px; }
+.card > .head .sub { flex: 1 1 320px; }
+
+/* filters */
+.filters { position: sticky; top: 0; z-index: 20; background: var(--page); padding: 10px 0;
+           display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--border); }
+.ms { position: relative; }
+.ms > summary, button, select, input[type=search] {
+  font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--axis);
+  border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+.ms > summary { list-style: none; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms > summary::-webkit-details-marker { display: none; }
+.ms > summary::after { content: " ▾"; color: var(--muted); }
+.ms.on > summary { border-color: var(--series-1); box-shadow: inset 0 0 0 1px var(--series-1); }
+.ms .menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 260px; max-width: 420px;
+            max-height: 340px; overflow: auto; background: var(--surface-1); border: 1px solid var(--axis);
+            border-radius: 8px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.ms .menu label { display: flex; gap: 8px; align-items: baseline; padding: 3px 6px; border-radius: 5px; cursor: pointer; }
+.ms .menu label:hover { background: var(--surface-2); }
+.ms .menu label span { flex: 1; overflow-wrap: anywhere; }
+.ms .menu em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ms .menu input[type=search] { width: 100%; margin-bottom: 4px; cursor: text; }
+input[type=search] { cursor: text; }
+select { max-width: min(100%, 460px); }
+select:disabled { opacity: .45; cursor: not-allowed; }
+button:hover, .ms > summary:hover { background: var(--surface-2); }
+button.chip { border-radius: 999px; padding: 3px 11px; }
+button.chip.on { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
+button.chip .ord { font-size: 11px; opacity: .75; margin-right: 4px; }
+button.link { border: 0; background: none; padding: 0; color: var(--text-secondary); text-decoration: underline; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 12px; }
+.controls > * { max-width: 100%; }
+.controls .grp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.controls .lbl { color: var(--text-secondary); font-size: 13px; }
+
+/* tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 16px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .label { color: var(--text-secondary); font-size: 12px; }
+.tile .value { font-size: 26px; font-weight: 600; line-height: 1.2; }
+.tile .note { color: var(--text-secondary); font-size: 12px; }
+.gradebar { display: flex; gap: 2px; height: 10px; margin: 8px 0 5px; }
+.gradebar i { display: block; border-radius: 2px; min-width: 3px; }
+.gradekey { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--text-secondary); }
+.gradekey i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
+/* tables */
+.scroll { overflow: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 5px 8px; border-bottom: 1px solid var(--grid); vertical-align: middle; text-align: left; }
+th { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+thead th { position: sticky; top: 0; background: var(--surface-1); z-index: 2; }
+tr.sec td { background: var(--surface-2); font-weight: 600; font-size: 12.5px; }
+tr.click { cursor: pointer; }
+tr.click:hover td, tr.sel td { background: var(--surface-2); }
+td.name { max-width: 380px; }
+td.name .l1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.name .l2 { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+td.plotcell, th.plotcell { width: 44%; min-width: 260px; padding-left: 4px; padding-right: 4px; }
+.badge { display: inline-block; font-size: 11px; line-height: 1.5; padding: 0 6px; border-radius: 4px;
+         border: 1px solid var(--axis); color: var(--text-secondary); white-space: nowrap; }
+
+/* box plots (HTML, positioned by percent) */
+.plot, .axis { padding: 0 10px; }
+.plot-in { position: relative; height: 24px; }
+.plot.tall .plot-in { height: 44px; }
+.plot-in i { position: absolute; display: block; }
+.plot-in .grid { top: 0; bottom: 0; width: 1px; background: var(--grid); }
+.plot-in .whisker { top: 50%; height: 2px; margin-top: -1px; background: var(--box-line); }
+.plot-in .cap { top: 50%; width: 2px; height: 10px; margin: -5px 0 0 -1px; background: var(--box-line); }
+.plot-in .box { top: 50%; height: 14px; margin-top: -7px; background: var(--box-fill); border-radius: 3px; min-width: 2px; }
+.plot-in .median { top: 50%; width: 2px; height: 14px; margin: -7px 0 0 -1px; background: var(--box-line); }
+.plot-in .mean { top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; transform: rotate(45deg);
+                 background: var(--text-primary); box-shadow: 0 0 0 1.5px var(--surface-1); }
+.plot-in .dot { top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+                background: var(--series-1); box-shadow: 0 0 0 2px var(--surface-1); }
+.plot-in .dot:hover { transform: scale(1.5); z-index: 3; }
+.axis-in { position: relative; height: 16px; }
+.axis-in span { position: absolute; transform: translateX(-50%); font-size: 11px; font-weight: 400; color: var(--muted);
+                font-variant-numeric: tabular-nums; }
+.bands { position: relative; height: 18px; margin-top: 2px; }
+.bands span { position: absolute; top: 0; bottom: 0; font-size: 11px; text-align: center; color: var(--text-secondary);
+              background: var(--surface-2); border-left: 2px solid var(--surface-1); overflow: hidden; }
+.key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.key i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+.key .k-box { width: 18px; height: 10px; background: var(--box-fill); border-radius: 2px; border-right: 2px solid var(--box-line); }
+.key .k-mean { width: 7px; height: 7px; transform: rotate(45deg); background: var(--text-primary); }
+.key .k-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--series-1); }
+.key .k-line { width: 18px; height: 2px; background: var(--box-line); }
+
+/* heatmap */
+table.heat td.cell { text-align: center; font-variant-numeric: tabular-nums; border: 2px solid var(--surface-1);
+                     min-width: 70px; }
+table.heat th.col { white-space: normal; text-align: center; font-weight: 500; vertical-align: bottom; }
+.scale { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.scale i { display: block; width: 140px; height: 10px; border-radius: 3px;
+           background: linear-gradient(to right, var(--seq-lo), var(--seq-hi)); }
+
+/* text detail */
+#textpick { max-width: min(100%, 720px); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--text-secondary); margin: 4px 0 10px; }
+.meta b { color: var(--text-primary); font-weight: 600; }
+details.fold { border: 1px solid var(--grid); border-radius: 8px; margin: 8px 0; }
+details.fold > summary { padding: 7px 10px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.reading { max-height: 320px; overflow: auto; padding: 4px 14px 12px; white-space: pre-wrap; font-size: 13.5px; }
+.kv { padding: 2px 14px 10px; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 13px; }
+.kv dt { color: var(--text-secondary); } .kv dd { margin: 0; }
+.block { margin-top: 18px; }
+.comments { max-height: 520px; overflow: auto; border: 1px solid var(--grid); border-radius: 8px; }
+.comment { padding: 9px 12px; border-bottom: 1px solid var(--grid); }
+.comment .who { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 12px;
+                color: var(--text-secondary); margin-bottom: 3px; }
+.comment .who b { color: var(--text-primary); font-size: 13px; }
+.comment .ref { color: var(--text-secondary); }
+.comment q { quotes: "“" "”"; font-style: italic; }
+.empty { padding: 18px; color: var(--muted); text-align: center; }
+.flag { color: var(--critical); font-weight: 600; }
+.bar { height: 8px; border-radius: 0 4px 4px 0; background: var(--series-1); min-width: 2px; }
+#tip { position: fixed; z-index: 100; pointer-events: none; display: none; max-width: 340px; white-space: pre-line;
+       background: var(--text-primary); color: var(--surface-1); font-size: 12px; line-height: 1.4;
+       padding: 6px 9px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>Evaluation dashboard</h1>
+    <div class="sub" id="subtitle"></div>
+  </header>
+
+  <div class="filters" id="filters"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <section class="card" id="agg">
+    <div class="head">
+      <h2>Scores by group</h2>
+      <div class="sub">Choose what to group by, in order. Grouping by rubric question compares the 1–5 item scores;
+        otherwise each evaluation contributes the chosen measure.</div>
+    </div>
+    <div class="controls">
+      <div class="grp"><span class="lbl">Group by</span><span id="groupchips" class="grp"></span></div>
+      <div class="grp"><label class="lbl" for="measure">Measure</label><select id="measure"></select></div>
+      <div class="grp"><label class="lbl" for="sort">Sort</label>
+        <select id="sort">
+          <option value="mean-desc">Mean, high to low</option>
+          <option value="mean-asc">Mean, low to high</option>
+          <option value="sd-desc">Spread, high to low</option>
+          <option value="n-desc">Evaluations, most first</option>
+          <option value="label">Name</option>
+          <option value="natural">Rubric / first-seen order</option>
+        </select></div>
+    </div>
+    <div class="scroll" id="aggtable"></div>
+    <div class="key">
+      <span><i class="k-box"></i>middle 50% and median</span>
+      <span><i class="k-line"></i>whiskers: furthest value within 1.5 × IQR</span>
+      <span><i class="k-mean"></i>mean</span>
+      <span><i class="k-dot"></i>single values and outliers</span>
+    </div>
+  </section>
+
+  <section class="card" id="heat">
+    <div class="head">
+      <h2>Section profile</h2>
+      <div class="sub">Mean section score (rubric scale) for the same groups, largest groups first.</div>
+    </div>
+    <div class="scroll" id="heattable"></div>
+  </section>
+
+  <section class="card" id="detail">
+    <div class="head">
+      <h2>Per text</h2>
+      <div class="sub">Pick a text to see how its evaluators scored it and what they wrote. The list holds every text
+        that passes the filters above.</div>
+    </div>
+    <div class="controls">
+      <div class="grp"><label class="lbl" for="textpick">Text</label><select id="textpick"></select>
+        <button id="prevtext" title="Previous text in the list">‹</button><button id="nexttext" title="Next text in the list">›</button>
+        <span class="lbl" id="textcount"></span></div>
+      <div class="grp"><label class="lbl" for="textsort">Order</label>
+        <select id="textsort">
+          <option value="n">Most evaluations first</option>
+          <option value="mean-desc">Mean total, high to low</option>
+          <option value="mean-asc">Mean total, low to high</option>
+          <option value="sd">Most disagreement first</option>
+          <option value="id">Id</option>
+        </select></div>
+      <input type="search" id="textsearch" placeholder="Narrow the list: id, model or words in the text…" style="flex:1 1 240px">
+    </div>
+    <div id="textdetail"></div>
+  </section>
+
+  <section class="card" id="agree">
+    <div class="head">
+      <h2>Where evaluators disagree</h2>
+      <div class="sub">For texts with two or more evaluations: the standard deviation of a question's score across
+        evaluators, averaged over texts. Objective (O) questions should not depend on the evaluator, so a large
+        spread there points at an unclear question or an unreliable evaluator.</div>
+    </div>
+    <div class="scroll" id="agreetable" style="max-height:460px"></div>
+  </section>
+
+  <section class="card" id="runs">
+    <div class="head">
+      <h2>Evaluation runs</h2>
+      <div class="sub">An answer that still fails validation after retries is counted as invalid and produces no evaluation.</div>
+    </div>
+    <div class="scroll" id="runstable"></div>
+  </section>
+</main>
+<div id="tip"></div>
+
+<script id="data" type="application/json">__DASHBOARD_DATA__</script>
+<script>
+"use strict";
+let D = null;
+try { D = JSON.parse(document.getElementById("data").textContent); } catch (e) { /* the template itself: no data */ }
+if (!D) {
+  document.querySelector("main").innerHTML = `<header class="top"><h1>Evaluation dashboard</h1></header>
+    <div class="card"><b>This file is the dashboard's template, so it has no data to show.</b>
+    <p>Build the dashboard with <code>python -m evaluation.dashboard --open</code> and open the file it writes
+    (by default <code>data/evaluations/dashboard.html</code>).</p></div>`;
+  throw new Error("dashboard template opened without data");
+}
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const tipAttr = s => `data-tip="${esc(s).replace(/\n/g, "&#10;")}"`;
+const fmt = (v, d = 2) => v == null || Number.isNaN(v) ? "–" : (+v).toFixed(d);
+const mean = a => a && a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+const trunc = (s, n) => { s = String(s ?? ""); return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s; };
+const pretty = s => { s = String(s).replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); };
+const shortId = id => "#" + String(id).replace(/-a\d+$/, "").slice(-6);      // without the attempt suffix
+const personaName = pid => pid ? (D.personas[pid]?.name ?? pid) : "No persona";
+const evaluatorName = e => `${personaName(e.pid)} · ${e.ev}`;
+
+for (const e of D.evaluations) {
+  const sub = D.subjects[e.sid] || {};
+  e.task = sub.task || "(unknown)";
+  e.gen = sub.model || "(unknown)";
+  e.tpl = sub.template || "(unknown)";
+  e.pid = e.pid || "";
+}
+
+// ---- state ----------------------------------------------------------------------------------
+const FILTERS = [
+  {id: "task", label: "Task", key: e => e.task, name: k => k},
+  {id: "tpl", label: "Prompt template", key: e => e.tpl, name: k => k},
+  {id: "gen", label: "Generating model", key: e => e.gen, name: k => k},
+  {id: "ev", label: "Evaluating model", key: e => e.ev, name: k => k},
+  {id: "persona", label: "Persona", key: e => e.pid, name: personaName},
+  {id: "run", label: "Evaluation run", key: e => e.run, name: k => k},
+];
+const DIMS = [
+  {id: "task", label: "Task", key: e => e.task, name: k => k},
+  {id: "tpl", label: "Prompt template", key: e => e.tpl, name: k => k},
+  {id: "text", label: "Text", key: e => e.sid, name: k => `Text ${shortId(k)}`},
+  {id: "ev", label: "Evaluating model", key: e => e.ev, name: k => k},
+  {id: "gen", label: "Generating model", key: e => e.gen, name: k => k},
+  {id: "persona", label: "Persona", key: e => e.pid, name: personaName},
+  {id: "item", label: "Rubric question"},
+];
+const dim = id => DIMS.find(d => d.id === id);
+const rubricCounts = {};
+for (const e of D.evaluations) rubricCounts[e.r] = (rubricCounts[e.r] || 0) + 1;
+const S = {
+  rubric: Object.keys(rubricCounts).sort((a, b) => rubricCounts[b] - rubricCounts[a])[0] || null,
+  filters: Object.fromEntries(FILTERS.map(f => [f.id, new Set()])),
+  group: ["ev"], measure: "total", sort: "mean-desc", limit: 40,
+  text: null, textOrder: [], textsort: "n", search: "", split: false, ckind: "all", cwho: "", citem: "",
+};
+let R = null;          // the selected rubric, with lookups
+
+function setRubric(sha) {
+  S.rubric = sha;
+  const def = D.rubrics[sha];
+  R = {def, items: [], byId: {}, scale: [def.scale_min, def.scale_max]};
+  for (const s of def.sections) for (const it of s.items) {
+    const item = {...it, section: s};
+    R.items.push(item);
+    R.byId[it.id] = item;
+  }
+  for (const e of D.evaluations) {
+    if (e.r !== sha) continue;
+    e.byItem = {};
+    for (const k in e.s) {
+      const it = itemOf(k);
+      if (it && e.s[k] != null) (e.byItem[it.id] ||= []).push(e.s[k]);
+    }
+  }
+}
+const itemOf = key => R.byId[key] || R.byId[key.slice(0, key.lastIndexOf("."))];
+
+function measures() {
+  const m = [{id: "total", group: "Overall", label: "Total score (0–100)", dom: [0, 100], dec: 1, get: e => e.total}];
+  for (const s of R.def.sections)
+    m.push({id: "sec:" + s.key, group: "Section average", label: `${s.id} · ${s.title}`, dom: R.scale, dec: 2, get: e => e.sec[s.key]});
+  for (const it of R.items)
+    m.push({id: "item:" + it.id, group: "Question", label: `${it.id} [${it.type}] ${trunc(it.text, 70)}`, dom: R.scale, dec: 2, get: e => mean(e.byItem[it.id])});
+  for (const o of R.def.outputs || []) if (o.type === "integer")
+    m.push({id: "out:" + o.name, group: "Evaluator's own rating", label: `${pretty(o.name)} (${o.min}–${o.max})`, dom: [o.min, o.max], dec: 2, get: e => e.out[o.name]});
+  return m;
+}
+
+function filtered() {
+  return D.evaluations.filter(e => e.r === S.rubric &&
+    FILTERS.every(f => !S.filters[f.id].size || S.filters[f.id].has(f.key(e))));
+}
+
+// ---- statistics and plots -------------------------------------------------------------------
+function stats(values) {
+  const v = values.filter(x => x != null && !Number.isNaN(x)).sort((a, b) => a - b), n = v.length;
+  if (!n) return {n: 0};
+  const q = p => { const i = (n - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return v[lo] + (v[hi] - v[lo]) * (i - lo); };
+  const m = mean(v), sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1)) : null;
+  const q1 = q(.25), med = q(.5), q3 = q(.75), lf = q1 - 1.5 * (q3 - q1), uf = q3 + 1.5 * (q3 - q1);
+  const inside = v.filter(x => x >= lf && x <= uf);
+  return {n, mean: m, sd, q1, med, q3, min: v[0], max: v[n - 1], wlo: inside[0], whi: inside[inside.length - 1],
+          out: v.filter(x => x < lf || x > uf)};
+}
+function ticks([a, b]) {
+  const span = b - a, step = span <= 5 ? 1 : span <= 10 ? 2 : span <= 20 ? 5 : span <= 100 ? 20 : 10 ** Math.floor(Math.log10(span));
+  const t = [];
+  for (let v = Math.ceil(a / step) * step; v <= b + 1e-9; v += step) t.push(v);
+  return t;
+}
+const pos = (v, dom) => Math.max(0, Math.min(100, (v - dom[0]) / (dom[1] - dom[0]) * 100));
+const axisHtml = dom => `<div class="axis"><div class="axis-in">${ticks(dom).map(t => `<span style="left:${pos(t, dom)}%">${t}</span>`).join("")}</div></div>`;
+const statTip = (st, dec) => !st.n ? "No scores" : st.n === 1 ? `1 value: ${fmt(st.min, dec)}` :
+  `n ${st.n}\nmean ${fmt(st.mean, 2)}   SD ${fmt(st.sd, 2)}\nmedian ${fmt(st.med, dec)}   IQR ${fmt(st.q1, dec)}–${fmt(st.q3, dec)}\nrange ${fmt(st.min, dec)}–${fmt(st.max, dec)}`;
+
+/** A box-and-whisker row. dots: [{v, tip}] draws every value (per-text views); otherwise only outliers. */
+function boxHtml(st, dom, dec, dots) {
+  const p = v => pos(v, dom).toFixed(2);
+  let h = ticks(dom).map(t => `<i class="grid" style="left:${p(t)}%"></i>`).join("");
+  if (st.n > 1) {
+    h += `<i class="whisker" style="left:${p(st.wlo)}%;width:${(pos(st.whi, dom) - pos(st.wlo, dom)).toFixed(2)}%"></i>` +
+         `<i class="cap" style="left:${p(st.wlo)}%"></i><i class="cap" style="left:${p(st.whi)}%"></i>` +
+         `<i class="box" style="left:${p(st.q1)}%;width:${(pos(st.q3, dom) - pos(st.q1, dom)).toFixed(2)}%"></i>` +
+         `<i class="median" style="left:${p(st.med)}%"></i>`;
+  }
+  if (dots) {
+    const offsets = [0, -8, 8, -16, 16], seen = {};
+    for (const d of [...dots].sort((a, b) => a.v - b.v)) {
+      const bucket = Math.round(pos(d.v, dom) / 1.5), i = seen[bucket] = (seen[bucket] ?? -1) + 1;
+      h += `<i class="dot" style="left:${p(d.v)}%;top:calc(50% + ${offsets[i % offsets.length]}px)" ${tipAttr(d.tip)}></i>`;
+    }
+  } else if (st.n === 1) {
+    h += `<i class="dot" style="left:${p(st.min)}%"></i>`;
+  } else if (st.n) {
+    for (const v of [...new Set(st.out)].slice(0, 40)) h += `<i class="dot" style="left:${p(v)}%"></i>`;
+  }
+  if (st.n > 1) h += `<i class="mean" style="left:${p(st.mean)}%"></i>`;
+  return `<div class="plot${dots ? " tall" : ""}" ${tipAttr(statTip(st, dec))}><div class="plot-in">${h}</div></div>`;
+}
+
+// ---- filters --------------------------------------------------------------------------------
+function renderFilters() {
+  const pool = D.evaluations.filter(e => e.r === S.rubric);
+  let h = "";
+  if (Object.keys(rubricCounts).length > 1) {
+    h += `<select id="rubric" title="Scores are only comparable within one rubric">` + Object.keys(rubricCounts).map(sha =>
+      `<option value="${sha}" ${sha === S.rubric ? "selected" : ""}>Rubric: ${esc(D.rubrics[sha].id)} (${rubricCounts[sha]})</option>`).join("") + `</select>`;
+  }
+  for (const f of FILTERS) {
+    const counts = new Map();
+    for (const e of pool) counts.set(f.key(e), (counts.get(f.key(e)) || 0) + 1);
+    const options = [...counts].sort((a, b) => f.name(a[0]).localeCompare(f.name(b[0]), undefined, {numeric: true}));
+    h += `<details class="ms" data-filter="${f.id}"><summary></summary><div class="menu">` +
+      (options.length > 12 ? `<input type="search" placeholder="Find…">` : "") +
+      options.map(([k, n]) => `<label><input type="checkbox" value="${esc(k)}" ${S.filters[f.id].has(k) ? "checked" : ""}>` +
+        `<span>${esc(f.name(k))}</span><em>${n}</em></label>`).join("") + `</div></details>`;
+  }
+  h += `<button class="link" id="reset">Reset filters</button>`;
+  $("#filters").innerHTML = h;
+  FILTERS.forEach(labelFilter);
+}
+function labelFilter(f) {
+  const el = $(`.ms[data-filter="${f.id}"]`), sel = S.filters[f.id];
+  el.classList.toggle("on", sel.size > 0);
+  $("summary", el).innerHTML = `${f.label}: <b>${sel.size === 0 ? "All" : sel.size === 1 ? esc(trunc(f.name([...sel][0]), 28)) : sel.size + " selected"}</b>`;
+}
+
+// ---- overview tiles -------------------------------------------------------------------------
+function renderTiles(E) {
+  const totals = stats(E.map(e => e.total)), texts = new Set(E.map(e => e.sid));
+  const flagged = E.filter(e => e.flags.length).length, capped = E.filter(e => e.cap != null).length;
+  const grades = [...R.def.grades].sort((a, b) => b.min - a.min).map(g => g.grade);
+  const counts = Object.fromEntries(grades.map(g => [g, 0]));
+  for (const e of E) counts[e.grade] = (counts[e.grade] || 0) + 1;
+  const shade = i => `var(--g${Math.max(1, 5 - Math.round(i * 4 / Math.max(1, grades.length - 1)))})`;
+  const tile = (label, value, note) => `<div class="tile"><div class="label">${label}</div><div class="value">${value}</div><div class="note">${note}</div></div>`;
+  $("#tiles").innerHTML =
+    tile("Evaluations", E.length.toLocaleString(), `${texts.size.toLocaleString()} texts · ${fmt(E.length / Math.max(1, texts.size), 1)} per text`) +
+    tile("Mean total score", fmt(totals.mean, 1), totals.n ? `median ${fmt(totals.med, 1)} · range ${fmt(totals.min, 1)}–${fmt(totals.max, 1)}` : "") +
+    `<div class="tile"><div class="label">Grades</div><div class="gradebar">` +
+      grades.map((g, i) => counts[g] ? `<i style="flex:${counts[g]};background:${shade(i)}" ${tipAttr(`${g}: ${counts[g]} (${fmt(100 * counts[g] / E.length, 0)}%)`)}></i>` : "").join("") +
+      `</div><div class="gradekey">` + grades.map((g, i) => `<span><i style="background:${shade(i)}"></i>${esc(g)} ${counts[g]}</span>`).join("") + `</div></div>` +
+    tile("With a red flag", flagged.toLocaleString(), E.length ? `${fmt(100 * flagged / E.length, 0)}% of evaluations · score capped in ${capped}` : "") +
+    tile("Evaluators", new Set(E.map(e => e.pid + "|" + e.ev)).size.toLocaleString(),
+         `${new Set(E.map(e => e.pid)).size} personas · ${new Set(E.map(e => e.ev)).size} evaluating models`);
+}
+
+// ---- aggregation ----------------------------------------------------------------------------
+function aggregate(E) {
+  const byItem = S.group.includes("item"), dims = S.group.filter(g => g !== "item").map(dim);
+  const m = measures().find(x => x.id === S.measure) || measures()[0];
+  const groups = new Map();
+  const add = (keys, value) => {
+    const id = keys.join("\u0001");
+    let g = groups.get(id);
+    if (!g) groups.set(id, g = {keys, values: []});
+    g.values.push(value);
+  };
+  for (const e of E) {
+    const base = dims.map(d => d.key(e));
+    if (!byItem) { const v = m.get(e); if (v != null) add(base, v); continue; }
+    for (const it of R.items) for (const v of e.byItem[it.id] || []) add([...base, it.id], v);
+  }
+  const order = byItem ? Object.fromEntries(R.items.map((it, i) => [it.id, i])) : null;
+  const rows = [...groups.values()].map((g, i) => {
+    const parts = S.group.map(id => id === "item" ? g.keys[g.keys.length - 1] : g.keys[dims.indexOf(dim(id))]);
+    const names = S.group.map((id, j) => id === "item" ? `${parts[j]} [${R.byId[parts[j]].type}]` : dim(id).name(parts[j]));
+    return {...g, parts, st: stats(g.values), label: names.join(" · ") || "All evaluations",
+            natural: order ? order[g.keys[g.keys.length - 1]] * 1e6 + i : i};
+  });
+  const by = {"mean-desc": (a, b) => b.st.mean - a.st.mean, "mean-asc": (a, b) => a.st.mean - b.st.mean,
+              "sd-desc": (a, b) => (b.st.sd ?? -1) - (a.st.sd ?? -1), "n-desc": (a, b) => b.st.n - a.st.n,
+              "label": (a, b) => a.label.localeCompare(b.label, undefined, {numeric: true}),
+              "natural": (a, b) => a.natural - b.natural}[S.sort];
+  return {rows: rows.sort(by), dom: byItem ? R.scale : m.dom, dec: byItem ? 0 : m.dec,
+          what: byItem ? `Item score (${R.scale[0]}–${R.scale[1]})` : m.label};
+}
+function rowDetail(row) {       // second line under a group's name
+  const bits = [];
+  S.group.forEach((id, j) => {
+    if (id === "item") bits.push(R.byId[row.parts[j]].text);
+    if (id === "text") { const s = D.subjects[row.parts[j]] || {}; bits.push(trunc((s.text || "").replace(/\s+/g, " "), 90)); }
+    if (id === "persona") bits.push((D.personas[row.parts[j]]?.facts || []).join(", "));
+  });
+  return bits.filter(Boolean).join(" — ");
+}
+function renderAgg(E) {
+  $("#groupchips").innerHTML = DIMS.map(d => {
+    const i = S.group.indexOf(d.id);
+    return `<button class="chip${i >= 0 ? " on" : ""}" data-dim="${d.id}">${i >= 0 && S.group.length > 1 ? `<span class="ord">${i + 1}</span>` : ""}${d.label}</button>`;
+  }).join("");
+  const sel = $("#measure"), list = measures(), byItem = S.group.includes("item");
+  sel.innerHTML = [...new Set(list.map(m => m.group))].map(g => `<optgroup label="${g}">` +
+    list.filter(m => m.group === g).map(m => `<option value="${esc(m.id)}" ${m.id === S.measure ? "selected" : ""}>${esc(m.label)}</option>`).join("") + `</optgroup>`).join("");
+  sel.disabled = byItem;
+  sel.title = byItem ? "Grouping by rubric question always compares item scores" : "";
+  $("#sort").value = S.sort;
+
+  const {rows, dom, dec, what} = aggregate(E), shown = rows.slice(0, S.limit), clickable = S.group.includes("text");
+  if (!rows.length) { $("#aggtable").innerHTML = `<div class="empty">No evaluations match the filters.</div>`; return; }
+  $("#aggtable").innerHTML = `<table><thead><tr><th>${S.group.map(id => dim(id).label).join(" · ") || "Group"}</th>` +
+    `<th class="num">n</th><th class="num">Mean</th><th class="num">Median</th><th class="num">SD</th>` +
+    `<th class="plotcell">${esc(what)}${axisHtml(dom)}</th></tr></thead><tbody>` +
+    shown.map(r => {
+      const detail = rowDetail(r), sid = clickable ? r.parts[S.group.indexOf("text")] : "";
+      return `<tr${clickable ? ` class="click" data-sid="${esc(sid)}" title="Open this text below"` : ""}>` +
+        `<td class="name"><div class="l1" title="${esc(r.label)}">${esc(r.label)}</div>${detail ? `<div class="l2" title="${esc(detail)}">${esc(detail)}</div>` : ""}</td>` +
+        `<td class="num">${r.st.n}</td><td class="num">${fmt(r.st.mean, 2)}</td><td class="num">${fmt(r.st.med, dec)}</td>` +
+        `<td class="num">${fmt(r.st.sd, 2)}</td><td class="plotcell">${boxHtml(r.st, dom, dec)}</td></tr>`;
+    }).join("") + `</tbody></table>` +
+    (rows.length > shown.length ? `<div class="empty">Showing ${shown.length} of ${rows.length} groups. <button id="more">Show ${Math.min(100, rows.length - shown.length)} more</button></div>` : "");
+}
+
+// ---- section profile ------------------------------------------------------------------------
+function renderHeat(E) {
+  const dims = S.group.filter(g => g !== "item").map(dim), groups = new Map();
+  for (const e of E) {
+    const keys = dims.map(d => d.key(e)), id = keys.join("\u0001");
+    if (!groups.has(id)) groups.set(id, {label: dims.map((d, i) => d.name(keys[i])).join(" · ") || "All evaluations", evals: []});
+    groups.get(id).evals.push(e);
+  }
+  const rows = [...groups.values()].sort((a, b) => b.evals.length - a.evals.length), shown = rows.slice(0, 25);
+  if (!shown.length) { $("#heattable").innerHTML = `<div class="empty">No evaluations match the filters.</div>`; return; }
+  const [lo, hi] = R.scale;
+  const cell = v => {
+    if (v == null) return `<td class="cell muted">–</td>`;
+    const t = Math.round(100 * (v - lo) / (hi - lo));
+    return `<td class="cell" style="background:color-mix(in oklab, var(--seq-hi) ${t}%, var(--seq-lo));color:var(--seq-ink-${t > 50 ? "hi" : "lo"})">${fmt(v, 2)}</td>`;
+  };
+  $("#heattable").innerHTML = `<table class="heat"><thead><tr><th>${dims.map(d => d.label).join(" · ") || "Group"}</th><th class="num">n</th><th class="num">Total</th>` +
+    R.def.sections.map(s => `<th class="col" title="${esc(s.question)}">${esc(s.title)}<div class="muted">weight ${s.weight}</div></th>`).join("") + `</tr></thead><tbody>` +
+    shown.map(g => `<tr><td class="name"><div class="l1" title="${esc(g.label)}">${esc(g.label)}</div></td><td class="num">${g.evals.length}</td>` +
+      `<td class="num">${fmt(mean(g.evals.map(e => e.total)), 1)}</td>` +
+      R.def.sections.map(s => cell(mean(g.evals.map(e => e.sec[s.key]).filter(v => v != null)))).join("") + `</tr>`).join("") +
+    `</tbody></table><div class="scale"><span>${lo}</span><i></i><span>${hi}</span>` +
+    (rows.length > shown.length ? `<span>· the ${shown.length} largest of ${rows.length} groups</span>` : "") + `</div>`;
+}
+
+// ---- per text -------------------------------------------------------------------------------
+function textGroups(E) {
+  const m = new Map();
+  for (const e of E) { if (!m.has(e.sid)) m.set(e.sid, []); m.get(e.sid).push(e); }
+  return m;
+}
+function renderTextList(E) {
+  const groups = textGroups(E), needle = S.search.trim().toLowerCase();
+  let rows = [...groups].map(([sid, evals]) => {
+    const st = stats(evals.map(e => e.total));
+    return {sid, evals, sub: D.subjects[sid] || {}, mean: st.mean, sd: st.sd ?? -1};
+  });
+  if (needle) rows = rows.filter(r => `${r.sid} ${r.sub.model} ${r.sub.task} ${r.sub.text || ""}`.toLowerCase().includes(needle));
+  rows.sort({"n": (a, b) => b.evals.length - a.evals.length || b.mean - a.mean, "mean-desc": (a, b) => b.mean - a.mean,
+             "mean-asc": (a, b) => a.mean - b.mean, "sd": (a, b) => b.sd - a.sd,
+             "id": (a, b) => shortId(a.sid).localeCompare(shortId(b.sid))}[S.textsort]);
+  if (!rows.some(r => r.sid === S.text)) S.text = rows[0]?.sid ?? null;
+  S.textOrder = rows.map(r => r.sid);
+  $("#textpick").innerHTML = rows.map(r => `<option value="${esc(r.sid)}" ${r.sid === S.text ? "selected" : ""}>` +
+    esc(`${shortId(r.sid)} · ${r.sub.model || "?"} · mean ${fmt(r.mean, 1)} · ${r.evals.length} eval${r.evals.length > 1 ? "s" : ""} · ` +
+        trunc((r.sub.text || "text not found").replace(/\s+/g, " "), 60)) + `</option>`).join("") || `<option value="">No texts match</option>`;
+  $("#textsort").value = S.textsort;
+  $("#textcount").textContent = rows.length === groups.size ? `${rows.length.toLocaleString()} texts`
+    : `${rows.length.toLocaleString()} of ${groups.size.toLocaleString()} texts`;
+  renderText(groups.get(S.text) || []);
+}
+const renderCurrentText = () => renderText(textGroups(filtered()).get(S.text) || []);
+
+function comments(evals) {
+  const out = [];
+  for (const e of evals) {
+    const who = evaluatorName(e);
+    for (const o of R.def.outputs || []) {
+      const v = e.out[o.name];
+      if (o.type === "text" && v) out.push({e, who, kind: pretty(o.name), text: v});
+      if (o.type === "list") for (const x of v || []) {
+        if (typeof x === "string") out.push({e, who, kind: pretty(o.name), text: x});
+        else out.push({e, who, kind: pretty(o.name), item: x.item, text: Object.entries(x).filter(([k]) => k !== "item").map(([, t]) => t).join(" — ")});
+      }
+    }
+    for (const [key, text] of Object.entries(e.j)) out.push({e, who, kind: "Justification", item: key, score: e.s[key], text});
+    for (const f of e.flags) out.push({e, who, kind: "Red flag", flag: f, text: f.quote});
+  }
+  return out;
+}
+function itemRef(ref) {       // "3.2", "2a.3", or free text such as "2a (positions 1-2)"
+  const id = String(ref ?? "").trim(), it = R.byId[id] || (id.includes(".") && itemOf(id)) || R.byId[id.split(/[\s:(]/)[0]];
+  return it ? {it, id} : null;
+}
+
+function renderText(evals) {
+  const host = $("#textdetail");
+  if (!evals.length) { host.innerHTML = `<div class="empty">Select a text.</div>`; return; }
+  const sid = evals[0].sid, sub = D.subjects[sid] || {}, totals = stats(evals.map(e => e.total));
+  const writtenFor = sub.persona_id ? personaName(sub.persona_id) : null;
+  let h = `<h2>Text ${shortId(sid)}</h2><div class="meta">` +
+    [["Task", sub.task], ["Generating model", sub.model], ["Prompt template", sub.template], ["Dataset", sub.dataset],
+     ["Written for", writtenFor], ["Words", sub.words], ["Response id", sid]]
+      .filter(([, v]) => v != null && v !== "").map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("") + `</div>`;
+  h += `<details class="fold" open><summary>The text</summary><div class="reading">${sub.text ? esc(sub.text) : `<span class="muted">The generation run was not found, so the text is not available. Rebuild with --readings-root.</span>`}</div></details>`;
+  if (sub.input && typeof sub.input === "object")
+    h += `<details class="fold"><summary>What it was generated from</summary><dl class="kv">` +
+      Object.entries(sub.input).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(typeof v === "object" ? JSON.stringify(v) : v)}</dd>`).join("") + `</dl></details>`;
+
+  // overall score
+  const bands = [...R.def.grades].sort((a, b) => a.min - b.min);
+  h += `<div class="block"><h3>Total score · ${evals.length} evaluation${evals.length > 1 ? "s" : ""} · mean ${fmt(totals.mean, 1)}${totals.n > 1 ? ` · SD ${fmt(totals.sd, 1)}` : ""}</h3>` +
+    boxHtml(totals, [0, 100], 1, evals.map(e => ({v: e.total, tip: `${evaluatorName(e)}\n${fmt(e.total, 1)} · grade ${e.grade}${e.cap != null ? ` (capped at ${e.cap}; ${fmt(e.pre, 1)} before)` : ""}`}))) +
+    axisHtml([0, 100]) + `<div class="axis"><div class="bands">` +
+    bands.map((g, i) => { const end = bands[i + 1]?.min ?? 100; return `<span style="left:${g.min}%;width:${end - g.min}%" title="${esc(g.meaning || "")}">${esc(g.grade)}</span>`; }).join("") +
+    `</div></div></div>`;
+
+  // per question
+  const hasPer = R.items.some(it => it.per);
+  h += `<div class="block"><div class="controls" style="margin-bottom:6px"><h3 style="margin:0">Score by rubric question</h3>` +
+    (hasPer ? `<label class="lbl"><input type="checkbox" id="split" ${S.split ? "checked" : ""}> one row per position</label>` : "") + `</div>` +
+    `<div class="scroll"><table><thead><tr><th>Question</th><th>Type</th><th class="num">n</th><th class="num">Mean</th><th class="plotcell">Score${axisHtml(R.scale)}</th></tr></thead><tbody>`;
+  for (const s of R.def.sections) {
+    const avg = mean(evals.map(e => e.sec[s.key]).filter(v => v != null));
+    h += `<tr class="sec"><td colspan="3">Section ${esc(s.id)} · ${esc(s.title)} <span class="muted">(weight ${s.weight})</span></td><td class="num">${fmt(avg, 2)}</td><td></td></tr>`;
+    for (const it of s.items) {
+      const keys = it.per && S.split ? [...new Set(evals.flatMap(e => Object.keys(e.s).filter(k => itemOf(k)?.id === it.id && k !== it.id)))]
+        .sort((a, b) => a.localeCompare(b, undefined, {numeric: true})) : [null];
+      for (const key of keys) {
+        const dots = [];
+        for (const e of evals) {
+          const v = key ? e.s[key] : mean(e.byItem[it.id]);
+          if (v != null) dots.push({v, tip: `${evaluatorName(e)}\n${key || it.id}: ${fmt(v, Number.isInteger(v) ? 0 : 2)}${e.j[key || it.id] ? `\n“${e.j[key || it.id]}”` : ""}`});
+        }
+        const st = stats(dots.map(d => d.v)), label = key ? `${key} · ${sub.labels?.[key] || ""}` : `${it.id} ${it.text}`;
+        h += `<tr><td class="name"><div class="l1" title="${esc(it.text)}">${esc(label)}</div>` +
+          (it.per && !key ? `<div class="l2">each evaluator's average over ${esc(it.per)}</div>` : "") + `</td>` +
+          `<td><span class="badge" title="${it.type === "O" ? "Objective: should not depend on the evaluator" : "Subjective: depends on the evaluator"}">${esc(it.type)}</span></td>` +
+          `<td class="num">${st.n}</td><td class="num">${fmt(st.mean, 2)}</td><td class="plotcell">${boxHtml(st, R.scale, 0, dots)}</td></tr>`;
+      }
+    }
+  }
+  h += `</tbody></table></div></div>`;
+
+  // comments
+  const all = comments(evals), kinds = [...new Set(all.map(c => c.kind))];
+  if (S.ckind !== "all" && !kinds.includes(S.ckind)) S.ckind = "all";
+  const whos = [...new Set(all.map(c => c.who))].sort();
+  if (!whos.includes(S.cwho)) S.cwho = "";
+  const refs = [...new Set(all.map(c => itemRef(c.item)?.it.id).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true}));
+  if (!refs.includes(S.citem)) S.citem = "";
+  const shown = all.filter(c => (S.ckind === "all" || c.kind === S.ckind) && (!S.cwho || c.who === S.cwho) &&
+                                (!S.citem || itemRef(c.item)?.it.id === S.citem));
+  h += `<div class="block"><h3>What the evaluators wrote · ${shown.length} of ${all.length} comments</h3><div class="controls" style="margin-bottom:8px">` +
+    `<div class="grp">` + ["all", ...kinds].map(k => `<button class="chip${S.ckind === k ? " on" : ""}" data-ckind="${esc(k)}">${k === "all" ? "All" : esc(k)} <span class="muted">${k === "all" ? all.length : all.filter(c => c.kind === k).length}</span></button>`).join("") + `</div>` +
+    `<select id="cwho"><option value="">All evaluators</option>${whos.map(w => `<option ${w === S.cwho ? "selected" : ""}>${esc(w)}</option>`).join("")}</select>` +
+    `<select id="citem"><option value="">All questions</option>${refs.map(r => `<option value="${esc(r)}" ${r === S.citem ? "selected" : ""}>${esc(r)} ${esc(trunc(R.byId[r].text, 50))}</option>`).join("")}</select></div>` +
+    `<div class="comments">` + (shown.map(c => {
+      const ref = itemRef(c.item);
+      const about = c.flag ? `<span class="flag">⚑ ${esc(c.flag.id)} (${esc(c.flag.severity)})</span>` :
+        ref ? `<span class="ref" title="${esc(ref.it.text)}">on ${esc(c.item)} [${ref.it.type}]${sub.labels?.[c.item] ? " · " + esc(sub.labels[c.item]) : ""}${c.score != null ? ` · scored ${c.score}` : ""}</span>` :
+        c.item ? `<span class="ref">on ${esc(c.item)}</span>` : "";
+      return `<div class="comment"><div class="who"><b>${esc(personaName(c.e.pid))}</b><span>${esc(c.e.ev)}</span><span class="badge">${esc(c.kind)}</span>${about}` +
+        `<span class="muted">gave ${fmt(c.e.total, 1)} (${esc(c.e.grade)})</span></div><div>${c.flag ? `<q>${esc(c.text)}</q>` : esc(c.text)}</div></div>`;
+    }).join("") || `<div class="empty">No comments match.</div>`) + `</div></div>`;
+
+  // one row per evaluation
+  const outs = (R.def.outputs || []).filter(o => o.type === "integer" || o.type === "enum");
+  h += `<div class="block"><h3>Evaluations of this text</h3><div class="scroll"><table><thead><tr><th>Persona</th><th>Evaluating model</th>` +
+    `<th class="num">Total</th><th>Grade</th><th>Red flags</th>${outs.map(o => `<th class="${o.type === "integer" ? "num" : ""}">${esc(pretty(o.name))}</th>`).join("")}</tr></thead><tbody>` +
+    [...evals].sort((a, b) => b.total - a.total).map(e => {
+      const p = D.personas[e.pid];
+      return `<tr><td class="name"><div class="l1" ${p?.description ? tipAttr(p.description) : ""}>${esc(personaName(e.pid))}</div>${p?.facts?.length ? `<div class="l2">${esc(p.facts.join(", "))}</div>` : ""}</td>` +
+        `<td>${esc(e.ev)}</td><td class="num">${fmt(e.total, 1)}${e.cap != null ? ` <span class="muted" title="Capped at ${e.cap} by a red flag">(${fmt(e.pre, 1)} before cap)</span>` : ""}</td><td>${esc(e.grade)}</td>` +
+        `<td>${e.flags.length ? `<span class="flag">⚑ ${e.flags.map(f => esc(f.id)).join(", ")}</span>` : `<span class="muted">none</span>`}</td>` +
+        outs.map(o => `<td class="${o.type === "integer" ? "num" : ""}">${esc(o.type === "enum" ? pretty(e.out[o.name] ?? "–") : e.out[o.name] ?? "–")}</td>`).join("") + `</tr>`;
+    }).join("") + `</tbody></table></div></div>`;
+  host.innerHTML = h;
+}
+
+// ---- agreement ------------------------------------------------------------------------------
+function renderAgree(E) {
+  const multi = [...textGroups(E).values()].filter(g => g.length > 1);
+  if (!multi.length) { $("#agreetable").innerHTML = `<div class="empty">No text in the current selection has more than one evaluation.</div>`; return; }
+  const spread = get => { const sds = multi.map(g => stats(g.map(get)).sd).filter(v => v != null); return {sd: mean(sds), n: sds.length}; };
+  const rows = [{label: "Total score (0–100)", type: "", ...spread(e => e.total), total: true},
+                ...R.items.map(it => ({label: `${it.id} ${it.text}`, type: it.type, ...spread(e => mean(e.byItem[it.id]))}))]
+    .filter(r => r.n).sort((a, b) => (b.total || 0) - (a.total || 0) || b.sd - a.sd);
+  const max = Math.max(...rows.filter(r => !r.total).map(r => r.sd), 0.01);
+  $("#agreetable").innerHTML = `<table><thead><tr><th>Question</th><th>Type</th><th class="num">Texts</th><th class="num">Mean SD</th><th style="width:34%">Spread across evaluators</th></tr></thead><tbody>` +
+    rows.map(r => `<tr${r.total ? ` class="sec"` : ""}><td class="name"><div class="l1" title="${esc(r.label)}">${esc(r.label)}</div></td>` +
+      `<td>${r.type ? `<span class="badge">${r.type}</span>` : ""}</td><td class="num">${r.n}</td><td class="num">${fmt(r.sd, 2)}</td>` +
+      `<td>${r.total ? "" : `<div class="bar" style="width:${(100 * r.sd / max).toFixed(1)}%"></div>`}</td></tr>`).join("") + `</tbody></table>`;
+}
+
+// ---- runs -----------------------------------------------------------------------------------
+function renderRuns() {
+  const n = v => v == null ? "–" : (+v).toLocaleString();
+  $("#runstable").innerHTML = `<table><thead><tr><th>Run</th><th>Evaluating model</th><th>Dataset</th><th>Status</th><th class="num">Requests</th>` +
+    `<th class="num">Finished</th><th class="num">Invalid</th><th class="num">Retried</th><th class="num">Evaluations</th><th class="num">Tokens</th></tr></thead><tbody>` +
+    D.runs.map(r => `<tr><td class="name"><div class="l1">${esc(r.run_id)}</div>${r.name ? `<div class="l2">${esc(r.name)}</div>` : ""}</td>` +
+      `<td>${esc(r.provider)}/${esc(r.model || "default")}</td><td>${esc(r.dataset || "–")}</td><td>${esc(r.status)}</td><td class="num">${n(r.n_requests)}</td>` +
+      `<td class="num">${n(r.n_finished)}</td><td class="num">${n(r.n_invalid)}</td><td class="num">${n(r.n_regenerated)}</td><td class="num">${n(r.n_evaluations)}</td>` +
+      `<td class="num">${n(r.total_tokens)}</td></tr>`).join("") + `</tbody></table>`;
+}
+
+// ---- wiring ---------------------------------------------------------------------------------
+function update() {
+  const E = filtered();
+  renderTiles(E); renderAgg(E); renderHeat(E); renderTextList(E); renderAgree(E);
+}
+function selectText(sid, scroll) {
+  S.text = sid;
+  S.search = $("#textsearch").value = "";          // so the text is in the list whatever was typed
+  renderTextList(filtered());
+  if (scroll) $("#detail").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+document.addEventListener("change", ev => {
+  const t = ev.target, ms = t.closest(".ms");
+  if (ms && t.type === "checkbox") {
+    const f = FILTERS.find(x => x.id === ms.dataset.filter);
+    t.checked ? S.filters[f.id].add(t.value) : S.filters[f.id].delete(t.value);
+    labelFilter(f); update();
+  } else if (t.id === "rubric") { setRubric(t.value); FILTERS.forEach(f => S.filters[f.id].clear()); S.measure = "total"; renderFilters(); update(); }
+  else if (t.id === "measure") { S.measure = t.value; renderAgg(filtered()); }
+  else if (t.id === "sort") { S.sort = t.value; renderAgg(filtered()); }
+  else if (t.id === "textpick") { S.text = t.value; renderCurrentText(); }
+  else if (t.id === "textsort") { S.textsort = t.value; renderTextList(filtered()); }
+  else if (t.id === "split") { S.split = t.checked; renderCurrentText(); }
+  else if (t.id === "cwho") { S.cwho = t.value; renderCurrentText(); }
+  else if (t.id === "citem") { S.citem = t.value; renderCurrentText(); }
+});
+document.addEventListener("input", ev => {
+  const t = ev.target;
+  if (t.id === "textsearch") { S.search = t.value; renderTextList(filtered()); }
+  else if (t.type === "search" && t.closest(".menu")) {
+    const needle = t.value.toLowerCase();
+    for (const l of t.closest(".menu").querySelectorAll("label")) l.style.display = l.textContent.toLowerCase().includes(needle) ? "" : "none";
+  }
+});
+document.addEventListener("click", ev => {
+  const t = ev.target;
+  for (const open of document.querySelectorAll(".ms[open]")) if (!open.contains(t)) open.open = false;
+  const chip = t.closest("[data-dim]"), kind = t.closest("[data-ckind]"), row = t.closest("[data-sid]");
+  if (chip) {
+    const i = S.group.indexOf(chip.dataset.dim);
+    i >= 0 ? S.group.splice(i, 1) : S.group.push(chip.dataset.dim);
+    S.limit = 40;
+    if (S.group.length === 1 && S.group[0] === "item") S.sort = "natural";
+    const E = filtered(); renderAgg(E); renderHeat(E);
+  } else if (kind) { S.ckind = kind.dataset.ckind; renderCurrentText(); }
+  else if (t.id === "prevtext" || t.id === "nexttext") {
+    const i = S.textOrder.indexOf(S.text) + (t.id === "nexttext" ? 1 : -1);
+    if (i >= 0 && i < S.textOrder.length) { S.text = $("#textpick").value = S.textOrder[i]; renderCurrentText(); }
+  }
+  else if (row) selectText(row.dataset.sid, !!row.closest("#aggtable"));
+  else if (t.id === "more") { S.limit += 100; renderAgg(filtered()); }
+  else if (t.id === "reset") { FILTERS.forEach(f => S.filters[f.id].clear()); renderFilters(); update(); }
+});
+const tip = $("#tip");
+document.addEventListener("mousemove", ev => {
+  const el = ev.target.closest?.("[data-tip]");
+  if (!el) { tip.style.display = "none"; return; }
+  tip.textContent = el.dataset.tip;
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(window.innerWidth - w - 8, ev.clientX + 14) + "px";
+  tip.style.top = (ev.clientY + 18 + h > window.innerHeight ? ev.clientY - h - 10 : ev.clientY + 18) + "px";
+});
+
+const built = new Date(D.generated_at);
+$("#subtitle").textContent = `${D.evaluations.length.toLocaleString()} evaluations of ${Object.keys(D.subjects).length.toLocaleString()} texts from ` +
+  `${D.runs.length} evaluation run${D.runs.length === 1 ? "" : "s"} · built ${Number.isNaN(+built) ? D.generated_at : built.toLocaleString()}`;
+if (S.rubric) { setRubric(S.rubric); renderFilters(); update(); renderRuns(); }
+else { $("#filters").remove(); $("#tiles").innerHTML = `<div class="empty">No evaluations yet. Run <code>python -m evaluation.evaluate_tarot evaluate …</code>, then rebuild this page.</div>`; renderRuns(); }
+</script>
+</body>
+</html>

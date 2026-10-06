@@ -7,7 +7,7 @@ import pytest
 
 import llm.providers as providers
 from data_generation import schema
-from data_generation.pipeline import GenerationConfig, prepare_run, rebuild_requests, run_live
+from data_generation.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
 from data_generation.store import RunStore
 from data_generation.tarot import TarotReadings
 from evaluation.celtic_cross import EXPECTATION_CONTEXT, CelticCrossEvaluation
@@ -392,6 +392,7 @@ def test_expectations_run(tmp_path, registry):
                                   persona_ids=["1", "2", "3"], root=tmp_path, progress=False)
     run = store.run()
     assert run["application"] == "persona_expectations" and run["status"] == "completed"
+    assert store.run_id.startswith("run_persona_expectations_2")
     assert run["config"]["templates"] == ["reading_expectations_v1"]
     rows = store.read("persona_expectations")
     assert len(rows) == 3 and all(r["framing_preference"] == "reflective" for r in rows)
@@ -414,6 +415,7 @@ def test_two_stage_evaluation_end_to_end(tmp_path, registry, readings):
     app = evaluation_app(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
     store, requests = prepare_run(app, eval_config(), root=eval_root)
     assert len(requests) == 8 and store.run()["application"] == "celtic_cross_evaluation"
+    assert store.run_id.startswith("run_celtic_cross_evaluation_2")
     assert [r["rubric_id"] for r in store.read("rubrics")] == ["celtic_cross_reading_v1"]
 
     inputs = store.read("inputs")
@@ -584,3 +586,54 @@ def test_cli_expectations_then_reuse_and_options(tmp_path, registry, readings, c
     assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-dataset", "demo",
                  "--no-personas", "--dry-run", "--provider", "eval-scripted"]) == 0
     assert "prepared 4 evaluations of 4 readings" in capsys.readouterr().out   # default: every reading
+
+
+def test_cli_batch_evaluation_submit_then_collect(tmp_path, registry, readings, capsys):
+    """Stage 1 runs live; stage 2 goes to the provider's batch API and is collected later."""
+    from conftest import FakeOpenAIClient, batch_body
+    from llm.providers.openai_compatible import OpenAICompatibleProvider
+
+    def outputs(uploaded):
+        return [{"custom_id": line["custom_id"], "error": None, "response": {"status_code": 200, "body": batch_body(
+            answer_for(line["body"]["messages"][-1]["content"], "ok"))}} for line in uploaded], []
+
+    client = FakeOpenAIClient(statuses=("validating", "in_progress", "completed"), batch_outputs=outputs)
+    batch_llm = OpenAICompatibleProvider(name="fake-batch", client=client, default_model="fake-model",
+                                         supports_batch=True, batch_dir=tmp_path / "unused")
+    register_provider("fake-batch", lambda **kw: batch_llm)
+
+    root, store = readings
+    out = str(tmp_path / "evaluations")
+    assert main(["--out", out, "expectations", "--provider", "eval-scripted", "--persona", "1", "--persona", "2"]) == 0
+    [stage1] = list((tmp_path / "evaluations").glob("run_persona_expectations_*"))
+    assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-run", store.run_id, "--n", "3",
+                 "--provider", "fake-batch", "--mode", "batch", "--persona", "1", "--persona", "2",
+                 "--expectations", stage1.name]) == 0
+    assert "Submitted batch batch_1" in capsys.readouterr().out
+    [run_dir] = list((tmp_path / "evaluations").glob("run_celtic_cross_evaluation_*"))
+    evaluation = RunStore(run_dir)
+    assert evaluation.run()["status"] == "submitted" and evaluation.read("evaluations") == []
+    assert len(client.uploaded) == 3 and client.uploaded[0]["url"] == "/v1/chat/completions"
+    assert "<reading>" in client.uploaded[0]["body"]["messages"][-1]["content"]
+
+    assert main(["--out", out, "collect", run_dir.name]) == 1             # still running
+    assert main(["--out", out, "collect", run_dir.name]) == 0
+    evaluations = evaluation.read("evaluations")
+    assert len(evaluations) == 3 and {e["total_score"] for e in evaluations} == {80.0}
+    assert evaluation.run()["status"] == "completed"
+    assert {r["batch_id"] for r in evaluation.read("responses")} == {"batch_1"}
+    assert all(b["collected"] for b in evaluation.read("batches"))
+    check_foreign_keys(evaluation)
+
+
+def test_cli_resume_can_lower_workers(tmp_path, registry, readings):
+    """A run refused for concurrency is resumed with fewer workers; the new setting is kept."""
+    eval_root = tmp_path / "e"
+    app = evaluation_app(readings, eval_root)
+    store, requests = prepare_run(app, eval_config(persona_set=None), root=eval_root)
+    run_live(store, app, requests[:1], progress=False)
+    assert load_config(store).max_workers == 4
+    assert main(["--out", str(eval_root), "resume", store.run_id, "--workers", "1"]) == 0
+    assert load_config(store).max_workers == 1 and len(store.read("evaluations")) == 4
+    assert main(["--out", str(eval_root), "resume", store.run_id]) == 0
+    assert load_config(store).max_workers == 1

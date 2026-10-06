@@ -21,6 +21,9 @@ Two stages:
     python -m evaluation.evaluate_tarot resume <run_id>
     python -m evaluation.evaluate_tarot list
 
+Run ids name the task: run_celtic_cross_evaluation_<date>_<time>_<id> and
+run_persona_expectations_<date>_<time>_<id>.
+
 `python evaluation/evaluate_tarot.py ...` works too.
 """
 import argparse
@@ -39,6 +42,7 @@ from data_generation.pipeline import (  # noqa: E402
 )
 from data_generation.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore  # noqa: E402
 from evaluation.celtic_cross import EXPECTATION_CONTEXT, CelticCrossEvaluation  # noqa: E402
+from evaluation.dashboard import write_dashboard  # noqa: E402
 from evaluation.expectations import PersonaExpectations, generate_expectations, load_expectations  # noqa: E402
 from personas import SAMPLING_MODES  # noqa: E402
 
@@ -87,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default=str(EVALUATIONS_ROOT),
                         help="root directory for evaluation runs (default: %(default)s)")
+    parser.add_argument("--no-dashboard", action="store_true",
+                        help="do not rebuild <out>/dashboard.html after evaluate, resume or collect")
     sub = parser.add_subparsers(dest="command", required=True)
 
     x = sub.add_parser("expectations", help="stage 1: each persona's expectations before seeing a reading")
@@ -130,6 +136,9 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("run_id")
         if name == "collect":
             p.add_argument("--wait", action="store_true")
+        if name == "resume":
+            p.add_argument("--workers", type=int, help="concurrent requests from now on (default: as the run was "
+                                                       "started); lower it if the provider refused for concurrency")
     ls = sub.add_parser("list", help="list evaluation and expectations runs")
     ls.add_argument("--dataset")
     return parser
@@ -193,6 +202,18 @@ def _prepare(app, config, out):
     return store, requests
 
 
+def refresh_dashboard(args, store: RunStore) -> None:
+    """Rebuild <out>/dashboard.html (every evaluation run under <out>) once `store` has new evaluations."""
+    if args.no_dashboard or not store.read("evaluations"):
+        return
+    try:
+        out, data = write_dashboard(Path(args.out) / "dashboard.html", evaluations_root=args.out)
+        print(f"  dashboard: {out}  ({len(data['evaluations'])} evaluations of {len(data['subjects'])} texts)")
+    except Exception as e:      # the run itself is safe on disk; the page can be rebuilt by hand
+        print(f"note: the dashboard was not rebuilt ({type(e).__name__}: {e}); "
+              f"run `python -m evaluation.dashboard`", file=sys.stderr)
+
+
 # ---- commands ---------------------------------------------------------------------------
 def cmd_expectations(args) -> int:
     store = generate_expectations(
@@ -246,11 +267,13 @@ def cmd_evaluate(args) -> int:
         return 0
     if config.mode == "live":
         print_summary(store, run_live(store, app, requests))
+        refresh_dashboard(args, store)
         return 0
     job = submit_batch(store, requests)
     print(f"Submitted batch {job.id}. Collect with:\n  python -m evaluation.evaluate_tarot collect {store.run_id}")
     if args.wait:
         print_summary(store, collect_batch(store, app, wait=True))
+        refresh_dashboard(args, store)
     return 0
 
 
@@ -262,6 +285,7 @@ def cmd_collect(args) -> int:
               f"run again later or pass --wait.")
         return 1
     print_summary(store, result)
+    refresh_dashboard(args, store)
     return 0
 
 
@@ -270,7 +294,10 @@ def cmd_resume(args) -> int:
     if load_config(store).mode != "live":
         print("resume is for live runs; use `collect` for batch runs.")
         return 2
+    if args.workers:
+        store.update_run(config={**store.run()["config"], "max_workers": args.workers})
     print_summary(store, run_live(store, app_for(store)))
+    refresh_dashboard(args, store)
     return 0
 
 

@@ -167,7 +167,7 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
     if len(assigned) != len(payloads):
         raise ValueError("assign_personas must return one entry per payload")
 
-    store = RunStore.create(root)
+    store = RunStore.create(root, task=app.name)
     sha, dirty = code_version()
     now = utc_now()
     store.upsert("runs", [{

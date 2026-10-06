@@ -1,0 +1,80 @@
+name = "evaluation_summary"
+version = 1
+description = "Summarise the evaluations of one task: what the rubric scores and the evaluators' comments say about the evaluated texts."
+changes = "Initial version. The results and feedback blocks are rendered by evaluation/summarize.py."
+tags = ["evaluation", "summary"]
+
+# task:                 the task whose texts were evaluated, e.g. tarot_celtic_cross
+# scope:                which evaluations are covered (filters and counts), as bullet lines
+# rubric_overview:      the rubric: what it scores, the scale, its sections and weights, grade bands
+# quantitative_results: overall, per-section and per-question scores, ratings and red flags, as tables
+# question_feedback:    the evaluators' comments on specific rubric questions, grouped by question
+# overall_feedback:     comments not tied to one question: reactions, missed patterns, red-flag quotes
+# breakdown:            the same scores split by one or more dimensions (e.g. by evaluating model); omit for none
+# focus:                an extra instruction from the person asking for the summary; omit for none
+required = ["task", "scope", "rubric_overview", "quantitative_results", "question_feedback", "overall_feedback"]
+optional = ["breakdown", "focus"]
+
+[template]
+system = '''
+You are an evaluation analyst. You are given the results of a rubric-based evaluation of texts written by language models, and you write an accurate, plainly worded summary of what those results show.
+
+Rules:
+- Use only the results and comments you are given. Do not add numbers, quotes or findings that are not there.
+- Say how much evidence stands behind each point: give the mean and the number of evaluations, and say so when a group is too small to conclude from.
+- Refer to rubric questions by their id (for example 3.2) the first time, with a few words saying what the question asks.
+- The scores were given by language models, some of them in the role of a persona. Treat them as evaluators' judgments, not as ground truth.
+- Quote comments sparingly and exactly, and say who made them.
+- Write in Markdown. Be specific; leave out generalities that would be true of any evaluation.
+'''
+user = '''
+# Task
+
+The evaluated texts are outputs of the task `{{ task }}`.
+
+# Which evaluations this covers
+
+{{ scope }}
+
+# The rubric
+
+{{ rubric_overview }}
+
+# Scores
+
+{{ quantitative_results }}
+{% if breakdown %}
+
+# Scores by group
+
+{{ breakdown }}
+{% endif %}
+
+# What the evaluators wrote about specific questions
+
+Each line gives the score, who gave it, and their comment. Only a sample of the comments is shown for each question.
+
+{{ question_feedback }}
+
+# What the evaluators wrote overall
+
+{{ overall_feedback }}
+
+# What to write
+
+Summarise these evaluations under these headings:
+
+- **Verdict.** Two or three sentences: how good are the texts by this rubric, and what is the single most important thing to know?
+- **What the texts do well.** The sections and questions with the highest scores, with what evaluators said about them.
+- **Where the texts fall short.** The sections and questions with the lowest scores, with what evaluators said about them, and any red flags.
+- **How it landed with the evaluators.** Their reactions and their own ratings.
+{% if breakdown %}
+- **Differences between groups.** Where the groups under "Scores by group" differ, by how much, and whether the group sizes support the comparison.
+{% endif %}
+- **How far to trust this.** Where evaluators disagree (large spread), questions where scores barely vary, small samples, and anything in the comments that suggests an evaluator misread the question.
+- **What to change.** Up to five concrete changes to the prompt or the model that the evidence supports, most valuable first.
+{% if focus %}
+
+Pay particular attention to this: {{ focus }}
+{% endif %}
+'''

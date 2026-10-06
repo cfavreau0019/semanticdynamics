@@ -11,10 +11,12 @@ evaluation/
   application.py     EvaluationApplication: subjects x personas -> requests -> scored result rows
   celtic_cross.py    CelticCrossEvaluation: the tarot-specific configuration
   evaluate_tarot.py  command-line script
+  summarize.py       an LLM-written summary of a task's evaluations
+  dashboard.py       builds the analysis dashboard (one HTML file) from evaluation runs; dashboard.html is its template
   rubrics/celtic_cross_reading_v1.toml    the Celtic Cross Reading Evaluation Form as data
 ```
 
-Prompts are in the prompts library: `prompts/library/evaluation/celtic_cross_evaluation_v1.toml` and `reading_expectations_v1.toml`.
+Prompts are in the prompts library, under `prompts/library/evaluation/`: `celtic_cross_evaluation_v1.toml`, `reading_expectations_v1.toml` and `evaluation_summary_v1.toml`.
 
 ## Evaluating Celtic Cross readings
 
@@ -132,6 +134,65 @@ WHERE s.item_type = 'O' AND NOT s.is_na
 GROUP BY e.subject_response_id, s.item_key HAVING count(*) > 1
 ORDER BY spread DESC;
 ```
+
+## Dashboard
+
+```bash
+python -m evaluation.dashboard --open                    # every evaluation run under data/evaluations
+python -m evaluation.dashboard --dataset eval-quick      # only the runs of one evaluation dataset
+python -m evaluation.dashboard --task tarot_celtic_cross # only evaluations of that task's texts; repeatable
+python -m evaluation.dashboard --run <run_id> --run <run_id> --out report.html
+```
+
+Writes one self-contained page (default `data/evaluations/dashboard.html`) with the scores, the comments and the evaluated texts embedded. It needs no server and no network. `evaluate_tarot` rebuilds it, with every evaluation run, whenever `evaluate`, `resume` or `collect` finishes with evaluations (`--no-dashboard` before the command name turns that off); reload the page in the browser to see them. Run the command above for a page limited to a dataset, task or runs. The page is `dashboard.html` in this folder with the data from `dashboard.py` substituted in; opened directly, that template only says how to build the page.
+
+- **Filters** (top row): task, prompt template, generating model, evaluating model, persona, evaluation run. They apply to everything below. Scores of different rubrics are never mixed; with more than one rubric a selector appears.
+- **Scores by group**: box plots of a measure per group. Group by any ordered combination of task, prompt template, text, evaluating model, generating model, persona and rubric question. The measure is the total, a section average, one question, or one of the evaluator's own ratings; grouping by rubric question always compares item scores.
+- **Section profile**: mean section scores for the same groups.
+- **Per text**: a dropdown of every text that passes the filters (sortable, and narrowed by a search box), then the text and what it was generated from, the distribution of its total and of every question (one dot per evaluator), the evaluators' comments (reactions, justifications, strengths, improvements, red-flag quotes) labeled by persona and evaluating model, and one row per evaluation.
+- **Where evaluators disagree**: the spread of each question across evaluators of the same text.
+
+"Task" is the application of the generation run a text came from (`tarot_celtic_cross`), not the evaluation's. The texts are read from the generation runs each evaluation run used; pass `--readings-root` if they have moved. Without them the scores are still shown.
+
+## Summary
+
+An LLM-written report of what the evaluations of one task say.
+
+```bash
+python -m evaluation.summarize --task tarot_celtic_cross                      # everything evaluated for the task
+python -m evaluation.summarize --task tarot_celtic_cross --evaluating-model gpt-6-sol --by generating_model
+python -m evaluation.summarize --task tarot_celtic_cross --each evaluating_model   # one summary per evaluating model
+python -m evaluation.summarize --task tarot_celtic_cross --dry-run            # print the prompt and its size; no API call
+```
+
+| Option | Default | Notes |
+|---|---|---|
+| `--task` | required | The application of the generation runs, as in the dashboard |
+| `--template`, `--generating-model`, `--evaluating-model`, `--persona`, `--run` | all | Which evaluations to cover; each is repeatable. `--template` is the prompt template the texts were generated with |
+| `--dataset` | all | Only evaluation runs of this evaluation dataset |
+| `--by DIMENSION` | – | Add a score table per value of `template`, `generating_model`, `evaluating_model`, `persona` or `run`, and ask for a comparison; repeatable |
+| `--each DIMENSION` | – | A separate summary, and LLM call, for each value of the dimension |
+| `--focus "..."` | – | An extra instruction, such as a question you want answered |
+| `--provider`, `--model` | `openai`, `gpt-6-luna` | The model that writes the summary |
+| `--max-tokens`, `--temperature` | 4000, provider's | |
+| `--prompt` | `evaluation_summary_v1` | The summary prompt template |
+| `--comments-per-question`, `--comments-overall`, `--seed` | 6, 20, 0 | How many comments the model is shown, and the seed of that sample |
+
+The summary is written to `data/evaluations/summaries/summary_<task>_<time>.md`, with a `.json` beside it holding the exact prompt, the selection, the model and the token usage.
+
+**What the model is given.** `summarize.py` renders the rubric results as text and passes them to the prompt template as variables, so the wording of the request can change without touching the code:
+
+| Variable | Contents |
+|---|---|
+| `task`, `scope` | The task; the evaluations covered and how they divide over each dimension |
+| `rubric_overview` | What the rubric scores, the scale, sections with weights, grade bands |
+| `quantitative_results` | Total, grades, section averages, a row per question (n, mean, SD, count of each score, N/A), per-position means, the evaluators' own ratings, red flags fired |
+| `breakdown` | With `--by`: n, total and section averages per group |
+| `question_feedback` | Per rubric question: justifications with the score given, and the strengths and improvements that name the question, each labeled with persona and evaluating model |
+| `overall_feedback` | Reactions, missed patterns with counts, passages quoted for red flags |
+| `focus` | The `--focus` text |
+
+Comments are sampled, because all of them would not fit: per question, the sample is spread over the scores given, lowest and highest first. The scores are computed over every selected evaluation. A summary covers one rubric; a selection with several is refused.
 
 ## Evaluating something else
 
