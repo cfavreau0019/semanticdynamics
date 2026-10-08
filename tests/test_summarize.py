@@ -40,7 +40,8 @@ def test_select_by_every_dimension(tmp_path, registry, readings):
     assert len(select(data, TASK)) == 8 and select(data, "other_task") == []
     assert len(select(data, TASK, {"template": ["celtic_cross_v1"], "generating_model": ["scripted-model"],
                                    "evaluating_model": ["evaluator-model"], "run": [store.run_id]})) == 8
-    for dimension in ("template", "generating_model", "evaluating_model", "run"):
+    assert len(select(data, TASK, {"readings_dataset": ["demo"]})) == 8
+    for dimension in ("template", "generating_model", "evaluating_model", "run", "readings_dataset"):
         assert select(data, TASK, {dimension: ["nope"]}) == []
     one = data["evaluations"][0]
     persona = data["personas"][one["pid"]]
@@ -106,3 +107,10 @@ def test_cli_writes_the_summary_and_how_it_was_made(tmp_path, registry, readings
 
     assert main(["--task", "nope", "--evaluations-root", str(eval_root)]) == 1
     assert "Tasks with evaluations: tarot_celtic_cross" in capsys.readouterr().err
+
+    # the texts' dataset ("demo") is not the evaluation runs' own label ("eval-demo")
+    assert main([*common, "--dataset", "demo", "--dry-run"]) == 1
+    assert "use --readings-dataset demo" in capsys.readouterr().err
+    assert main([*common, "--readings-dataset", "demo", "--dry-run"]) == 0
+    assert "- Readings dataset (selected): demo (8)" in capsys.readouterr().out
+    assert main([*common, "--dataset", "eval-demo", "--dry-run"]) == 0

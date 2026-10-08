@@ -8,7 +8,7 @@ prompts/
   library.py      PromptLibrary: loads the TOML files, resolves versions, enforces the lock
   __main__.py     python -m prompts list | show | diff | render | verify | lock
   library/
-    tarot/celtic_cross_v1.toml, celtic_cross_v2.toml, spread_v1.toml
+    tarot/celtic_cross_v1.toml ... celtic_cross_v4.toml, spread_v1.toml
     evaluation/celtic_cross_evaluation_v1.toml, celtic_cross_evaluation_v2.toml, reading_expectations_v1.toml, evaluation_summary_v1.toml
     extraction/ner_coref_v1.toml
     prompts.lock.json          {template_id: content hash} for versions that must not change

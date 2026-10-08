@@ -32,7 +32,7 @@ What `celtic_cross_validator()` checks:
 | Check | Issue codes | Severity |
 |---|---|---|
 | `positions` | `missing_label` (position absent), `missing_value` (position listed without a card), `wrong_card`, `orientation_mismatch` (e.g. "reversed" dropped) | error |
-| | `conflicting_entries` (position restated with a different card), `out_of_order` | warning |
+| | `unlabeled_value` (the drawn card is discussed, but its position is never named with it), `conflicting_entries` (position restated with a different card), `out_of_order` | warning |
 | `foreign_cards` | `foreign_value`: a card was mentioned that wasn't drawn | warning |
 | `not_truncated` | `truncated` (`finish_reason == "length"`) | error |
 | `no_refusal` | `forbidden_pattern` ("I can't help…", "As an AI…") | error |
@@ -43,9 +43,12 @@ What `celtic_cross_validator()` checks:
 - `1. **Present — Three of Pentacles:** …`
 - short or lowercase position names (`Foundation`, `Conscious goal`)
 - headings with the card on the next line
-- prose ("In the Present, The Lovers reversed suggests…"), via an inline fallback that looks at most 40 characters past the position name
+- prose, when one sentence names the position and its card, in either order ("In the Present, The Lovers reversed suggests…", "the Sun in the Recent Past")
+- connected prose that discusses a card without naming its position: accepted with an `unlabeled_value` warning, as long as the card appears with the right orientation somewhere. `celtic_cross_validator(require_positions=True)` makes that an error (`missing_label`) again
 
-For orientation, `reversed`, `(Reversed)`, `inverted`, `(R)` and `not reversed` are all handled. Orientation is only read from the card's own phrase, not the rest of the paragraph.
+A card that never appears, or that is never given its drawn orientation, is still an error. A later short mention ("the Sun" for a card introduced as "The Sun reversed") is not treated as a contradiction.
+
+For orientation, `reversed`, `(Reversed)`, `inverted`, `(R)` and `not reversed` are all handled. Orientation is only read from the card's own phrase, not the rest of the paragraph. In prose, a one-word card name counts only when capitalised, so "inner strength" is not the Strength card.
 
 **`result.passed`** is `True` when there are no *errors*. Warnings are recorded for review but don't fail a response.
 

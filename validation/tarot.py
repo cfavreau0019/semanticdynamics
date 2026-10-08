@@ -12,7 +12,7 @@ import re
 from typing import Mapping, Optional, Sequence
 
 from validation.checks import ForeignValuesCheck, LabeledValuesCheck, NonEmpty, NoRefusal, NotTruncated
-from validation.core import Validator
+from validation.core import WARNING, Validator
 from validation.extract import LabeledEntryExtractor, VocabularyMatcher, default_aliases
 
 MAJOR_ARCANA = [
@@ -75,6 +75,23 @@ class TarotCardMatcher(VocabularyMatcher):
         reversed_ = bool(_REVERSED.search(segment)) and not _NEGATED_REVERSED.search(segment)
         return card + REVERSED_SUFFIX if reversed_ else card
 
+    def mentions(self, text: str) -> list[str]:
+        """
+        Every card named in `text`, with the orientation stated right next to it ("Death
+        reversed", "Death (reversed)", "the reversed Sun"). A one-word name counts only when
+        capitalised, so "inner strength" or "the world" in prose is not a card.
+        """
+        found = [m for m in self._pattern.finditer(text) if " " in m.group(0) or m.group(0)[0].isupper()]
+        out = []
+        for i, m in enumerate(found):
+            limit = found[i + 1].start() if i + 1 < len(found) else len(text)
+            after = re.split(r"[.!?;\n]", text[m.end():min(limit, m.end() + 24)])[0]
+            before = text[max(found[i - 1].end() if i else 0, m.start() - 14):m.start()]
+            reversed_ = (bool(_REVERSED.search(after)) and not _NEGATED_REVERSED.search(after)) \
+                or bool(re.search(r"\b(?:reversed|inverted)\s+(?:the\s+)?$", before, re.IGNORECASE))
+            out.append(self._match(m) + REVERSED_SUFFIX if reversed_ else self._match(m))
+        return out
+
     def identity(self, value: str) -> str:
         return parse_state(value)[0]
 
@@ -111,12 +128,16 @@ def spread_validator(
     check_order: bool = True,
     inline_window: int = 40,
     min_chars: int = 200,
+    require_positions: bool = False,
 ) -> Validator:
     """
     Validator for a reading of any spread. `positions` is a list of position names or
     {position: [aliases]}. Checks:
       non_empty, not_truncated, no_refusal
-      positions      — every position present, with the drawn card and orientation
+      positions      — every drawn card is there with its orientation. A card is tied to its
+                       position by a "Position: Card" line, or by one sentence naming both in
+                       either order. A card that is discussed without its position being named
+                       is a warning (unlabeled_value), or an error with require_positions=True
       foreign_cards  — (warning) cards mentioned that weren't drawn
     """
     extractor = LabeledEntryExtractor(positions, TarotCardMatcher(cards), inline_window=inline_window)
@@ -124,7 +145,8 @@ def spread_validator(
         NonEmpty(min_chars),
         NotTruncated(),
         NoRefusal(),
-        LabeledValuesCheck(extractor, name="positions", compare=compare_cards, check_order=check_order),
+        LabeledValuesCheck(extractor, name="positions", compare=compare_cards, check_order=check_order,
+                           unlabeled=None if require_positions else WARNING),
         ForeignValuesCheck(TarotCardMatcher(cards, loose=False, case_sensitive=True), name="foreign_cards"),
     ], name=name)
 

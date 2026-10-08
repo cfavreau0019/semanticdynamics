@@ -153,3 +153,71 @@ def test_other_spreads_generalise():
     text = "Past: The Fool - beginnings.\nPresent: Two of Cups reversed - tension.\nFuture: The Sun - joy."
     assert v.validate(text, expected=three_card).passed
     assert not v.validate(text.replace("The Sun", "The Moon"), expected=three_card).passed
+
+
+# ---- readings written as connected prose (celtic_cross_v3 and later) --------------------
+def narrative(instant=INSTANT, name_positions=True, card_first=True):
+    """One paragraph per card; position and card share a sentence, in either order, or the position is left out."""
+    parts = []
+    for pos, card in instant.items():
+        where = pos.split("/")[-1]
+        if not name_positions:
+            parts.append(f"The **{card}** brings an important theme forward. {FILLER}")
+        elif card_first:
+            parts.append(f"The **{card}** in the {where} position brings an important theme forward. {FILLER}")
+        else:
+            parts.append(f"As your {where}, the **{card}** brings an important theme forward. {FILLER}")
+    return "### The reading\n\n" + "\n\n".join(parts) + "\n\n### Overview\n\nA spread about steady growth."
+
+
+@pytest.mark.parametrize("card_first", [True, False])
+def test_position_and_card_in_one_sentence_pass_in_either_order(card_first):
+    res = V.validate(narrative(card_first=card_first), expected=INSTANT, finish_reason="stop")
+    assert res.passed and not res.warnings, res.summary()
+    details = res.checks["positions"].details
+    assert details["extracted"] == INSTANT and set(details["modes"].values()) == {"inline"}
+
+
+def test_cards_discussed_without_naming_positions_pass_with_warnings():
+    text = narrative(name_positions=False)
+    res = V.validate(text, expected=INSTANT, finish_reason="stop")
+    assert res.passed and {i.code for i in res.warnings} == {"unlabeled_value"} and len(res.warnings) == 10
+    assert res.checks["positions"].details["unlabeled"] == list(INSTANT)
+    strict = celtic_cross_validator(require_positions=True).validate(text, expected=INSTANT, finish_reason="stop")
+    assert not strict.passed and {i.code for i in strict.errors} == {"missing_label"}
+
+
+def test_narrative_errors_are_still_errors():
+    absent = narrative({k: v for k, v in INSTANT.items() if k != "Outcome"})          # a drawn card never appears
+    assert [(i.label, i.code) for i in V.validate(absent, expected=INSTANT, finish_reason="stop").errors] == \
+        [("Outcome", "missing_label")]
+    reversed_position = next(k for k, v in INSTANT.items() if v.endswith(" reversed"))
+    upright = narrative(dict(INSTANT, **{reversed_position: INSTANT[reversed_position][:-len(" reversed")]}))
+    assert [(i.label, i.code) for i in V.validate(upright, expected=INSTANT, finish_reason="stop").errors] == \
+        [(reversed_position, "orientation_mismatch")]                                  # never called reversed
+    swapped = narrative(dict(INSTANT, Outcome="The Tower"))
+    assert [(i.label, i.code) for i in V.validate(swapped, expected=INSTANT, finish_reason="stop").errors] == \
+        [("Outcome", "wrong_card")]
+
+
+def test_shortened_later_mentions_and_repeated_cards_are_not_contradictions():
+    draw = dict(INSTANT, Present="Nine of Pentacles reversed", Outcome="Nine of Pentacles")
+    text = (narrative({k: v for k, v in draw.items() if k not in ("Present", "Outcome")}) +
+            "\n\nThe **Nine of Pentacles reversed** puts security at the centre. Later the **Nine of Pentacles upright** "
+            "closes the spread.\n\nThe Nine of Pentacles in the Present and again as Outcome is the spine of this reading.")
+    res = V.validate(text, expected=draw, finish_reason="stop")
+    assert res.passed, res.summary()
+    assert {i.label for i in res.warnings if i.code == "unlabeled_value"} == {"Present"}
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("The Moon reversed in External Influences and the Sun in the Recent Past.", ["The Moon reversed", "The Sun"]),
+    ("the reversed Queen of Wands, then Death (reversed); Judgement, reversed.",
+     ["Queen of Wands reversed", "Death reversed", "Judgement reversed"]),
+    ("Your inner strength and the wider world matter here.", []),                       # ordinary words, not cards
+    ("Strength meets The World.", ["Strength", "The World"]),
+    ("The Sun, and then the Moon reversed.", ["The Sun", "The Moon reversed"]),         # 'reversed' belongs to the Moon
+])
+def test_card_mentions_read_orientation_next_to_each_card(text, expected):
+    from validation.tarot import TarotCardMatcher
+    assert TarotCardMatcher().mentions(text) == expected

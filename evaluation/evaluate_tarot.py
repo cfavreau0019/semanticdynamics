@@ -5,7 +5,7 @@ evaluation/README.md).
 
 Two stages:
   1. expectations  each persona records what they expect before seeing any reading
-                   (one request per persona; reusable across evaluation runs)
+                    (one request per persona; reusable across evaluation runs)
   2. evaluate      each (reading, persona) pair: the persona fills in the form for the reading
 
     # evaluate 50 readings of dataset tarot-v1, one random persona each (runs stage 1 first)

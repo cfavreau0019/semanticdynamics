@@ -7,7 +7,8 @@ Evaluation summary: an LLM-written report of what the evaluations of one task sa
     python -m evaluation.summarize --task tarot_celtic_cross --dry-run                   # print the prompt only
 
 The evaluations of the task are selected with the same criteria as in the dashboard (prompt
-template, generating model, evaluating model, persona, evaluation run). Their rubric results
+template, generating model, evaluating model, persona, evaluation run), or by the generation
+dataset their texts belong to (--readings-dataset). Their rubric results
 are rendered as text blocks: scores as tables, and a sample of the evaluators' comments per
 rubric question. Those blocks are the variables of a prompt template (prompts/library/
 evaluation/evaluation_summary_v1.toml), which one LLM call turns into the summary.
@@ -47,6 +48,7 @@ DIMENSIONS: dict[str, tuple[str, Callable[[dict, dict], Any]]] = {
     "evaluating_model": ("evaluating model", lambda e, subject: e["ev"]),
     "persona": ("persona", lambda e, subject: e["pid"]),
     "run": ("evaluation run", lambda e, subject: e["run"]),
+    "readings_dataset": ("readings dataset", lambda e, subject: subject.get("dataset")),
 }
 
 
@@ -396,7 +398,10 @@ def main(argv=None) -> int:
     parser.add_argument("--persona", action="append", default=[], metavar="ID",
                         help="only evaluations by this persona (id, number or full name); repeatable")
     parser.add_argument("--run", action="append", default=[], metavar="RUN_ID", help="only this evaluation run; repeatable")
-    parser.add_argument("--dataset", help="only evaluation runs of this evaluation dataset")
+    parser.add_argument("--readings-dataset", action="append", default=[], metavar="NAME",
+                        help="only texts of this generation dataset, e.g. tarot-v4; repeatable")
+    parser.add_argument("--dataset", help="only evaluation runs labelled with this dataset when they were run "
+                                          "(evaluate --dataset); not the dataset of the texts, see --readings-dataset")
     parser.add_argument("--by", action="append", default=[], choices=list(DIMENSIONS), metavar="DIMENSION",
                         help=f"also compare the scores across this dimension in the summary; repeatable. "
                              f"One of: {', '.join(DIMENSIONS)}")
@@ -428,13 +433,19 @@ def main(argv=None) -> int:
     data = build_data(args.evaluations_root, runs=args.run, dataset=args.dataset, readings_root=args.readings_root,
                       tasks=[args.task])
     filters = {"template": args.template, "generating_model": args.generating_model,
-               "evaluating_model": args.evaluating_model, "persona": args.persona, "run": args.run}
+               "evaluating_model": args.evaluating_model, "persona": args.persona, "run": args.run,
+               "readings_dataset": args.readings_dataset}
     evaluations = select(data, args.task, filters)
     if not evaluations:
-        known = sorted({s["task"] for s in build_data(args.evaluations_root, dataset=args.dataset,
-                                                      readings_root=args.readings_root)["subjects"].values()})
-        print(f"error: no evaluations of task {args.task!r} match the selection. "
-              f"Tasks with evaluations: {', '.join(known) or 'none'}", file=sys.stderr)
+        everything = build_data(args.evaluations_root, readings_root=args.readings_root)
+        print(f"error: no evaluations of task {args.task!r} match the selection. Tasks with evaluations: "
+              f"{', '.join(sorted({s['task'] for s in everything['subjects'].values()})) or 'none'}", file=sys.stderr)
+        if args.dataset:
+            labels = sorted({r["dataset"] for r in everything["runs"] if r["dataset"]})
+            of_texts = sorted({s["dataset"] for s in everything["subjects"].values() if s["dataset"]})
+            print(f"note: --dataset selects evaluation runs by their own label ({', '.join(labels) or 'none are labelled'})."
+                  + (f" {args.dataset!r} is a dataset of the evaluated texts: use --readings-dataset {args.dataset}"
+                     if args.dataset in of_texts else ""), file=sys.stderr)
         return 1
 
     parts = [("", evaluations, filters)]

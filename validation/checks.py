@@ -3,7 +3,7 @@ import re
 from typing import Callable, Mapping, Optional
 
 from validation.core import ERROR, WARNING, Check, CheckResult, ValidationContext
-from validation.extract import LabeledEntryExtractor, ValueMatcher
+from validation.extract import Entry, LabeledEntryExtractor, ValueMatcher
 
 # (expected, got) -> None when they agree, else (issue_code, message)
 Comparator = Callable[[str, str], Optional[tuple[str, str]]]
@@ -88,12 +88,20 @@ class LabeledValuesCheck(Check):
       missing_label     (error)   label never appears as an entry
       missing_value     (error)   label appears but names no recognisable value
       <comparator code> (error)   value differs from the expected one (default "value_mismatch")
+      unlabeled_value   (see `unlabeled`) the expected value appears, but never with its label
       conflicting_entries (warn)  label appears on several lines with different values
       out_of_order      (warn)    entries appear in a different order than expected (check_order)
 
     `ctx.expected` must be a mapping {label: expected_value}. Labels the extractor was not
-    configured with are reported as unknown_label. Entries found only in prose (inline
-    fallback) count as present; their mode is recorded in details.
+    configured with are reported as unknown_label.
+
+    A label has its value when a line starts with the label and names it ("Present: Death"),
+    or, with allow_inline, when one sentence names both in either order ("Death sits in the
+    Present"). The second also clears a line that named a different value first. Their mode
+    ("line" or "inline") is recorded in details.
+
+    unlabeled — severity for an expected value that appears somewhere but never together
+                with its label. None (default) reports missing_label instead, as an error.
     """
 
     def __init__(
@@ -104,6 +112,7 @@ class LabeledValuesCheck(Check):
         check_values: bool = True,
         check_order: bool = False,
         allow_inline: bool = True,
+        unlabeled: Optional[str] = None,
     ):
         self.name = name
         self.extractor = extractor
@@ -111,6 +120,7 @@ class LabeledValuesCheck(Check):
         self.check_values = check_values
         self.check_order = check_order
         self.allow_inline = allow_inline
+        self.unlabeled = unlabeled
 
     def run(self, ctx: ValidationContext) -> CheckResult:
         expected = ctx.expected
@@ -130,27 +140,48 @@ class LabeledValuesCheck(Check):
             if e.label not in chosen or (chosen[e.label].value is None and e.value is not None):
                 chosen[e.label] = e
 
-        missing_or_empty = [l for l in expected if l not in chosen or chosen[l].value is None]
-        if self.allow_inline and missing_or_empty:
+        prose = self.extractor.co_mentions(ctx.text) if self.allow_inline else None
+        if self.allow_inline and prose is None:           # a matcher that cannot list mentions: look after the label
+            missing_or_empty = [l for l in expected if l not in chosen or chosen[l].value is None]
             chosen.update(self.extractor.extract_inline(ctx.text, missing_or_empty))
+        together, everywhere = prose or ({}, [])
+        agrees = lambda want, got: not self.check_values or self.compare(want, got) is None
+        identity = self.extractor.matcher.identity
 
+        def mismatch(label, want, got):
+            code, msg = self.compare(want, got)
+            issues.append(self.issue(code, f"{label}: {msg}", label=label, expected=want, got=got))
+
+        unlabeled = []
         for label, want in expected.items():
             if label in unknown:
                 continue
             entry = chosen.get(label)
-            if entry is None:
-                issues.append(self.issue("missing_label", f"{label!r} not found", label=label))
-                continue
-            if entry.value is None:
+            stated = entry is not None and entry.value is not None
+            near = together.get(label, [])                # values in a sentence that names the label
+            in_sentence = next(((v, line) for v, line in near if agrees(want, v)), None)
+            if stated and agrees(want, entry.value):
+                pass
+            elif in_sentence:
+                chosen[label] = Entry(label, in_sentence[0], "", in_sentence[1], "inline")
+            elif stated:
+                mismatch(label, want, entry.value)
+            elif self.unlabeled and self.check_values and any(agrees(want, v) for v in everywhere):
+                # also when the label sits beside a shortened mention ("the Sun in the Recent Past" for "The Sun
+                # reversed"): the full value is given elsewhere, so the short form is not a contradiction
+                unlabeled.append(label)
+                issues.append(self.issue("unlabeled_value", f"{want!r} appears, but never together with {label!r}",
+                                         self.unlabeled, label=label))
+            elif any(identity(v) == identity(want) for v, _ in near):       # right value, wrong qualifier throughout
+                mismatch(label, want, next(v for v, _ in near if identity(v) == identity(want)))
+            elif near:                                    # the label is discussed, with other values only
+                mismatch(label, want, near[0][0])
+            elif entry is not None:
                 msg = (f"{label!r} is listed without a value" if not entry.segment
                        else f"{label!r} found but no recognisable value in {entry.segment!r}")
                 issues.append(self.issue("missing_value", msg, label=label, segment=entry.segment))
-                continue
-            if self.check_values:
-                problem = self.compare(want, entry.value)
-                if problem:
-                    code, msg = problem
-                    issues.append(self.issue(code, f"{label}: {msg}", label=label, expected=want, got=entry.value))
+            else:
+                issues.append(self.issue("missing_label", f"{label!r} not found", label=label))
             values = {self.extractor.matcher.identity(v) for v in seen.get(label, [])}
             if len(values) > 1:
                 issues.append(self.issue("conflicting_entries", f"{label!r} appears with different values: "
@@ -170,6 +201,7 @@ class LabeledValuesCheck(Check):
             modes={l: e.mode for l, e in chosen.items()},
             n_expected=len(expected),
             n_found=sum(1 for l in expected if l in chosen and chosen[l].value is not None),
+            unlabeled=unlabeled,
         )
 
 

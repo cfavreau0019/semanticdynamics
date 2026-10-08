@@ -23,6 +23,8 @@ _ENUM_PREFIX = r"(?:(?:position|card|step)\s*\d{1,2}\s*[:.)\-—–]?\s*)?"
 _SEPARATOR = r"\s*(?:[:—–(]|\s-\s|=)\s*"
 # where a value segment ends: description separators, closing brackets, sentence end
 _SEGMENT_END = re.compile(r"\s[-—–]\s|[:—–)\]]|\.(?:\s|$)|\n")
+_EMPHASIS = re.compile(r"\*\*|__|[*`]")
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 def normalize_line(line: str) -> str:
@@ -68,6 +70,10 @@ class ValueMatcher(ABC):
         """(identity, position) of every value mentioned anywhere in `text`. Optional."""
         raise NotImplementedError
 
+    def mentions(self, text: str) -> list[str]:
+        """Every value mentioned in `text`, in order, each as fully as find() would give it. Optional."""
+        raise NotImplementedError
+
     def identity(self, value: str) -> str:
         """Key used to decide whether two values are 'the same thing' (e.g. ignoring orientation)."""
         return value
@@ -100,6 +106,9 @@ class VocabularyMatcher(ValueMatcher):
 
     def find_all(self, text: str) -> list[tuple[str, int]]:
         return [(self.identity(self._match(m)), m.start()) for m in self._pattern.finditer(text)]
+
+    def mentions(self, text: str) -> list[str]:
+        return [self._match(m) for m in self._pattern.finditer(text)]
 
 
 class FreeTextMatcher(ValueMatcher):
@@ -187,6 +196,35 @@ class LabeledEntryExtractor:
                         break
             entries.append(Entry(label, value, seg, i, "line"))
         return entries
+
+    def co_mentions(self, text: str) -> Optional[tuple[dict[str, list[tuple[str, int]]], list[str]]]:
+        """
+        How labels and values meet in running prose, whichever comes first ("In the Present,
+        Death ..." or "Death in the Present ..."):
+
+            ({label: [(value, line), ...]}, [every value mentioned anywhere])
+
+        A value belongs to a label when one sentence names both. None if the matcher cannot
+        list mentions (free text).
+        """
+        try:
+            self.matcher.mentions("")
+        except NotImplementedError:
+            return None
+        clean = _EMPHASIS.sub("", text)
+        together: dict[str, list[tuple[str, int]]] = {}
+        everywhere: list[str] = []
+        start = 0
+        for end in [m.start() for m in _SENTENCE_BREAK.finditer(clean)] + [len(clean)]:
+            sentence, line = clean[start:end], clean.count("\n", 0, start)
+            start = end
+            values = self.matcher.mentions(sentence)
+            if not values:
+                continue
+            everywhere += values
+            for label in {self.canonical_label(m.group("label")) for m in self._inline_re.finditer(sentence)}:
+                together.setdefault(label, []).extend((v, line) for v in values)
+        return together, everywhere
 
     def extract_inline(self, text: str, labels: Iterable[str]) -> dict[str, Entry]:
         """For the given labels, the first prose mention followed closely by a recognisable value."""
