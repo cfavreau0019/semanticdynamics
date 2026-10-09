@@ -637,3 +637,21 @@ def test_cli_resume_can_lower_workers(tmp_path, registry, readings):
     assert load_config(store).max_workers == 1 and len(store.read("evaluations")) == 4
     assert main(["--out", str(eval_root), "resume", store.run_id]) == 0
     assert load_config(store).max_workers == 1
+
+
+def test_readings_can_be_selected_by_generating_model_and_template(tmp_path, registry, readings, capsys):
+    root, store = readings
+    assert len(load_subjects(root, runs=[store.run_id], models=["SCRIPTED-model"])) == 4      # case is ignored
+    assert load_subjects(root, runs=[store.run_id], models=["other-model"]) == []
+    out = str(tmp_path / "evaluations")
+    common = ["--out", out, "evaluate", "--readings-root", str(root), "--readings-run", store.run_id,
+              "--provider", "eval-scripted", "--no-personas", "--dry-run"]
+    assert main([*common, "--readings-model", "scripted-model", "--readings-template", "celtic_cross_v1"]) == 0
+    assert "prepared 4 evaluations of 4 readings" in capsys.readouterr().out
+    [run] = [RunStore(p).run() for p in (tmp_path / "evaluations").glob("run_*")]
+    assert run["config"]["application_options"]["subject_models"] == ["scripted-model"]
+
+    assert main([*common, "--readings-model", "other-model"]) == 1                             # says what there is
+    assert "The selected runs hold: 4 of celtic_cross_v1 by scripted-model" in capsys.readouterr().err
+    assert main([*common, "--readings-template", "celtic_cross_v4"]) == 1
+    assert "no readings match --readings-template celtic_cross_v4." in capsys.readouterr().err

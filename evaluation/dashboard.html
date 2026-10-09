@@ -145,7 +145,28 @@ table.heat th.col { white-space: normal; text-align: center; font-weight: 500; v
 .meta b { color: var(--text-primary); font-weight: 600; }
 details.fold { border: 1px solid var(--grid); border-radius: 8px; margin: 8px 0; }
 details.fold > summary { padding: 7px 10px; cursor: pointer; font-weight: 600; font-size: 13px; }
-.reading { max-height: 320px; overflow: auto; padding: 4px 14px 12px; white-space: pre-wrap; font-size: 13.5px; }
+.reading { max-height: 420px; overflow: auto; padding: 4px 14px 12px; font-size: 13.5px; }
+.reading.raw { white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.reading p { margin: 0 0 9px; }
+.reading h1, .reading h2, .reading h3, .reading h4, .reading h5, .reading h6 {
+  margin: 14px 0 6px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.reading h1 { font-size: 17px; } .reading h2 { font-size: 16px; } .reading h3 { font-size: 14.5px; }
+.reading h4, .reading h5, .reading h6 { font-size: 13.5px; }
+.reading > :first-child { margin-top: 4px; }
+.reading ul, .reading ol { margin: 0 0 9px; padding-left: 22px; }
+.reading li { margin: 2px 0; }
+.reading li > ul, .reading li > ol { margin: 2px 0; }
+.reading hr { border: 0; border-top: 1px solid var(--grid); margin: 12px 0; }
+.reading blockquote { margin: 0 0 9px; padding: 2px 12px; border-left: 3px solid var(--axis); color: var(--text-secondary); }
+.reading code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-2);
+                padding: 0 4px; border-radius: 3px; }
+.reading pre { background: var(--surface-2); padding: 8px 10px; border-radius: 6px; overflow: auto; margin: 0 0 9px; }
+.reading pre code { background: none; padding: 0; }
+.reading table { width: auto; margin: 0 0 9px; }
+.reading th, .reading td { border: 1px solid var(--grid); vertical-align: top; }
+.reading thead th { position: static; white-space: normal; }
+.reading a { color: var(--series-1); }
+.readbar { display: flex; justify-content: flex-end; padding: 0 12px; }
 .kv { padding: 2px 14px 10px; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; font-size: 13px; }
 .kv dt { color: var(--text-secondary); } .kv dd { margin: 0; }
 .block { margin-top: 18px; }
@@ -309,7 +330,7 @@ const S = {
   rubric: Object.keys(rubricCounts).sort((a, b) => rubricCounts[b] - rubricCounts[a])[0] || null,
   filters: Object.fromEntries(FILTERS.map(f => [f.id, new Set()])),
   group: ["ev"], measure: "total", sort: "mean-desc", limit: 40,
-  text: null, textOrder: [], textsort: "n", search: "", split: false, ckind: "all", cwho: "", citem: "",
+  text: null, textOrder: [], textsort: "n", search: "", rawtext: false, split: false, ckind: "all", cwho: "", citem: "",
 };
 let R = null;          // the selected rubric, with lookups
 
@@ -347,6 +368,80 @@ function measures() {
 function filtered() {
   return D.evaluations.filter(e => e.r === S.rubric &&
     FILTERS.every(f => !S.filters[f.id].size || S.filters[f.id].has(f.key(e))));
+}
+
+// ---- markdown -------------------------------------------------------------------------------
+// The subset model outputs use: headings, bold, italics, code, links, lists, tables, quotes, rules.
+// Text is escaped before any tag is added, so nothing in a text can inject HTML.
+function inlineMd(text) {
+  return esc(text)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(.+?)__/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s](?:[^*]*[^*\s])?)\*(?![*\w])/g, "$1<em>$2</em>")
+    .replace(/(^|[^_\w])_([^_\s](?:[^_]*[^_\s])?)_(?![_\w])/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+function markdown(text) {
+  const lines = String(text).replace(/\r\n?/g, "\n").split("\n"), out = [];
+  let para = [], quote = [];
+  const lists = [];                                      // open lists, outermost first: {tag, indent}
+  const flush = () => {
+    if (para.length) out.push(`<p>${para.map(inlineMd).join("<br>")}</p>`);
+    if (quote.length) out.push(`<blockquote><p>${quote.map(inlineMd).join("<br>")}</p></blockquote>`);
+    para = []; quote = [];
+  };
+  const closeLists = (keep = 0) => { while (lists.length > keep) out.push(`</li></${lists.pop().tag}>`); };
+  const cells = row => row.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  const isRule = l => /^\s*([-*_])(\s*\1){2,}\s*$/.test(l);
+  const isDivider = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l) && l.includes("-") && l.includes("|");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*```/.test(line)) {                          // fenced code
+      flush(); closeLists();
+      const code = [];
+      while (++i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i]);
+      out.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+    if (!line.trim()) { flush(); continue; }             // a blank line ends a paragraph, not a list
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (heading) { flush(); closeLists(); out.push(`<h${heading[1].length}>${inlineMd(heading[2])}</h${heading[1].length}>`); continue; }
+    if (isRule(line)) { flush(); closeLists(); out.push("<hr>"); continue; }
+    if (line.includes("|") && i + 1 < lines.length && isDivider(lines[i + 1])) {       // table
+      flush(); closeLists();
+      const head = cells(line), body = [];
+      for (i += 2; i < lines.length && lines[i].includes("|") && lines[i].trim(); i++) body.push(cells(lines[i]));
+      i--;
+      out.push(`<table><thead><tr>${head.map(c => `<th>${inlineMd(c)}</th>`).join("")}</tr></thead><tbody>` +
+        body.map(r => `<tr>${r.map(c => `<td>${inlineMd(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`);
+      continue;
+    }
+    const item = line.match(/^(\s*)(?:([-*+])|(\d{1,3})[.)])\s+(.*)$/);
+    if (item) {
+      flush();
+      const indent = item[1].length, tag = item[2] ? "ul" : "ol";
+      while (lists.length && lists[lists.length - 1].indent > indent) closeLists(lists.length - 1);
+      const top = lists[lists.length - 1];
+      if (top && top.indent === indent && top.tag !== tag) closeLists(lists.length - 1);
+      if (!lists.length || lists[lists.length - 1].indent < indent) {
+        out.push(tag === "ol" && item[3] !== "1" ? `<ol start="${item[3]}">` : `<${tag}>`);
+        lists.push({tag, indent});
+      } else out.push("</li>");
+      out.push(`<li>${inlineMd(item[4])}`);
+      continue;
+    }
+    if (lists.length && /^\s{2,}\S/.test(line)) { out.push(`<br>${inlineMd(line.trim())}`); continue; }   // continues an item
+    closeLists();
+    const quoted = line.match(/^\s{0,3}>\s?(.*)$/);
+    if (quoted) { if (para.length) flush(); quote.push(quoted[1]); continue; }
+    if (quote.length) flush();
+    para.push(line.trim());
+  }
+  flush(); closeLists();
+  return out.join("\n");
 }
 
 // ---- statistics and plots -------------------------------------------------------------------
@@ -593,7 +688,11 @@ function renderText(evals) {
     [["Task", sub.task], ["Generating model", sub.model], ["Prompt template", sub.template], ["Dataset", sub.dataset],
      ["Written for", writtenFor], ["Words", sub.words], ["Response id", sid]]
       .filter(([, v]) => v != null && v !== "").map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("") + `</div>`;
-  h += `<details class="fold" open><summary>The text</summary><div class="reading">${sub.text ? esc(sub.text) : `<span class="muted">The generation run was not found, so the text is not available. Rebuild with --readings-root.</span>`}</div></details>`;
+  h += `<details class="fold" open><summary>The text</summary>` +
+    (sub.text ? `<div class="readbar"><label class="lbl" title="The evaluators were given the raw text"><input type="checkbox" id="rawtext" ${S.rawtext ? "checked" : ""}> raw text</label></div>` +
+                `<div class="reading${S.rawtext ? " raw" : ""}">${S.rawtext ? esc(sub.text) : markdown(sub.text)}</div>`
+              : `<div class="reading"><span class="muted">The generation run was not found, so the text is not available. Rebuild with --readings-root.</span></div>`) +
+    `</details>`;
   if (sub.input && typeof sub.input === "object")
     h += `<details class="fold"><summary>What it was generated from</summary><dl class="kv">` +
       Object.entries(sub.input).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(typeof v === "object" ? JSON.stringify(v) : v)}</dd>`).join("") + `</dl></details>`;
@@ -719,6 +818,7 @@ document.addEventListener("change", ev => {
   else if (t.id === "textpick") { S.text = t.value; renderCurrentText(); }
   else if (t.id === "textsort") { S.textsort = t.value; renderTextList(filtered()); }
   else if (t.id === "split") { S.split = t.checked; renderCurrentText(); }
+  else if (t.id === "rawtext") { S.rawtext = t.checked; renderCurrentText(); }
   else if (t.id === "cwho") { S.cwho = t.value; renderCurrentText(); }
   else if (t.id === "citem") { S.citem = t.value; renderCurrentText(); }
 });

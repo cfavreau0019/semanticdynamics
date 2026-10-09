@@ -1,0 +1,95 @@
+name = "celtic_cross"
+version = 4
+description = "Celtic Cross reading of a given card draw as connected prose: position-specific interpretation, spread-level synthesis, and each card named together with its position in a sentence."
+changes = "Asks for each card to be named together with its position in one sentence of the prose, with no dash or colon label lines, and for reversed cards to be written as the card name followed by \"reversed\". The position list uses colons instead of dashes, so the prompt does not model the dash style. Otherwise the wording of v3."
+based_on = "celtic_cross_v3"
+tags = ["tarot"]
+
+# cards: mapping {position: card state}, e.g. {"Present": "Death reversed", ...}
+# The cards are the only part that differs between requests, so they come last: everything
+# before them is an identical prefix that a provider's prompt (KV) cache can reuse.
+required = ["cards"]
+
+[template]
+user = '''
+You're an experienced tarot reader. Read the Celtic Cross spread given at the end of this message, following the instructions below.
+
+The Celtic Cross should be interpreted as a connected spread, not as ten independent card meanings. Each card should be interpreted in relation to both its position and the larger pattern formed by the other cards.
+
+Use the following position meanings. The cards at the end of this message are listed under these same position names, in this order:
+
+1. Present: the central situation, energy, or issue currently at hand.
+2. Challenge: what crosses, complicates, opposes, modifies, or demands a response from the Present.
+3. Conscious Goal: what is consciously sought, considered, hoped for, or potentially available.
+4. Root Cause/Foundation: underlying influences, roots, unconscious factors, or deeper conditions beneath the situation.
+5. Recent Past: relevant influences or developments that have led into the present and may now be receding.
+6. Near Future: the next stage, emerging development, or direction the situation appears to be moving toward.
+7. Your Attitude: the querent's stance, internal orientation, assumptions, behavior, or way of relating to the situation.
+8. External Influences: external circumstances, surrounding influences, other people, or conditions outside the querent's direct control.
+9. Hopes and Fears: desires, anxieties, expectations, ambivalence, or emotionally charged possibilities.
+10. Outcome: the direction the situation tends toward if its current dynamics continue. Treat this as a likely trajectory, not fixed fate.
+
+Before composing the reading, examine the spread as a whole.
+
+Consider:
+
+- Which suits or elements are dominant, weak, or absent, and whether that pattern is meaningful.
+- The balance of Major and Minor Arcana and whether the Major Arcana cards suggest especially important themes.
+- Reversals, court cards, repeated numbers or ranks, clusters, contrasts, or other notable patterns.
+- Cards that reinforce one another and cards that create tension or contradiction.
+- How the Present and Challenge interact.
+- How the Root Cause/Foundation and Recent Past help explain the Present.
+- How the Conscious Goal relates to what is actually unfolding.
+- How the Near Future develops from the earlier cards rather than standing alone.
+- How Your Attitude and External Influences support, conflict with, or mirror one another.
+- How Hopes and Fears relates to the Outcome.
+- Whether the Outcome follows naturally from the rest of the spread or introduces a shift.
+- The overall movement of the spread: where the situation appears to come from, what tension defines it now, what is changing, and where the current pattern appears to lead.
+
+Do not mechanically list every possible pattern. Mention a pattern only when it contributes meaningfully to the interpretation.
+
+When interpreting each card:
+
+- Use recognizable tarot meanings, including the significance of reversals where relevant.
+- Interpret the card specifically through the meaning of its Celtic Cross position.
+- The first time you discuss a card, name its position and the card together in the same sentence, using the position name as it is written in the list above. Work this into the prose, as a reader speaking would: say which card sits in which position, or which position a card occupies. Do not pair them with a dash or a colon, and do not put them on a label line of their own.
+- Write a reversed card as the card's name followed by the word "reversed".
+- Connect it to other cards when those relationships clarify the reading.
+- Avoid simply giving a generic dictionary meaning for the card.
+- When several interpretations are possible, favor the one best supported by the surrounding spread.
+- Do not invent facts about the querent's life, history, relationships, health, trauma, career, or circumstances that were not provided.
+- If the cards could point to a real-world situation, present that interpretation as a possibility rather than an established fact.
+
+Write the reading in a clear, engaging, reflective style.
+
+Begin by briefly identifying the central theme or tension you see in the spread.
+
+Then move through the cards in a way that makes the relationships among them clear. You may discuss the positions in their standard order, but the reading should feel like one developing interpretation rather than ten isolated mini-readings.
+
+Where useful, explicitly connect cards across positions. Particularly important relationships include:
+
+- Present ↔ Challenge
+- Root Cause/Foundation ↔ Recent Past ↔ Present
+- Present ↔ Near Future
+- Your Attitude ↔ External Influences
+- Hopes and Fears ↔ Outcome
+
+After the card-by-card interpretation, include a section titled "Patterns Across the Spread." Use it to discuss the most meaningful spread-level patterns, such as dominant suits or elements, Major Arcana concentration, reversals, court cards, repeated numbers, or especially strong card relationships. Do not include observations that do not add interpretive value.
+
+Finish with an "Overview" that synthesizes the spread into a coherent whole. Explain:
+
+- the central issue or tension;
+- what appears to have produced it;
+- what is changing or developing;
+- the most important interaction among the cards;
+- the direction suggested by the Outcome;
+- and a practical reflection, question, or takeaway the querent could consider.
+
+Do not present the future as certain. Preserve the querent's agency and describe the Outcome as the direction implied by the current dynamics.
+
+Aim for specificity to this exact spread. The reading should depend on the particular cards, positions, reversals, and relationships present here rather than relying on statements that could apply equally well to almost anyone.
+
+Here is the spread to read:
+
+{{ cards | kv_lines }}
+'''

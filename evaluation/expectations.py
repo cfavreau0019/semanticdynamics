@@ -88,7 +88,7 @@ def generate_expectations(
         people = people.select(persona_ids)
     app = PersonaExpectations(context)
     config = GenerationConfig(
-        n=len(people), provider=provider, model=model, params=dict(params or {"max_tokens": 1500}),
+        n=len(people), provider=provider, model=model, params=dict(params or {"max_tokens": 2000}),
         mode="dry_run" if dry_run else "live", max_workers=max_workers, name=name, dataset=dataset,
         persona_set=persona_set, persona_sampling="cycle", persona_ids=[str(i) for i in persona_ids])
     store, requests = prepare_run(app, config, root=root)

@@ -33,7 +33,7 @@ PAIRINGS = ("sample", "subject")
 
 class EvaluationApplication(Application):
     """
-    subjects_root, subject_runs, subject_dataset, subject_templates, valid_only
+    subjects_root, subject_runs, subject_dataset, subject_templates, subject_models, valid_only
                          which generated outputs to evaluate (see subjects.load_subjects)
     personas_per_subject evaluators per subject when personas are used
     pairing              "sample": personas_per_subject distinct personas drawn per subject
@@ -58,6 +58,7 @@ class EvaluationApplication(Application):
         expectations_run: Optional[str] = None,
         expectations_root: Optional[str | Path] = None,
         rubric: Optional[str] = None,
+        subject_models: Sequence[str] = (),
     ):
         if pairing not in PAIRINGS:
             raise ValueError(f"pairing must be one of {PAIRINGS}, got {pairing!r}")
@@ -67,6 +68,7 @@ class EvaluationApplication(Application):
         self.subject_runs = list(subject_runs)
         self.subject_dataset = subject_dataset
         self.subject_templates = list(subject_templates)
+        self.subject_models = list(subject_models)
         self.valid_only = valid_only
         self.personas_per_subject = personas_per_subject
         self.pairing = pairing
@@ -94,7 +96,7 @@ class EvaluationApplication(Application):
     def subjects(self) -> dict[str, Subject]:
         if self._subjects is None:
             found = load_subjects(self.subjects_root, self.subject_runs, self.subject_dataset,
-                                  self.subject_templates, self.valid_only)
+                                  self.subject_templates, self.valid_only, self.subject_models)
             self._subjects = {s.response_id: s for s in found}
         return self._subjects
 
@@ -120,6 +122,7 @@ class EvaluationApplication(Application):
         return {
             "subjects_root": str(self.subjects_root), "subject_runs": self.subject_runs,
             "subject_dataset": self.subject_dataset, "subject_templates": self.subject_templates,
+            "subject_models": self.subject_models,
             "valid_only": self.valid_only, "personas_per_subject": self.personas_per_subject,
             "pairing": self.pairing, "expectations_run": self.expectations_run,
             "expectations_root": str(self.expectations_root) if self.expectations_root else None,
