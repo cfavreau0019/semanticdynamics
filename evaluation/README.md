@@ -41,7 +41,8 @@ Results go to `data/evaluations/<run_id>/` (gitignored). Readings are taken from
 | Option | Default | Notes |
 |---|---|---|
 | `--readings-dataset` / `--readings-run` | – | Which readings to evaluate (one is required) |
-| `--readings-template` | `celtic_cross_v1` | Only readings generated with this prompt template |
+| `--readings-template` | `celtic_cross_v1` | Only readings generated with this prompt template; repeatable |
+| `--readings-model` | all | Only readings written by this generating model; repeatable |
 | `--n` | all | Number of readings; a seeded sample when fewer than available |
 | `--personas-per-reading` | 1 | Distinct personas evaluating each reading; requests = readings × this |
 | `--persona-sampling` | `random` | `cycle` walks through the persona set so each is used equally often |

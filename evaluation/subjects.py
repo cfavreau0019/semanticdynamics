@@ -32,11 +32,13 @@ def load_subjects(
     dataset: Optional[str] = None,
     templates: Sequence[str] = (),
     valid_only: bool = True,
+    models: Sequence[str] = (),
 ) -> list[Subject]:
     """
     Final, successful responses of the given runs and/or of every run in a dataset.
 
     templates  — keep only outputs of these prompt templates (e.g. ["celtic_cross_v1"])
+    models     — keep only outputs written by these models (as recorded with the response; case is ignored)
     valid_only — drop outputs that failed the generation run's validation
     Returned in a stable order (run, then response id), so seeded sampling is reproducible.
     """
@@ -46,6 +48,7 @@ def load_subjects(
     if not run_ids:
         raise ValueError("Give at least one run id or a dataset to take subjects from")
 
+    wanted_models = {m.casefold() for m in models}
     subjects: list[Subject] = []
     for run_id in run_ids:
         store = RunStore.open(run_id, root)
@@ -64,10 +67,12 @@ def load_subjects(
             prompt = prompts[requests[request_id]["prompt_id"]]
             if templates and prompt["template"] not in templates:
                 continue
+            model = response.get("model") or requests[request_id].get("model")
+            if wanted_models and str(model).casefold() not in wanted_models:
+                continue
             source = inputs[prompt["input_id"]]
             subjects.append(Subject(
                 response_id=response["response_id"], request_id=request_id, run_id=run_id, text=text,
-                input=source["payload"], template=prompt["template"],
-                model=response.get("model") or requests[request_id].get("model"),
+                input=source["payload"], template=prompt["template"], model=model,
                 persona_id=source.get("persona_id"), valid=valid))
     return subjects

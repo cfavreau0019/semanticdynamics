@@ -32,3 +32,7 @@ data/generations/
 
 # Evaluation runs (tables per run); see evaluation/README.md
 data/evaluations/
+
+# local DuckDB database files (views over the JSONL tables)
+*.duckdb
+*.duckdb.wal
