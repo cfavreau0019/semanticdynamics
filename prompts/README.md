@@ -90,7 +90,7 @@ A version's text never changes once it has produced data you keep. To iterate:
    ```
 4. Compare them on the *same* inputs. The summary reports, per template, the valid rate and the first-try valid rate:
    ```bash
-   python -m data_generation.generate_tarot generate --n 50 --template celtic_cross_v2 --template celtic_cross_v3
+   python -m data_generation.generate run tarot_celtic_cross --n 50 --template celtic_cross_v2 --template celtic_cross_v3
    ```
 5. Lock it once you keep its data:
    ```bash

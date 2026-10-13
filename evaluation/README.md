@@ -9,7 +9,7 @@ evaluation/
   subjects.py        load_subjects: the generated outputs to evaluate, read from generation runs
   expectations.py    PersonaExpectations, stage 1: what a persona expects before seeing the output
   task.py            EvaluationTask, stage 2: subjects x personas -> requests -> scored result rows
-  evaluate_tarot.py  command-line script
+  evaluate.py        command-line script: runs the evaluation tasks of every application
   summarize.py       an LLM-written summary of a task's evaluations
   dashboard.py       builds the analysis dashboard (one HTML file) from evaluation runs; dashboard.html is its template
   rubrics/celtic_cross_reading_v1.toml    the Celtic Cross Reading Evaluation Form as data
@@ -21,31 +21,33 @@ Prompts are in the prompts library, under `prompts/library/evaluation/`: `celtic
 
 ## Evaluating Celtic Cross readings
 
+`evaluate.py` runs any evaluation task, named after `run` or `expectations`; `celtic_cross_evaluation` is the tarot one. A *subject* is one generated output, here a reading.
+
 ```bash
 # 50 readings from dataset tarot-v1, one random persona each (runs stage 1 first, for all personas in scope)
-python -m evaluation.evaluate_tarot evaluate --readings-dataset tarot-v1 --n 50 --provider openai --model <model>
+python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 --n 50 --provider openai --model <model>
 
 # record expectations once, then reuse them; 3 personas per reading; as a batch
-python -m evaluation.evaluate_tarot expectations --provider openai --model <model>
-python -m evaluation.evaluate_tarot evaluate --readings-dataset tarot-v1 --n 200 --personas-per-reading 3 \
+python -m evaluation.evaluate expectations celtic_cross_evaluation --provider openai --model <model>
+python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 --n 200 --personas-per-subject 3 \
     --expectations <expectations_run_id> --provider openai --model <model> --mode batch
-python -m evaluation.evaluate_tarot collect <run_id> --wait
+python -m evaluation.evaluate collect <run_id> --wait
 
-python -m evaluation.evaluate_tarot status <run_id>     # counts, mean total, grades, section averages, red flags
-python -m evaluation.evaluate_tarot resume <run_id>     # finish an interrupted live run
-python -m evaluation.evaluate_tarot list
-python -m evaluation.evaluate_tarot evaluate --readings-dataset tarot-v1 --n 3 --dry-run   # prepare only, no API calls
+python -m evaluation.evaluate status <run_id>     # counts, mean total, grades, section averages, red flags
+python -m evaluation.evaluate resume <run_id>     # finish an interrupted live run
+python -m evaluation.evaluate list
+python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 --n 3 --dry-run   # prepare only, no API calls
 ```
 
 Results go to `data/evaluations/<run_id>/` (gitignored). Readings are taken from `data/generations/`.
 
 | Option | Default | Notes |
 |---|---|---|
-| `--readings-dataset` / `--readings-run` | – | Which readings to evaluate (one is required) |
-| `--readings-template` | `celtic_cross_v4`, the readings task's default | Only readings generated with this prompt template; repeatable |
-| `--readings-model` | all | Only readings written by this generating model; repeatable |
+| `--subject-dataset` / `--subject-run` | – | Which readings to evaluate: those of a generation dataset or run (one is required) |
+| `--subject-template` | `celtic_cross_v4`, the readings task's default | Only readings generated with this prompt template; repeatable |
+| `--subject-model` | all | Only readings written by this generating model; repeatable |
 | `--n` | all | Number of readings; a seeded sample when fewer than available |
-| `--personas-per-reading` | 1 | Distinct personas evaluating each reading; requests = readings × this |
+| `--personas-per-subject` | 1 | Distinct personas evaluating each reading; requests = readings × this |
 | `--persona-sampling` | `random` | `cycle` walks through the persona set so each is used equally often |
 | `--persona ID` | – | Restrict to specific personas; repeatable |
 | `--pairing` | `sample` | `subject`: the persona a reading was written for evaluates it (for readings generated with `--personas`) |
@@ -77,7 +79,7 @@ N/A items drop out of their section's average, and the lowest cap among fired re
 
 **3. Two stages, as the form requires.** The persona's expectations (Part A3) must be recorded before they see the reading.
 - **Stage 1 (`expectations`)** is one request per persona, without any reading. Your readings were generated without a question, so expectations depend only on the persona. They are generated once and reused.
-- **Stage 2 (`evaluate`)** is one request per (reading, persona) pair: the persona, their expectations, the cards, the reading, and the form.
+- **Stage 2 (`run`)** is one request per (reading, persona) pair: the persona, their expectations, the cards, the reading, and the form.
 
 **4. Answers are validated before they become scores.** `RubricAnswerCheck` runs through the usual `validate=` hook, so a bad answer is regenerated, up to 2 retries.
 
@@ -157,7 +159,7 @@ python -m evaluation.dashboard --task tarot_celtic_cross # only evaluations of t
 python -m evaluation.dashboard --run <run_id> --run <run_id> --out report.html
 ```
 
-Writes one self-contained page (default `data/evaluations/dashboard.html`) with the scores, the comments and the evaluated texts embedded. It needs no server and no network. `evaluate_tarot` rebuilds it, with every evaluation run, whenever `evaluate`, `resume` or `collect` finishes with evaluations (`--no-dashboard` before the command name turns that off); reload the page in the browser to see them. Run the command above for a page limited to a dataset, task or runs. The page is `dashboard.html` in this folder with the data from `dashboard.py` substituted in; opened directly, that template only says how to build the page.
+Writes one self-contained page (default `data/evaluations/dashboard.html`) with the scores, the comments and the evaluated texts embedded. It needs no server and no network. `evaluate.py` rebuilds it, with every evaluation run, whenever `run`, `resume` or `collect` finishes with evaluations (`--no-dashboard` before the command name turns that off); reload the page in the browser to see them. Run the command above for a page limited to a dataset, task or runs. The page is `dashboard.html` in this folder with the data from `dashboard.py` substituted in; opened directly, that template only says how to build the page.
 
 - **Filters** (top row): task, prompt template, generating model, evaluating model, persona, evaluation run. They apply to everything below. Scores of different rubrics are never mixed; with more than one rubric a selector appears.
 - **Scores by group**: box plots of a measure per group. Group by any ordered combination of task, prompt template, text, evaluating model, generating model, persona and rubric question. The measure is the total, a section average, one question, or one of the evaluator's own ratings; grouping by rubric question always compares item scores.
@@ -216,9 +218,9 @@ What is generic and what a new application supplies:
 |---|---|
 | Rubric engine, answer validation, scoring | A rubric file (`rubrics/<name>_v1.toml`) |
 | Subject loading, persona pairing, two-stage flow | An evaluation prompt template in the prompts library; it receives `rubric_form` and `response_format` generated from the rubric |
-| Result tables, CLI plumbing (live/batch/resume) | A subclass of `EvaluationTask` setting `rubric_ref` and `default_template`, and overriding `labels`, `na_required`, `context` as needed; and a subclass of `PersonaExpectations` naming its prompt template and context |
+| Result tables, the command-line script (live/batch/resume) | A subclass of `EvaluationTask` setting `rubric_ref` and `default_template`, and overriding `labels`, `na_required`, `context` as needed; a subclass of `PersonaExpectations` naming its prompt template and context; and the task's command-line defaults (`default_personas`, `default_subject_templates`, `expectations_task`) |
 
-`applications/tarot/celtic_cross_evaluation.py` and `persona_expectations.py` are the whole tarot-specific part: about 60 lines.
+`applications/tarot/celtic_cross_evaluation.py` and `persona_expectations.py` are the whole tarot-specific part: about 60 lines. `evaluate.py` offers a new task as `run <name>` as soon as its file exists under `applications/<application>/`.
 
 **Limits of the generic design:**
 - A rubric assumes one numeric scale, weighted section averages, and caps from yes/no flags. A scheme that isn't shaped like that, such as pairwise comparisons or rankings, needs a different scorer.

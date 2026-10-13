@@ -7,7 +7,7 @@ evaluator. An evaluation run is a data_generation run whose requests are evaluat
   subjects       load_subjects: generated outputs to evaluate
   expectations   PersonaExpectations, stage 1: a persona's expectations before seeing the output
   task           EvaluationTask, stage 2: the generic evaluation task
-  evaluate_tarot command-line script
+  evaluate       command-line script: runs the evaluation tasks of every application
 
 What an application adds to the two tasks lives with it: applications/tarot/ has
 TarotPersonaExpectations and CelticCrossEvaluation.

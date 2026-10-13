@@ -74,12 +74,12 @@ def test_page_embeds_the_data(tmp_path, registry, readings, capsys):
 
 
 def test_evaluation_commands_rebuild_the_dashboard(tmp_path, registry, readings, capsys):
-    from evaluation.evaluate_tarot import main as evaluate
+    from evaluation.evaluate import main as evaluate
     root, store = readings
     out = tmp_path / "evaluations"
     page = out / "dashboard.html"
-    common = ["evaluate", "--readings-root", str(root), "--readings-run", store.run_id, "--provider", "eval-scripted",
-              "--no-personas", "--seed", "5"]
+    common = ["run", "celtic_cross_evaluation", "--subjects-root", str(root), "--subject-run", store.run_id,
+              "--provider", "eval-scripted", "--no-personas", "--seed", "5"]
     assert evaluate(["--out", str(out), "--no-dashboard", *common, "--n", "1"]) == 0 and not page.exists()
     assert evaluate(["--out", str(out), *common, "--dry-run"]) == 0 and not page.exists()     # nothing new to show
     assert evaluate(["--out", str(out), *common, "--n", "2"]) == 0

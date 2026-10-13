@@ -9,47 +9,49 @@ data_generation/
   store.py           RunStore: data/generations/<run_id>/<table>.jsonl
   task.py            InferenceTask: what a task supplies to the pipeline
   pipeline.py        prepare_run, run_live, submit_batch, collect_batch
-  generate_tarot.py  command-line entry point
+  generate.py        command-line script: runs the generation tasks of every application
 ```
 
 The tasks themselves live with their application. `applications/tarot/readings.py` is `TarotReadings`: card draws, prompt variables, validator.
 
-## Tarot readings from the command line
+## Generating from the command line
+
+`generate.py` runs any generation task, named after `run`. `tarot_celtic_cross` is the tarot readings task; `run --help` lists the others.
 
 ```bash
 # live: concurrent calls, validated and retried, written as they finish
-python -m data_generation.generate_tarot generate --n 20 --provider featherless --max-tokens 2000
+python -m data_generation.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
 
 # options
-python -m data_generation.generate_tarot generate --n 50 --provider featherless --temperature 0.9 \
+python -m data_generation.generate run tarot_celtic_cross --n 50 --provider featherless --temperature 0.9 \
     --extra-body '{"top_k": 40, "min_p": 0.02}' --seed 42 --draw unique --pin "Outcome=Death reversed" --name death-outcome
 
 # batch (OpenAI): submit now, collect later (--wait blocks until done)
-python -m data_generation.generate_tarot generate --n 500 --provider openai --model gpt-4o-mini --mode batch
-python -m data_generation.generate_tarot collect <run_id> [--wait]
+python -m data_generation.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
+python -m data_generation.generate collect <run_id> [--wait]
 
-python -m data_generation.generate_tarot resume <run_id>    # live: finish interrupted / API-errored requests
-python -m data_generation.generate_tarot status <run_id>
-python -m data_generation.generate_tarot list
-python -m data_generation.generate_tarot generate --n 5 --dry-run   # write inputs/prompts/requests only
+python -m data_generation.generate resume <run_id>    # live: finish interrupted / API-errored requests
+python -m data_generation.generate status <run_id>
+python -m data_generation.generate list
+python -m data_generation.generate run tarot_celtic_cross --n 5 --dry-run   # write inputs/prompts/requests only
 ```
 
 ### Growing a dataset over several sessions
 
-Each `generate` call is its own run, in its own folder, with its own recorded settings, seed and git commit. To build one dataset across sessions, give every run the same `--dataset` label:
+Each `run` call is its own run, in its own folder, with its own recorded settings, seed and git commit. To build one dataset across sessions, give every run the same `--dataset` label:
 
 ```bash
-python -m data_generation.generate_tarot generate --n 500 --dataset tarot-v1 --provider featherless
+python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
 # ... days later ...
-python -m data_generation.generate_tarot generate --n 500 --dataset tarot-v1 --provider featherless
-python -m data_generation.generate_tarot list --dataset tarot-v1      # runs + combined totals
+python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
+python -m data_generation.generate list --dataset tarot-v1      # runs + combined totals
 ```
 
 - The label is stored once, in `runs.dataset`. Every other table reaches it through `run_id`.
 - Without `--seed`, each run gets a fresh seed (recorded in `runs.config`), so sessions draw different cards. Passing a `--seed` already used in the same dataset with the same draw settings would repeat those draws, so the script warns.
 - A run stopped partway is finished with `resume <run_id>`; that adds to the same run's files.
 
-`python -m data_generation.generate_tarot generate --help` lists every option. The main ones:
+`python -m data_generation.generate run tarot_celtic_cross --help` lists every option: the general ones, and those the task adds (for tarot readings `--draw`, `--pin` and `--deck-config`). `collect`, `resume` and `status` take only a run id, because a run records which task it belongs to. The main options:
 
 | Option | Default | Notes |
 |---|---|---|
@@ -69,8 +71,8 @@ Prompt text lives in the `prompts` package as versioned template files; the taro
 
 ```bash
 python -m prompts list                                                     # available templates and their status
-python -m data_generation.generate_tarot generate --n 200 --personas tarot_personas
-python -m data_generation.generate_tarot generate --n 50 --template celtic_cross_v1 --template celtic_cross_v2
+python -m data_generation.generate run tarot_celtic_cross --n 200 --personas tarot_personas
+python -m data_generation.generate run tarot_celtic_cross --n 50 --template celtic_cross_v1 --template celtic_cross_v2
 ```
 
 With several templates, `--n` is the number of card draws and each draw is sent once per template, so the comparison is paired. The summary and `status` then report, for each template, the valid rate and the first-try valid rate.
@@ -169,6 +171,10 @@ Subclass `task.InferenceTask`, in a file of its own under `applications/<applica
   - `assign_personas(...)` controls persona pairing;
   - `reference_rows()` supplies reference-table rows written at preparation;
   - `validation_expected(metadata)` sets what the validator compares against;
-  - `derived_rows(response, response_id)` supplies extra tables parsed from responses.
+  - `derived_rows(response, response_id)` supplies extra tables parsed from responses;
+- optionally, for the command line:
+  - `add_arguments(parser)` adds the task's own options, and `from_args(args)` builds the task from them;
+  - `from_options(options)` rebuilds the task of an existing run from the `options()` recorded with it;
+  - `run_warnings(config, root)` returns anything to say before a run is prepared.
 
-`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged. `applications/tarot/readings.py` is the reference implementation.
+`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged, and `generate.py` offers the task as `run <name>` without being told about it: every task defined in a module of an application folder is found (see `applications/__init__.py`). `applications/tarot/readings.py` is the reference implementation.

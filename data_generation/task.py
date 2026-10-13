@@ -71,3 +71,33 @@ class InferenceTask(ABC):
     def options(self) -> dict:
         """Task settings to record in runs.config."""
         return {}
+
+    # ---- command line ------------------------------------------------------------------
+    # What the general scripts (data_generation.generate, evaluation.evaluate) ask of a task,
+    # so that they need no code of their own for it.
+    cli: Optional[str] = "generate"         # the script whose `run` starts this task: "generate" or "evaluate";
+                                            # None = it is only started as part of another task
+
+    @classmethod
+    def add_arguments(cls, parser) -> None:
+        """
+        Add this task's own options to its `run` command (an argparse parser that already has
+        the general ones). parser.set_defaults(...) changes the default of a general option.
+        """
+
+    @classmethod
+    def from_args(cls, args) -> "InferenceTask":
+        """The task of a new run, from the parsed command line."""
+        return cls()
+
+    @classmethod
+    def from_options(cls, options: dict) -> "InferenceTask":
+        """The task of an existing run, rebuilt from the options() recorded with it (to resume or collect it)."""
+        return cls(**options)
+
+    def run_warnings(self, config, root) -> list[str]:
+        """
+        Anything to tell the user before a run with this GenerationConfig is prepared under
+        `root`, e.g. that its seed would repeat the inputs of an earlier run.
+        """
+        return []

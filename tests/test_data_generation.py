@@ -7,27 +7,30 @@ from pathlib import Path
 
 import pytest
 
+import applications
 import llm.providers as providers
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
 from applications.tarot.readings import TarotReadings
 from data_generation import schema
-from data_generation.generate_tarot import main
+from data_generation.generate import main
 from data_generation.pipeline import (
     GenerationConfig, collect_batch, final_responses, list_runs, load_config, prepare_run, rebuild_requests,
     run_live,
     submit_batch, summarize,
 )
 from data_generation.store import RunStore
+from data_generation.task import InferenceTask
 from prompts import get_template, parse_id as parse_template_id
 from conftest import FakeOpenAIClient, batch_body
 from llm.providers.openai_compatible import OpenAICompatibleProvider
 
+RUN = ["run", "tarot_celtic_cross"]         # the command line that starts a run of the readings task
 FILLER = "This card carries a meaningful theme for you, worth careful reflection in the days ahead."
 
 
 def reading_from_prompt(prompt: str, drop: str = None) -> str:
-    """A well-formed reading restating the draw: the 'Position: Card' lines that end the prompt (optionally omitting one)."""
+    """A well-formed reading restating the draw, i.e. the 'Position: Card' lines that end the prompt (drop: omit one)."""
     lines = re.findall(r"^([^:\n]+): (.+)$", prompt.strip().split("\n\n")[-1], flags=re.M)
     body = "\n\n".join(f"{i}. {pos}: {card} - {FILLER}" for i, (pos, card) in enumerate(lines, 1) if pos != drop)
     return f"Here is your reading.\n\n{body}\n\nOverall, a thoughtful spread."
@@ -383,7 +386,7 @@ def test_batch_collect_retries_live_by_default(tmp_path, batch_provider):
 # ---- CLI --------------------------------------------------------------------------------
 def test_cli_generate_status_list_resume(tmp_path, scripted, capsys):
     out = str(tmp_path)
-    assert main(["--out", out, "generate", "--n", "2", "--provider", "tarot-scripted", "--seed", "5",
+    assert main(["--out", out, *RUN, "--n", "2", "--provider", "tarot-scripted", "--seed", "5",
                  "--temperature", "0.7", "--max-tokens", "1234", "--extra-body", '{"top_k": 40}', "--pin", "Outcome=Death",
                  "--name", "cli-test"]) == 0
     [run_dir] = list(tmp_path.glob("run_*"))
@@ -401,7 +404,7 @@ def test_cli_generate_status_list_resume(tmp_path, scripted, capsys):
 
 def test_dataset_groups_runs_across_sessions(tmp_path, scripted, capsys):
     out = str(tmp_path)
-    gen = ["--out", out, "generate", "--provider", "tarot-scripted"]
+    gen = ["--out", out, *RUN, "--provider", "tarot-scripted"]
     assert main([*gen, "--n", "3", "--dataset", "tarot-v1"]) == 0          # session 1
     assert main([*gen, "--n", "2", "--dataset", "tarot-v1"]) == 0          # session 2, later
     assert main([*gen, "--n", "1", "--dataset", "other"]) == 0
@@ -424,7 +427,7 @@ def test_dataset_groups_runs_across_sessions(tmp_path, scripted, capsys):
 
 
 def test_reusing_a_seed_within_a_dataset_warns(tmp_path, scripted, capsys):
-    gen = ["--out", str(tmp_path), "generate", "--provider", "tarot-scripted", "--n", "1", "--dry-run"]
+    gen = ["--out", str(tmp_path), *RUN, "--provider", "tarot-scripted", "--n", "1", "--dry-run"]
     main([*gen, "--dataset", "d", "--seed", "7"])
     assert "WARNING" not in capsys.readouterr().err
     main([*gen, "--dataset", "d", "--seed", "8"])                           # different seed: fine
@@ -437,18 +440,18 @@ def test_reusing_a_seed_within_a_dataset_warns(tmp_path, scripted, capsys):
 
 
 def test_cli_dry_run_and_argument_errors(tmp_path, scripted):
-    assert main(["--out", str(tmp_path), "generate", "--n", "3", "--dry-run", "--provider", "tarot-scripted"]) == 0
+    assert main(["--out", str(tmp_path), *RUN, "--n", "3", "--dry-run", "--provider", "tarot-scripted"]) == 0
     assert scripted.calls == {}
     with pytest.raises(SystemExit):
-        main(["--out", str(tmp_path), "generate", "--n", "1", "--pin", "no-equals-sign"])
+        main(["--out", str(tmp_path), *RUN, "--n", "1", "--pin", "no-equals-sign"])
     with pytest.raises(SystemExit):
-        main(["--out", str(tmp_path), "generate", "--n", "1", "--extra-body", "[1, 2]"])
+        main(["--out", str(tmp_path), *RUN, "--n", "1", "--extra-body", "[1, 2]"])
 
 
 def test_cli_batch_collect(tmp_path, batch_provider):
     batch_provider(statuses=("validating", "in_progress", "completed"))
     out = str(tmp_path)
-    assert main(["--out", out, "generate", "--n", "2", "--provider", "fake-batch", "--mode", "batch"]) == 0
+    assert main(["--out", out, *RUN, "--n", "2", "--provider", "fake-batch", "--mode", "batch"]) == 0
     [run_dir] = list(tmp_path.glob("run_*"))
     assert main(["--out", out, "collect", run_dir.name]) == 1           # still running
     assert main(["--out", out, "collect", run_dir.name]) == 0
@@ -568,7 +571,7 @@ def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
 
 def test_cli_personas_and_templates(tmp_path, scripted, capsys):
     out = str(tmp_path)
-    assert main(["--out", out, "generate", "--n", "2", "--provider", "tarot-scripted", "--personas", "tarot_personas",
+    assert main(["--out", out, *RUN, "--n", "2", "--provider", "tarot-scripted", "--personas", "tarot_personas",
                  "--persona", "7", "--template", "celtic_cross_v1", "--template", "celtic_cross_v2"]) == 0
     captured = capsys.readouterr()
     assert "templates: celtic_cross_v1, celtic_cross_v2  personas: tarot_personas" in captured.out
@@ -577,3 +580,79 @@ def test_cli_personas_and_templates(tmp_path, scripted, capsys):
     [run_dir] = list(tmp_path.glob("run_*"))
     store = RunStore.open(run_dir.name, tmp_path)
     assert [p["persona_number"] for p in store.read("personas")] == [7] and len(store.read("requests")) == 4
+
+
+# ---- tasks are found by name; the general script needs no code for a new one --------------------
+class ThreeCards(InferenceTask):
+    """Three cards drawn from a short deck, read with the general spread prompt."""
+    name = "three_cards"
+    input_type = "three_card_draw"
+    default_template = "spread_v1"
+
+    def __init__(self, deck=("Death", "The Sun", "The Moon")):
+        self.deck = list(deck)
+
+    @classmethod
+    def add_arguments(cls, parser):
+        parser.add_argument("--deck", nargs="+", default=["Death", "The Sun", "The Moon"])
+
+    @classmethod
+    def from_args(cls, args):
+        return cls(args.deck)
+
+    def options(self):
+        return {"deck": self.deck}
+
+    def sample_inputs(self, n, rng):
+        return [{position: rng.choice(self.deck) for position in ("Past", "Present", "Future")} for _ in range(n)]
+
+    def template_variables(self, payload, persona):
+        return {"cards": payload}
+
+
+def test_tasks_are_found_in_the_application_folders():
+    found = applications.tasks()
+    assert found["tarot_celtic_cross"] is TarotReadings
+    assert {name: task.cli for name, task in found.items()} == {
+        "tarot_celtic_cross": "generate", "celtic_cross_evaluation": "evaluate", "persona_expectations": None}
+    assert all(task.__module__.startswith("applications.tarot.") for task in found.values())
+    assert applications.get_task("tarot_celtic_cross") is TarotReadings
+    with pytest.raises(KeyError, match="No task named 'tarot_spread'.*tarot_celtic_cross"):
+        applications.get_task("tarot_spread")
+
+
+def test_a_run_records_enough_to_rebuild_its_task(tmp_path, scripted):
+    task = TarotReadings(draw="unique", pins={"Outcome": "Death reversed"})
+    store, _ = prepare_run(task, config(n=1, mode="dry_run"), root=tmp_path)
+    rebuilt = applications.task_of(store.run())
+    assert type(rebuilt) is TarotReadings and rebuilt.options() == task.options()
+
+
+def test_the_script_offers_generation_tasks_only(tmp_path, scripted, capsys):
+    with pytest.raises(SystemExit):
+        main(["--out", str(tmp_path), "run", "celtic_cross_evaluation", "--n", "1"])     # that is evaluate's
+    with pytest.raises(SystemExit):
+        main(["--out", str(tmp_path), "run", "--n", "1"])                                # a task must be named
+    assert "invalid choice: 'celtic_cross_evaluation' (choose from tarot_celtic_cross)" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        main(["--out", str(tmp_path), *RUN, "--help"])
+    help_text = " ".join(capsys.readouterr().out.split())                                # undo the line wrapping
+    assert "--pin POSITION=CARD" in help_text                                            # the task's own option
+    assert "Default: celtic_cross_v4, or celtic_cross_v2 with --personas" in help_text   # a general one, filled in
+
+
+def test_the_script_runs_a_task_of_another_application(tmp_path, scripted, monkeypatch, capsys):
+    """Its own option, its recorded settings and resume, all through the hooks' defaults; no tarot involved."""
+    monkeypatch.setitem(applications.tasks(), "three_cards", ThreeCards)
+    out = str(tmp_path)
+    assert main(["--out", out, "run", "three_cards", "--n", "3", "--provider", "tarot-scripted",
+                 "--deck", "Strength", "Justice"]) == 0
+    [run_dir] = list(tmp_path.glob("run_three_cards_*"))
+    store = RunStore.open(run_dir.name, tmp_path)
+    run = store.run()
+    assert (run["application"], run["status"]) == ("three_cards", "completed")
+    assert run["config"]["application_options"] == {"deck": ["Strength", "Justice"]}
+    assert run["config"]["templates"] == ["spread_v1"] and run["summary"]["n_unvalidated"] == 3     # it has no validator
+    assert all(set(i["payload"].values()) <= {"Strength", "Justice"} for i in store.read("inputs"))
+    assert main(["--out", out, "resume", run_dir.name]) == 0
+    assert main(["--out", out, "list"]) == 0 and "three_cards" in capsys.readouterr().out

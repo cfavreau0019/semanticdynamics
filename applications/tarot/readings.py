@@ -8,6 +8,7 @@ positions (step_aliases), the cards (aliases) and whether cards can be reversed
 (negative_polarity). A draw is {position: state}, state = "<card>" or "<card> reversed",
 the same shape as coordinate_systems.state_instantiation.Instantiation produces.
 """
+import argparse
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ from pathlib import Path
 from typing import Mapping, Optional
 
 from applications.tarot.validation import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, celtic_cross_validator, parse_state
+from data_generation.pipeline import list_runs
 from data_generation.store import REPO_ROOT
 from data_generation.task import InferenceTask
 
@@ -39,12 +41,19 @@ def resolve_deck_config(path: Optional[str | Path] = None) -> Path:
     raise FileNotFoundError(f"Deck config not found; tried {[str(c) for c in candidates]}")
 
 
+def _pin_arg(text: str) -> tuple[str, str]:
+    if "=" not in text:
+        raise argparse.ArgumentTypeError("use POSITION=CARD, e.g. 'Outcome=Death reversed'")
+    pos, card = text.split("=", 1)
+    return pos.strip(), card.strip()
+
+
 class TarotReadings(InferenceTask):
     """
     Celtic Cross readings of sampled card draws.
 
     Prompt templates live in prompts/library/tarot/ and receive these variables:
-        cards     {position: card state} — the draw
+        cards     {position: card state}, i.e. the draw
         positions the spread's position names, in order
         persona   a persona record, or None
     The default templates are pinned to exact versions, so adding a template version does not
@@ -122,3 +131,35 @@ class TarotReadings(InferenceTask):
 
     def validator(self):
         return celtic_cross_validator(cards=self.cards, name=self.name)
+
+    # ---- command line: python -m data_generation.generate run tarot_celtic_cross ... --------
+    @classmethod
+    def add_arguments(cls, parser) -> None:
+        parser.add_argument("--draw", choices=DRAW_MODES, default="replacement",
+                            help="replacement: any card per position, repeats allowed (as Instantiation); "
+                                 "unique: no card twice (default: %(default)s)")
+        parser.add_argument("--pin", type=_pin_arg, action="append", default=[], metavar="POSITION=CARD",
+                            help="fix a position's card in every draw (repeatable)")
+        parser.add_argument("--deck-config", help="deck config JSON (default: $VECTOR_SPACE_CONFIG or sandbox's)")
+
+    @classmethod
+    def from_args(cls, args) -> "TarotReadings":
+        return cls(args.deck_config, draw=args.draw, pins=dict(args.pin))
+
+    @classmethod
+    def from_options(cls, options: dict) -> "TarotReadings":
+        return cls(options["deck_config"], draw=options["draw"], pins=options["pins"])
+
+    def run_warnings(self, config, root) -> list[str]:
+        """Same seed + same draw settings in one dataset would add the same card draws again."""
+        if config.dataset is None or config.seed is None:
+            return []
+        mine = self.options()
+        same_draws = lambda o: all(o.get(k) == mine[k] for k in ("deck_sha256", "draw", "pins"))
+        clashes = [r["run_id"] for r in list_runs(root, config.dataset)
+                   if r["config"].get("seed") == config.seed and same_draws(r["config"].get("application_options") or {})]
+        if not clashes:
+            return []
+        return [f"dataset {config.dataset!r} already has run(s) with --seed {config.seed} and the same draw settings "
+                f"({', '.join(clashes)}); this run will repeat their card draws. Omit --seed (a fresh one is chosen "
+                f"and recorded) or use a different one."]

@@ -12,6 +12,11 @@ Tasks, one file each:
   validation                the card vocabulary, the Celtic Cross position aliases and the
                             validator for readings
 
+The tasks are run by the general scripts, under the names their runs are stored with:
+    python -m data_generation.generate run tarot_celtic_cross --n 20 ...
+    python -m evaluation.evaluate expectations celtic_cross_evaluation ...
+    python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 ...
+
 Still kept with the general packages: the prompt templates (prompts/library/tarot/ and
 prompts/library/evaluation/), the rubric (evaluation/rubrics/), the personas (personas/)
 and the deck config (sandbox/vector_space_config.json).

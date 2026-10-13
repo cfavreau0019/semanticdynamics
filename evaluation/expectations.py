@@ -45,6 +45,7 @@ class PersonaExpectations(InferenceTask):
     the same one: every request has a persona) and `default_context`.
     """
     input_type = "expectation_context"
+    cli = None                              # started as stage 1 of an evaluation task: evaluate expectations <task>
     default_context: dict[str, Any] = {}
 
     def __init__(self, context: Optional[dict[str, Any]] = None):
@@ -53,6 +54,10 @@ class PersonaExpectations(InferenceTask):
 
     def options(self) -> dict:
         return {"context": self.context}
+
+    @classmethod
+    def from_options(cls, options: dict) -> "PersonaExpectations":
+        return cls(options.get("context"))
 
     def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:
         return [dict(self.context) for _ in range(n)]

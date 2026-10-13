@@ -18,6 +18,8 @@ Tarot-specific facts supplied here:
 """
 from typing import Any, Mapping, Optional
 
+from applications.tarot.persona_expectations import TarotPersonaExpectations
+from applications.tarot.readings import TarotReadings
 from applications.tarot.validation import parse_state
 from evaluation.rubric import Labels
 from evaluation.task import EvaluationTask
@@ -31,6 +33,9 @@ class CelticCrossEvaluation(EvaluationTask):
     subject_type = "tarot_reading"
     rubric_ref = "celtic_cross_reading_v1"
     default_template = persona_template = "celtic_cross_evaluation_v2"
+    default_personas = "tarot_personas"
+    default_subject_templates = (TarotReadings.default_template,)      # the readings a plain generation run writes
+    expectations_task = TarotPersonaExpectations
 
     def labels(self, payload: dict) -> Labels:
         return {"positions": list(payload["subject_input"])}

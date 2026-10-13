@@ -1,32 +1,38 @@
 """
-Evaluate Celtic Cross readings with the Celtic Cross Reading Evaluation Form, as judged by
-personas. Results are written as tables under data/evaluations/<run_id>/ (see
-evaluation/README.md).
+Evaluate generated outputs against a rubric from the command line, as judged by an LLM that
+can take the role of a persona. It runs any evaluation task of any application
+(applications/<application>/). Results are written as tables under
+data/evaluations/<run_id>/ (see evaluation/README.md).
 
 Two stages:
-  1. expectations  each persona records what they expect before seeing any reading
+  1. expectations  each persona records what they expect before seeing any output
                     (one request per persona; reusable across evaluation runs)
-  2. evaluate      each (reading, persona) pair: the persona fills in the form for the reading
+  2. run           each (subject, persona) pair: the persona fills in the form for the
+                    subject, a subject being one output of a generation run
 
     # evaluate 50 readings of dataset tarot-v1, one random persona each (runs stage 1 first)
-    python -m evaluation.evaluate_tarot evaluate --readings-dataset tarot-v1 --n 50 --provider openai --model gpt-4o-mini
+    python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 --n 50 \\
+        --provider openai --model gpt-4o-mini
 
     # reuse expectations, 3 personas per reading, as an OpenAI batch
-    python -m evaluation.evaluate_tarot expectations --provider openai --model gpt-4o-mini
-    python -m evaluation.evaluate_tarot evaluate --readings-dataset tarot-v1 --n 200 --personas-per-reading 3 \\
-        --expectations <expectations_run_id> --provider openai --model gpt-4o-mini --mode batch
-    python -m evaluation.evaluate_tarot collect <run_id> --wait
+    python -m evaluation.evaluate expectations celtic_cross_evaluation --provider openai --model gpt-4o-mini
+    python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 --n 200 \\
+        --personas-per-subject 3 --expectations <expectations_run_id> --provider openai --model gpt-4o-mini --mode batch
+    python -m evaluation.evaluate collect <run_id> --wait
 
-    python -m evaluation.evaluate_tarot status <run_id>
-    python -m evaluation.evaluate_tarot resume <run_id>
-    python -m evaluation.evaluate_tarot list
+    python -m evaluation.evaluate status <run_id>
+    python -m evaluation.evaluate resume <run_id>
+    python -m evaluation.evaluate list
 
-Run ids name the task: run_celtic_cross_evaluation_<date>_<time>_<id> and
+`run --help` lists the evaluation tasks; `run <task> --help` lists every option. collect,
+resume and status take only a run id: the run recorded which task it belongs to. Run ids
+name the task: run_celtic_cross_evaluation_<date>_<time>_<id> and
 run_persona_expectations_<date>_<time>_<id>.
 
-`python evaluation/evaluate_tarot.py ...` works too.
+`python evaluation/evaluate.py ...` works too.
 """
 import argparse
+import inspect
 import json
 import statistics
 import sys
@@ -34,22 +40,21 @@ import warnings
 from collections import Counter
 from pathlib import Path
 
-if __package__ in (None, ""):  # allow `python evaluation/evaluate_tarot.py`
+if __package__ in (None, ""):  # allow `python evaluation/evaluate.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from applications.tarot.celtic_cross_evaluation import CelticCrossEvaluation  # noqa: E402
-from applications.tarot.persona_expectations import TarotPersonaExpectations  # noqa: E402
-from applications.tarot.readings import TarotReadings  # noqa: E402
+from applications import get_task, task_of, tasks  # noqa: E402
 from data_generation.pipeline import (  # noqa: E402
     GenerationConfig, collect_batch, list_runs, load_config, prepare_run, run_live, submit_batch, summarize,
 )
-from data_generation.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore  # noqa: E402
+from data_generation.store import REPO_ROOT, RunStore  # noqa: E402
 from evaluation.dashboard import write_dashboard  # noqa: E402
 from evaluation.expectations import generate_expectations, load_expectations  # noqa: E402
 from evaluation.subjects import load_subjects  # noqa: E402
 from personas import SAMPLING_MODES  # noqa: E402
 
 EVALUATIONS_ROOT = REPO_ROOT / "data" / "evaluations"
+EXPECTATIONS_MAX_TOKENS = 1500
 
 
 def _json_arg(text: str) -> dict:
@@ -62,7 +67,12 @@ def _json_arg(text: str) -> dict:
     return value
 
 
-def _add_llm_args(p, max_tokens: int) -> None:
+def task_summary(cls) -> str:
+    """The first line of a task's docstring, for --help."""
+    return (inspect.getdoc(cls) or "").partition("\n")[0]
+
+
+def _add_llm_args(p, task_cls, max_tokens: int) -> None:
     p.add_argument("--provider", default="openai", help="llm provider name (default: %(default)s)")
     p.add_argument("--model", help="model name (default: the provider's default from .env)")
     p.add_argument("--max-tokens", type=int, default=max_tokens, help="default: %(default)s")
@@ -71,13 +81,36 @@ def _add_llm_args(p, max_tokens: int) -> None:
                    help='ask the provider for JSON output (response_format={"type": "json_object"}); OpenAI supports it')
     p.add_argument("--extra-body", type=_json_arg, default={}, metavar="JSON", help="provider-specific params")
     p.add_argument("--workers", type=int, default=4, help="live mode: concurrent requests (default: %(default)s)")
-    p.add_argument("--personas", default="tarot_personas", metavar="SET",
+    p.add_argument("--personas", default=task_cls.default_personas, metavar="SET",
                    help="persona set name or JSON path (default: %(default)s)")
     p.add_argument("--persona", action="append", default=[], metavar="ID",
                    help="restrict to this persona (id, number or full name); repeatable")
     p.add_argument("--name", help="label stored with the run")
     p.add_argument("--dataset", help="dataset label for the evaluation run (groups evaluation runs)")
     p.add_argument("--dry-run", action="store_true", help="write inputs/prompts/requests only; no API calls")
+
+
+def _add_run_args(e, task_cls) -> None:
+    """The options every evaluation run takes. The task adds its own after these (EvaluationTask.add_arguments)."""
+    e.add_argument("--n", type=int, help="number of subjects to evaluate (a seeded sample; default: all)")
+    e.add_argument("--seed", type=int, help="seed for sampling subjects and personas (default: random, recorded)")
+    e.add_argument("--no-personas", action="store_true", help="evaluate without personas (one neutral evaluation "
+                                                              "per subject)")
+    e.add_argument("--persona-sampling", choices=SAMPLING_MODES, default="random",
+                   help="random: seeded draw per subject; cycle: walk through the set so every persona is used "
+                        "equally often (default: %(default)s)")
+    e.add_argument("--expectations", metavar="RUN_ID", help="reuse this expectations run (default: generate them "
+                                                            "first for the personas in scope)")
+    e.add_argument("--no-expectations", action="store_true", help="skip stage 1; evaluators get no expectations")
+    e.add_argument("--template", help=f"evaluation prompt template from the prompts library "
+                                      f"(default: {getattr(task_cls, 'default_template', None)})")
+    e.add_argument("--mode", choices=["live", "batch"], default="live")
+    e.add_argument("--wait", action="store_true", help="batch mode: wait for the batch and collect it")
+    e.add_argument("--no-validate", action="store_true", help="skip answer validation (and retries)")
+    e.add_argument("--validation-retries", type=int, default=2, help="default: %(default)s")
+    e.add_argument("--retry-mode", choices=["live", "batch"], default="live")
+    e.add_argument("--poll-interval", type=float, default=60.0)
+    _add_llm_args(e, task_cls, max_tokens=4000)
 
 
 def _params(args) -> dict:
@@ -90,52 +123,27 @@ def _params(args) -> dict:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="evaluate_tarot", description=__doc__,
+    parser = argparse.ArgumentParser(prog="evaluate", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", default=str(EVALUATIONS_ROOT),
                         help="root directory for evaluation runs (default: %(default)s)")
     parser.add_argument("--no-dashboard", action="store_true",
-                        help="do not rebuild <out>/dashboard.html after evaluate, resume or collect")
+                        help="do not rebuild <out>/dashboard.html after run, resume or collect")
     sub = parser.add_subparsers(dest="command", required=True)
+    evaluation_tasks = {name: cls for name, cls in sorted(tasks().items()) if cls.cli == "evaluate"}
 
-    x = sub.add_parser("expectations", help="stage 1: each persona's expectations before seeing a reading")
-    _add_llm_args(x, max_tokens=1500)
-
-    e = sub.add_parser("evaluate", help="stage 2: personas fill in the evaluation form for readings")
-    e.add_argument("--readings-root", default=str(READINGS_ROOT), help="where the reading runs are (default: %(default)s)")
-    e.add_argument("--readings-dataset", help="evaluate readings of this generation dataset, e.g. tarot-v1")
-    e.add_argument("--readings-run", action="append", default=[], metavar="RUN_ID",
-                   help="evaluate readings of this generation run; repeatable")
-    e.add_argument("--readings-template", action="append", default=[], metavar="NAME",
-                   help=f"only readings generated with this prompt template (default: {TarotReadings.default_template}); "
-                        f"repeatable")
-    e.add_argument("--readings-model", action="append", default=[], metavar="MODEL",
-                   help="only readings written by this generating model, e.g. gpt-6-sol; repeatable")
-    e.add_argument("--include-invalid", action="store_true", help="also evaluate readings that failed validation")
-    e.add_argument("--n", type=int, help="number of readings to evaluate (a seeded sample; default: all)")
-    e.add_argument("--seed", type=int, help="seed for sampling readings and personas (default: random, recorded)")
-    e.add_argument("--no-personas", action="store_true", help="evaluate without personas (one neutral evaluation "
-                                                              "per reading)")
-    e.add_argument("--personas-per-reading", type=int, default=1,
-                   help="distinct personas evaluating each reading (default: %(default)s)")
-    e.add_argument("--persona-sampling", choices=SAMPLING_MODES, default="random",
-                   help="random: seeded draw per reading; cycle: walk through the set so every persona is used "
-                        "equally often (default: %(default)s)")
-    e.add_argument("--pairing", choices=["sample", "subject"], default="sample",
-                   help="sample: draw personas; subject: the persona each reading was written for evaluates it")
-    e.add_argument("--expectations", metavar="RUN_ID", help="reuse this expectations run (default: generate them "
-                                                            "first for the personas in scope)")
-    e.add_argument("--no-expectations", action="store_true", help="skip stage 1; evaluators get no expectations")
-    e.add_argument("--rubric", help="rubric reference (default: celtic_cross_reading_v1)")
-    e.add_argument("--template", help="evaluation prompt template (default: celtic_cross_evaluation_v2, ordered for prompt caching; "
-                                        "celtic_cross_evaluation_v1 is the earlier order)")
-    e.add_argument("--mode", choices=["live", "batch"], default="live")
-    e.add_argument("--wait", action="store_true", help="batch mode: wait for the batch and collect it")
-    e.add_argument("--no-validate", action="store_true", help="skip answer validation (and retries)")
-    e.add_argument("--validation-retries", type=int, default=2, help="default: %(default)s")
-    e.add_argument("--retry-mode", choices=["live", "batch"], default="live")
-    e.add_argument("--poll-interval", type=float, default=60.0)
-    _add_llm_args(e, max_tokens=4000)
+    x = sub.add_parser("expectations", help="stage 1: each persona's expectations before seeing an output")
+    x_by_task = x.add_subparsers(dest="task", required=True, metavar="TASK")
+    e = sub.add_parser("run", help="stage 2: evaluators fill in the evaluation form for subjects")
+    e_by_task = e.add_subparsers(dest="task", required=True, metavar="TASK")
+    for name, task_cls in evaluation_tasks.items():
+        if task_cls.expectations_task is not None:
+            _add_llm_args(x_by_task.add_parser(name, help=task_summary(task_cls.expectations_task)), task_cls,
+                          max_tokens=EXPECTATIONS_MAX_TOKENS)
+        p = e_by_task.add_parser(name, help=task_summary(task_cls), description=inspect.getdoc(task_cls),
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+        _add_run_args(p, task_cls)
+        task_cls.add_arguments(p)
 
     for name, help_ in [("collect", "collect a batch evaluation run"), ("resume", "finish an interrupted live run"),
                         ("status", "show a run's status and scores")]:
@@ -152,21 +160,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # ---- helpers ----------------------------------------------------------------------------
-def task_for(store: RunStore):
-    run = store.run()
-    options = run["config"]["application_options"]
-    if run["application"] == TarotPersonaExpectations.name:
-        return TarotPersonaExpectations(options.get("context"))
-    known = ("subjects_root", "subject_runs", "subject_dataset", "subject_templates", "subject_models", "valid_only",
-             "personas_per_subject", "pairing", "expectations_run", "expectations_root", "rubric")
-    return CelticCrossEvaluation(**{k: options[k] for k in known if k in options})
-
-
 def score_report(store: RunStore) -> list[str]:
-    """Lines summarising an evaluation run's scores."""
+    """Lines summarising an evaluation run's scores, labelled from the rubric the run recorded."""
     evaluations = store.read("evaluations")
     if not evaluations:
         return []
+    rubric = next((r["definition"] for r in store.read("rubrics")), {})
     totals = [e["total_score"] for e in evaluations]
     grades = Counter(e["grade"] for e in evaluations)
     lines = [f"  evaluations: {len(evaluations)}   mean total {statistics.fmean(totals):.1f}   "
@@ -175,14 +174,19 @@ def score_report(store: RunStore) -> list[str]:
     keys = list(evaluations[0]["section_scores"])
     section_means = {k: statistics.fmean(e["section_scores"][k] for e in evaluations
                                          if e["section_scores"].get(k) is not None) for k in keys}
-    lines.append("  section averages (1-5): " + "  ".join(f"{k} {v:.2f}" for k, v in section_means.items()))
+    scale = f" ({rubric['scale_min']}-{rubric['scale_max']})" if "scale_max" in rubric else ""
+    lines.append(f"  section averages{scale}: " + "  ".join(f"{k} {v:.2f}" for k, v in section_means.items()))
     flags = Counter(f["flag_id"] for f in store.read("evaluation_red_flags"))
     lines.append("  red flags: " + ("  ".join(f"{k}: {v}" for k, v in sorted(flags.items())) if flags else "none"))
-    seen = [e["outputs"].get("felt_seen") for e in evaluations if e["outputs"].get("felt_seen") is not None]
-    again = [e["outputs"].get("would_use_again") for e in evaluations if e["outputs"].get("would_use_again") is not None]
-    if seen and again:
-        lines.append(f"  felt seen (1-5): {statistics.fmean(seen):.2f}   would use again (0-10): "
-                     f"{statistics.fmean(again):.2f}")
+    ratings = []                                 # the evaluators' own numeric ratings, whatever the rubric asks for
+    for output in rubric.get("outputs") or []:
+        values = [e["outputs"][output["name"]] for e in evaluations
+                  if (e.get("outputs") or {}).get(output["name"]) is not None]
+        if output["type"] == "integer" and values:
+            ratings.append(f"{output['name'].replace('_', ' ')} ({output['min']}-{output['max']}): "
+                           f"{statistics.fmean(values):.2f}")
+    if ratings:
+        lines.append("  " + "   ".join(ratings))
     return lines
 
 
@@ -224,49 +228,49 @@ def refresh_dashboard(args, store: RunStore) -> None:
 
 # ---- commands ---------------------------------------------------------------------------
 def cmd_expectations(args) -> int:
+    if not args.personas:
+        print("error: give --personas", file=sys.stderr)
+        return 2
     store = generate_expectations(
-        TarotPersonaExpectations(), args.personas, provider=args.provider, model=args.model,
+        get_task(args.task).expectations_task(), args.personas, provider=args.provider, model=args.model,
         persona_ids=args.persona, root=args.out, params={**_params(args)}, max_workers=args.workers,
         name=args.name, dataset=args.dataset, dry_run=args.dry_run)
     print_summary(store, summarize(store))
-    print(f"\nUse with: python -m evaluation.evaluate_tarot evaluate --expectations {store.run_id} ...")
+    print(f"\nUse with: python -m evaluation.evaluate run {args.task} --expectations {store.run_id} ...")
     return 0
 
 
-def cmd_evaluate(args) -> int:
-    if not args.readings_dataset and not args.readings_run:
-        print("error: give --readings-dataset or --readings-run", file=sys.stderr)
+def cmd_run(args) -> int:
+    task_cls = get_task(args.task)
+    if not args.subject_dataset and not args.subject_run:
+        print("error: give --subject-dataset or --subject-run", file=sys.stderr)
         return 2
-    use_personas = not args.no_personas
-    expectations_run = args.expectations
-    if use_personas and not expectations_run and not args.no_expectations and not args.dry_run:
+    if args.no_personas:
+        args.personas = None
+    if (args.personas and not args.expectations and not args.no_expectations and not args.dry_run
+            and task_cls.expectations_task is not None):
         print("Stage 1: recording persona expectations (reuse them next time with --expectations) ...")
         stage1 = generate_expectations(
-            TarotPersonaExpectations(), args.personas, provider=args.provider, model=args.model,
-            persona_ids=args.persona, root=args.out, params={"max_tokens": 1500}, max_workers=args.workers,
-            dataset=args.dataset, name=f"expectations for {args.name}" if args.name else None)
-        expectations_run = stage1.run_id
+            task_cls.expectations_task(), args.personas, provider=args.provider, model=args.model,
+            persona_ids=args.persona, root=args.out, params={"max_tokens": EXPECTATIONS_MAX_TOKENS},
+            max_workers=args.workers, dataset=args.dataset, name=f"expectations for {args.name}" if args.name else None)
+        args.expectations = stage1.run_id
         missing = len(stage1.read("personas")) - len(load_expectations(stage1))
-        print(f"  expectations run {expectations_run}: {len(load_expectations(stage1))} personas"
-              f"{f' ({missing} failed; rerun `resume {expectations_run}`)' if missing else ''}")
+        print(f"  expectations run {args.expectations}: {len(load_expectations(stage1))} personas"
+              f"{f' ({missing} failed; rerun `resume {args.expectations}`)' if missing else ''}")
         if missing:
             return 1
 
-    task = CelticCrossEvaluation(
-        subjects_root=args.readings_root, subject_runs=args.readings_run, subject_dataset=args.readings_dataset,
-        subject_templates=args.readings_template or [TarotReadings.default_template],
-        subject_models=args.readings_model,
-        valid_only=not args.include_invalid,
-        personas_per_subject=args.personas_per_reading if use_personas else 1, pairing=args.pairing,
-        expectations_run=expectations_run if use_personas else None, expectations_root=args.out,
-        rubric=args.rubric)
+    task = task_cls.from_args(args)
     if not task.subjects:
         available = Counter((s.template, s.model) for s in load_subjects(
-            args.readings_root, args.readings_run, args.readings_dataset, valid_only=not args.include_invalid))
-        print("error: no readings match --readings-template " + ", ".join(task.subject_templates) +
-              (" and --readings-model " + ", ".join(task.subject_models) if task.subject_models else "") +
+            args.subjects_root, args.subject_run, args.subject_dataset, valid_only=not args.include_invalid))
+        print("error: no subjects match" +
+              (" --subject-template " + ", ".join(task.subject_templates) if task.subject_templates else "") +
+              (" and" if task.subject_templates and task.subject_models else "") +
+              (" --subject-model " + ", ".join(task.subject_models) if task.subject_models else "") +
               ". The selected runs hold: " + ("; ".join(f"{n} of {t} by {m}" for (t, m), n in available.most_common())
-                                              or "no usable readings"), file=sys.stderr)
+                                              or "no usable outputs"), file=sys.stderr)
         return 1
     n = args.n if args.n is not None else len(task.subjects)
     config = GenerationConfig(
@@ -274,12 +278,12 @@ def cmd_evaluate(args) -> int:
         params=_params(args), extra_body=args.extra_body, mode="dry_run" if args.dry_run else args.mode,
         seed=args.seed, validate=not args.no_validate, validation_retries=args.validation_retries,
         retry_mode=args.retry_mode, max_workers=args.workers, poll_interval=args.poll_interval, name=args.name,
-        dataset=args.dataset, persona_set=args.personas if use_personas else None,
-        persona_sampling=args.persona_sampling, persona_ids=list(args.persona) if use_personas else [])
+        dataset=args.dataset, persona_set=args.personas, persona_sampling=args.persona_sampling,
+        persona_ids=list(args.persona) if args.personas else [])
     store, requests = _prepare(task, config, args.out)
-    print(f"Stage 2: prepared {len(requests)} evaluations of {min(n, len(task.subjects))} readings "
+    print(f"Stage 2: prepared {len(requests)} evaluations of {min(n, len(task.subjects))} subjects "
           f"({len(task.subjects)} available) in {store.dir}\n  rubric: {task.rubric.id}   template: "
-          f"{', '.join(config.templates)}   expectations: {expectations_run or 'none'}")
+          f"{', '.join(config.templates)}   expectations: {task.expectations_run or 'none'}")
     if config.mode == "dry_run":
         print_summary(store, summarize(store))
         return 0
@@ -288,7 +292,7 @@ def cmd_evaluate(args) -> int:
         refresh_dashboard(args, store)
         return 0
     job = submit_batch(store, requests)
-    print(f"Submitted batch {job.id}. Collect with:\n  python -m evaluation.evaluate_tarot collect {store.run_id}")
+    print(f"Submitted batch {job.id}. Collect with:\n  python -m evaluation.evaluate collect {store.run_id}")
     if args.wait:
         print_summary(store, collect_batch(store, task, wait=True))
         refresh_dashboard(args, store)
@@ -297,7 +301,7 @@ def cmd_evaluate(args) -> int:
 
 def cmd_collect(args) -> int:
     store = RunStore.open(args.run_id, args.out)
-    result = collect_batch(store, task_for(store), wait=args.wait)
+    result = collect_batch(store, task_of(store.run()), wait=args.wait)
     if "batch_id" in result:
         print(f"Batch {result['batch_id']} is {result['status']} {result['request_counts']}; "
               f"run again later or pass --wait.")
@@ -314,7 +318,7 @@ def cmd_resume(args) -> int:
         return 2
     if args.workers:
         store.update_run(config={**store.run()["config"], "max_workers": args.workers})
-    print_summary(store, run_live(store, task_for(store)))
+    print_summary(store, run_live(store, task_of(store.run())))
     refresh_dashboard(args, store)
     return 0
 
@@ -344,7 +348,7 @@ def cmd_list(args) -> int:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    return {"expectations": cmd_expectations, "evaluate": cmd_evaluate, "collect": cmd_collect,
+    return {"expectations": cmd_expectations, "run": cmd_run, "collect": cmd_collect,
             "resume": cmd_resume, "status": cmd_status, "list": cmd_list}[args.command](args)
 
 

@@ -12,7 +12,8 @@ has: the same tables, live or batch execution, resume, validation and validation
 What is generic here: selecting subjects, pairing them with personas, supplying template
 variables, validating and scoring answers, writing result rows. What a subclass supplies:
 the rubric, the prompt template, the labels for per-label items, which items' N/A status is
-decided by facts, and the context shown to the evaluator. See
+decided by facts, the context shown to the evaluator, and its defaults on the command line
+(persona set, subjects' prompt template, the stage-1 task). See
 applications/tarot/celtic_cross_evaluation.py.
 """
 import random
@@ -22,7 +23,7 @@ from typing import Any, Mapping, Optional, Sequence
 from data_generation.store import DEFAULT_ROOT, RunStore, new_id, utc_now
 from data_generation.task import INPUT_KEY, InferenceTask
 from evaluation.checks import RubricAnswerCheck, extract_json
-from evaluation.expectations import load_expectations
+from evaluation.expectations import PersonaExpectations, load_expectations
 from evaluation.rubric import Labels, Rubric, get_rubric
 from evaluation.subjects import Subject, load_subjects
 from llm import ChatResponse
@@ -43,9 +44,14 @@ class EvaluationTask(InferenceTask):
     rubric               rubric reference; None = the class's default
     """
     input_type = "evaluation"
+    cli = "evaluate"
     subject_type = "output"
     evaluator_type = "llm"
     rubric_ref: str = ""
+    # defaults on the command line (evaluation.evaluate), for a subclass to set
+    default_personas: Optional[str] = None                              # persona set when --personas is not given
+    default_subject_templates: Sequence[str] = ()                       # prompt templates of the subjects; () = any
+    expectations_task: Optional[type[PersonaExpectations]] = None       # stage 1 for this evaluation; None = none
 
     def __init__(
         self,
@@ -129,6 +135,48 @@ class EvaluationTask(InferenceTask):
             "expectations_root": str(self.expectations_root) if self.expectations_root else None,
             "rubric": self.rubric.id, "rubric_sha256": self.rubric.sha256,
         }
+
+    # ---- command line: python -m evaluation.evaluate run <task> ... -----------------------
+    _OPTIONS = ("subjects_root", "subject_runs", "subject_dataset", "subject_templates", "subject_models", "valid_only",
+                "personas_per_subject", "pairing", "expectations_run", "expectations_root", "rubric")
+
+    @classmethod
+    def add_arguments(cls, parser) -> None:
+        parser.add_argument("--subjects-root", default=str(DEFAULT_ROOT),
+                            help="where the generation runs are (default: %(default)s)")
+        parser.add_argument("--subject-dataset", help="evaluate the outputs of this generation dataset, e.g. tarot-v1")
+        parser.add_argument("--subject-run", action="append", default=[], metavar="RUN_ID",
+                            help="evaluate the outputs of this generation run; repeatable")
+        parser.add_argument("--subject-template", action="append", default=[], metavar="NAME",
+                            help=f"only outputs generated with this prompt template (default: "
+                                 f"{', '.join(cls.default_subject_templates) or 'any'}); repeatable")
+        parser.add_argument("--subject-model", action="append", default=[], metavar="MODEL",
+                            help="only outputs written by this generating model, e.g. gpt-6-sol; repeatable")
+        parser.add_argument("--include-invalid", action="store_true", help="also evaluate outputs that failed validation")
+        parser.add_argument("--personas-per-subject", type=int, default=1,
+                            help="distinct personas evaluating each subject (default: %(default)s)")
+        parser.add_argument("--pairing", choices=PAIRINGS, default="sample",
+                            help="sample: draw personas; subject: the persona each output was written for evaluates it")
+        parser.add_argument("--rubric", help=f"rubric reference (default: {cls.rubric_ref})")
+
+    @classmethod
+    def from_args(cls, args) -> "EvaluationTask":
+        """
+        Besides its own options, reads what the script has settled by then: args.personas
+        (None when no personas evaluate), args.expectations (the stage-1 run to use, or None)
+        and args.out (where evaluation runs, and so the expectations, are).
+        """
+        return cls(
+            subjects_root=args.subjects_root, subject_runs=args.subject_run, subject_dataset=args.subject_dataset,
+            subject_templates=args.subject_template or cls.default_subject_templates,
+            subject_models=args.subject_model, valid_only=not args.include_invalid,
+            personas_per_subject=args.personas_per_subject if args.personas else 1, pairing=args.pairing,
+            expectations_run=args.expectations if args.personas else None, expectations_root=args.out,
+            rubric=args.rubric)
+
+    @classmethod
+    def from_options(cls, options: dict) -> "EvaluationTask":
+        return cls(**{k: options[k] for k in cls._OPTIONS if k in options})
 
     # ---- InferenceTask interface -----------------------------------------------------
     def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:

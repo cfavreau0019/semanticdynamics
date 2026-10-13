@@ -7,7 +7,7 @@ run, Postgres-ready; see README.md).
   task       InferenceTask: what a task supplies (inputs, prompt variables, validator, ...)
   pipeline   prepare_run, run_live, submit_batch, collect_batch
              (prompt text comes from the `prompts` package, personas from `personas`)
-  generate_tarot   command-line entry point
+  generate   command-line script: runs the generation tasks of every application
 
 The tasks themselves live with their application: applications/tarot/readings.py is
 TarotReadings (card draws, prompt variables, validator).
