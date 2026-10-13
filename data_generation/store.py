@@ -31,7 +31,7 @@ def new_id(prefix: str) -> str:
 def new_run_id(task: Optional[str] = None) -> str:
     """
     run_<task>_<YYYYMMDD>_<HHMMSS>_<6 hex>, e.g. run_celtic_cross_evaluation_20261005_142210_3fa9c1.
-    The task (the application's name) comes first so that run folders group by task and
+    The task (the InferenceTask's name) comes first so that run folders group by task and
     sort by start time (UTC) within a task. Without a task: run_<YYYYMMDD>_<HHMMSS>_<6 hex>.
     """
     stamp = f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"

@@ -29,8 +29,8 @@ from data_generation.pipeline import (  # noqa: E402
     GenerationConfig, collect_batch, list_runs, load_config, prepare_run, rebuild_requests, run_live, submit_batch,
     summarize,
 )
+from applications.tarot.readings import DRAW_MODES, TarotReadings  # noqa: E402
 from data_generation.store import DEFAULT_ROOT, RunStore  # noqa: E402
-from data_generation.tarot import DRAW_MODES, TarotReadings  # noqa: E402
 from personas import SAMPLING_MODES  # noqa: E402
 
 
@@ -79,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--template", action="append", default=[], metavar="NAME",
                    help="prompt template from the prompts library: 'celtic_cross_v2' pins a version, "
                         "'celtic_cross' takes the latest. Repeat to render every draw with each template "
-                        "(n draws x templates requests) for a paired comparison. Default: celtic_cross_v1, or "
+                        "(n draws x templates requests) for a paired comparison. Default: celtic_cross_v4, or "
                         "celtic_cross_v2 with --personas. See `python -m prompts list`.")
     g.add_argument("--system", help="system prompt (overrides the template's)")
     g.add_argument("--personas", metavar="SET", help="persona set name or JSON path (e.g. tarot_personas); "
@@ -116,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def app_for(store: RunStore) -> TarotReadings:
+def task_for(store: RunStore) -> TarotReadings:
     opts = store.run()["config"]["application_options"]
     return TarotReadings(opts["deck_config"], draw=opts["draw"], pins=opts["pins"])
 
@@ -135,11 +135,11 @@ def print_summary(store: RunStore, summary: dict) -> None:
         print(f"  {template:>18}: {done}/{s['n_requests']} finished; {rate}")
 
 
-def warn_if_seed_reused(app: TarotReadings, config: GenerationConfig, root) -> None:
+def warn_if_seed_reused(task: TarotReadings, config: GenerationConfig, root) -> None:
     """Same seed + same draw settings in one dataset would add the same card draws again."""
     if config.dataset is None or config.seed is None:
         return
-    same_draws = lambda o: all(o.get(k) == app.options()[k] for k in ("deck_sha256", "draw", "pins"))
+    same_draws = lambda o: all(o.get(k) == task.options()[k] for k in ("deck_sha256", "draw", "pins"))
     clashes = [r["run_id"] for r in list_runs(root, config.dataset)
                if r["config"].get("seed") == config.seed and same_draws(r["config"]["application_options"])]
     if clashes:
@@ -149,7 +149,7 @@ def warn_if_seed_reused(app: TarotReadings, config: GenerationConfig, root) -> N
 
 
 def cmd_generate(args) -> int:
-    app = TarotReadings(args.deck_config, draw=args.draw, pins=dict(args.pin))
+    task = TarotReadings(args.deck_config, draw=args.draw, pins=dict(args.pin))
     params = {"max_tokens": args.max_tokens}
     if args.temperature is not None:
         params["temperature"] = args.temperature
@@ -162,10 +162,10 @@ def cmd_generate(args) -> int:
         max_workers=args.workers, poll_interval=args.poll_interval, name=args.name, dataset=args.dataset,
         persona_set=args.personas, persona_sampling=args.persona_sampling, persona_ids=list(args.persona),
     )
-    warn_if_seed_reused(app, config, args.out)
+    warn_if_seed_reused(task, config, args.out)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        store, requests = prepare_run(app, config, root=args.out)
+        store, requests = prepare_run(task, config, root=args.out)
     for w in caught:
         print(f"note: {w.message}", file=sys.stderr)
     drafts = [t["template_id"] for t in store.read("prompt_templates") if t["status"] == "draft"]
@@ -178,18 +178,18 @@ def cmd_generate(args) -> int:
         print_summary(store, summarize(store))
         return 0
     if config.mode == "live":
-        print_summary(store, run_live(store, app, requests))
+        print_summary(store, run_live(store, task, requests))
         return 0
     job = submit_batch(store, requests)
     print(f"Submitted batch {job.id}. Collect with:\n  python -m data_generation.generate_tarot collect {store.run_id}")
     if args.wait:
-        print_summary(store, collect_batch(store, app, wait=True))
+        print_summary(store, collect_batch(store, task, wait=True))
     return 0
 
 
 def cmd_collect(args) -> int:
     store = RunStore.open(args.run_id, args.out)
-    result = collect_batch(store, app_for(store), wait=args.wait)
+    result = collect_batch(store, task_for(store), wait=args.wait)
     if "batch_id" in result:
         print(f"Batch {result['batch_id']} is {result['status']} {result['request_counts']}; "
               f"run again later or pass --wait.")
@@ -203,7 +203,7 @@ def cmd_resume(args) -> int:
     if load_config(store).mode != "live":
         print("resume is for live runs; use `collect` for batch runs.")
         return 2
-    print_summary(store, run_live(store, app_for(store)))
+    print_summary(store, run_live(store, task_for(store)))
     return 0
 
 

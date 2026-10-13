@@ -1,6 +1,6 @@
 # validation
 
-Checks LLM outputs using only regex and vocabulary matching, with no further LLM calls. The core is generic; `tarot.py` configures it for tarot readings.
+Checks LLM outputs using only regex and vocabulary matching, with no further LLM calls. The package is generic; `applications/tarot/validation.py` configures it for tarot readings.
 
 ```
 validation/
@@ -8,7 +8,9 @@ validation/
   extract.py    LabeledEntryExtractor, VocabularyMatcher, FreeTextMatcher  ("<label>: <value>" parsing)
   checks.py     NonEmpty, NotTruncated, RegexCheck, NoRefusal, LabeledValuesCheck, ForeignValuesCheck
   responses.py  response_validator (hook for llm), result_of, summary_frame, issues_frame
-  tarot.py      celtic_cross_validator, spread_validator, TAROT_CARDS, CELTIC_CROSS_POSITIONS
+
+applications/tarot/
+  validation.py celtic_cross_validator, spread_validator, TAROT_CARDS, CELTIC_CROSS_POSITIONS
 ```
 
 ## Tarot readings
@@ -16,7 +18,7 @@ validation/
 ```python
 from llm import generate_many, save_responses
 from validation import response_validator, summary_frame, issues_frame
-from validation.tarot import celtic_cross_validator
+from applications.tarot.validation import celtic_cross_validator
 
 validate = response_validator(celtic_cross_validator(), expected="instant")   # expected = metadata["instant"]
 

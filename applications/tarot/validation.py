@@ -1,9 +1,9 @@
 """
-Tarot configuration of the generic checks: the 78-card vocabulary, Celtic Cross position
-aliases, and orientation handling. States follow the population generator's convention:
-"<card>" (upright) or "<card> reversed", e.g. "Death reversed".
+Tarot configuration of the generic checks in `validation`: the 78-card vocabulary, Celtic
+Cross position aliases, and orientation handling. States follow the population generator's
+convention: "<card>" (upright) or "<card> reversed", e.g. "Death reversed".
 
-    from validation.tarot import celtic_cross_validator
+    from applications.tarot.validation import celtic_cross_validator
     v = celtic_cross_validator()
     result = v.validate(reading_text, expected=instant, finish_reason="stop")
     result.passed, result.summary()

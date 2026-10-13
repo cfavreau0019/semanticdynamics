@@ -75,7 +75,7 @@ READING = "Past: The Fool - beginnings.\nPresent: Two of Cups reversed - tension
 
 @pytest.fixture
 def tarot_validate():
-    from validation.tarot import spread_validator
+    from applications.tarot.validation import spread_validator
     return response_validator(spread_validator(list(INSTANT), min_chars=10), expected="instant")
 
 
@@ -102,7 +102,7 @@ def test_response_validator_missing_expected_is_recorded(tarot_validate):
 
 
 def test_callable_expected():
-    from validation.tarot import spread_validator
+    from applications.tarot.validation import spread_validator
     v = response_validator(spread_validator(list(INSTANT), min_chars=10), expected=lambda resp, req: INSTANT)
     assert v(ChatResponse("a", READING), None)["passed"] is True
 

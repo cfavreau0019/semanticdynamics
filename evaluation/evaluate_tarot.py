@@ -37,13 +37,15 @@ from pathlib import Path
 if __package__ in (None, ""):  # allow `python evaluation/evaluate_tarot.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from applications.tarot.celtic_cross_evaluation import CelticCrossEvaluation  # noqa: E402
+from applications.tarot.persona_expectations import TarotPersonaExpectations  # noqa: E402
+from applications.tarot.readings import TarotReadings  # noqa: E402
 from data_generation.pipeline import (  # noqa: E402
     GenerationConfig, collect_batch, list_runs, load_config, prepare_run, run_live, submit_batch, summarize,
 )
 from data_generation.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore  # noqa: E402
-from evaluation.celtic_cross import EXPECTATION_CONTEXT, CelticCrossEvaluation  # noqa: E402
 from evaluation.dashboard import write_dashboard  # noqa: E402
-from evaluation.expectations import PersonaExpectations, generate_expectations, load_expectations  # noqa: E402
+from evaluation.expectations import generate_expectations, load_expectations  # noqa: E402
 from evaluation.subjects import load_subjects  # noqa: E402
 from personas import SAMPLING_MODES  # noqa: E402
 
@@ -105,7 +107,8 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--readings-run", action="append", default=[], metavar="RUN_ID",
                    help="evaluate readings of this generation run; repeatable")
     e.add_argument("--readings-template", action="append", default=[], metavar="NAME",
-                   help="only readings generated with this prompt template (default: celtic_cross_v1); repeatable")
+                   help=f"only readings generated with this prompt template (default: {TarotReadings.default_template}); "
+                        f"repeatable")
     e.add_argument("--readings-model", action="append", default=[], metavar="MODEL",
                    help="only readings written by this generating model, e.g. gpt-6-sol; repeatable")
     e.add_argument("--include-invalid", action="store_true", help="also evaluate readings that failed validation")
@@ -149,11 +152,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # ---- helpers ----------------------------------------------------------------------------
-def app_for(store: RunStore):
+def task_for(store: RunStore):
     run = store.run()
     options = run["config"]["application_options"]
-    if run["application"] == PersonaExpectations.name:
-        return PersonaExpectations(options.get("context"))
+    if run["application"] == TarotPersonaExpectations.name:
+        return TarotPersonaExpectations(options.get("context"))
     known = ("subjects_root", "subject_runs", "subject_dataset", "subject_templates", "subject_models", "valid_only",
              "personas_per_subject", "pairing", "expectations_run", "expectations_root", "rubric")
     return CelticCrossEvaluation(**{k: options[k] for k in known if k in options})
@@ -198,10 +201,10 @@ def print_summary(store: RunStore, summary: dict) -> None:
         print(f"  persona expectations recorded: {n_expect}")
 
 
-def _prepare(app, config, out):
+def _prepare(task, config, out):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        store, requests = prepare_run(app, config, root=out)
+        store, requests = prepare_run(task, config, root=out)
     for w in caught:
         print(f"note: {w.message}", file=sys.stderr)
     return store, requests
@@ -222,7 +225,7 @@ def refresh_dashboard(args, store: RunStore) -> None:
 # ---- commands ---------------------------------------------------------------------------
 def cmd_expectations(args) -> int:
     store = generate_expectations(
-        args.personas, provider=args.provider, model=args.model, context=EXPECTATION_CONTEXT,
+        TarotPersonaExpectations(), args.personas, provider=args.provider, model=args.model,
         persona_ids=args.persona, root=args.out, params={**_params(args)}, max_workers=args.workers,
         name=args.name, dataset=args.dataset, dry_run=args.dry_run)
     print_summary(store, summarize(store))
@@ -239,7 +242,7 @@ def cmd_evaluate(args) -> int:
     if use_personas and not expectations_run and not args.no_expectations and not args.dry_run:
         print("Stage 1: recording persona expectations (reuse them next time with --expectations) ...")
         stage1 = generate_expectations(
-            args.personas, provider=args.provider, model=args.model, context=EXPECTATION_CONTEXT,
+            TarotPersonaExpectations(), args.personas, provider=args.provider, model=args.model,
             persona_ids=args.persona, root=args.out, params={"max_tokens": 1500}, max_workers=args.workers,
             dataset=args.dataset, name=f"expectations for {args.name}" if args.name else None)
         expectations_run = stage1.run_id
@@ -249,22 +252,23 @@ def cmd_evaluate(args) -> int:
         if missing:
             return 1
 
-    app = CelticCrossEvaluation(
+    task = CelticCrossEvaluation(
         subjects_root=args.readings_root, subject_runs=args.readings_run, subject_dataset=args.readings_dataset,
-        subject_templates=args.readings_template or ["celtic_cross_v1"], subject_models=args.readings_model,
+        subject_templates=args.readings_template or [TarotReadings.default_template],
+        subject_models=args.readings_model,
         valid_only=not args.include_invalid,
         personas_per_subject=args.personas_per_reading if use_personas else 1, pairing=args.pairing,
         expectations_run=expectations_run if use_personas else None, expectations_root=args.out,
         rubric=args.rubric)
-    if not app.subjects:
+    if not task.subjects:
         available = Counter((s.template, s.model) for s in load_subjects(
             args.readings_root, args.readings_run, args.readings_dataset, valid_only=not args.include_invalid))
-        print("error: no readings match --readings-template " + ", ".join(app.subject_templates) +
-              (" and --readings-model " + ", ".join(app.subject_models) if app.subject_models else "") +
+        print("error: no readings match --readings-template " + ", ".join(task.subject_templates) +
+              (" and --readings-model " + ", ".join(task.subject_models) if task.subject_models else "") +
               ". The selected runs hold: " + ("; ".join(f"{n} of {t} by {m}" for (t, m), n in available.most_common())
                                               or "no usable readings"), file=sys.stderr)
         return 1
-    n = args.n if args.n is not None else len(app.subjects)
+    n = args.n if args.n is not None else len(task.subjects)
     config = GenerationConfig(
         n=n, provider=args.provider, model=args.model, templates=[args.template] if args.template else [],
         params=_params(args), extra_body=args.extra_body, mode="dry_run" if args.dry_run else args.mode,
@@ -272,28 +276,28 @@ def cmd_evaluate(args) -> int:
         retry_mode=args.retry_mode, max_workers=args.workers, poll_interval=args.poll_interval, name=args.name,
         dataset=args.dataset, persona_set=args.personas if use_personas else None,
         persona_sampling=args.persona_sampling, persona_ids=list(args.persona) if use_personas else [])
-    store, requests = _prepare(app, config, args.out)
-    print(f"Stage 2: prepared {len(requests)} evaluations of {min(n, len(app.subjects))} readings "
-          f"({len(app.subjects)} available) in {store.dir}\n  rubric: {app.rubric.id}   template: "
+    store, requests = _prepare(task, config, args.out)
+    print(f"Stage 2: prepared {len(requests)} evaluations of {min(n, len(task.subjects))} readings "
+          f"({len(task.subjects)} available) in {store.dir}\n  rubric: {task.rubric.id}   template: "
           f"{', '.join(config.templates)}   expectations: {expectations_run or 'none'}")
     if config.mode == "dry_run":
         print_summary(store, summarize(store))
         return 0
     if config.mode == "live":
-        print_summary(store, run_live(store, app, requests))
+        print_summary(store, run_live(store, task, requests))
         refresh_dashboard(args, store)
         return 0
     job = submit_batch(store, requests)
     print(f"Submitted batch {job.id}. Collect with:\n  python -m evaluation.evaluate_tarot collect {store.run_id}")
     if args.wait:
-        print_summary(store, collect_batch(store, app, wait=True))
+        print_summary(store, collect_batch(store, task, wait=True))
         refresh_dashboard(args, store)
     return 0
 
 
 def cmd_collect(args) -> int:
     store = RunStore.open(args.run_id, args.out)
-    result = collect_batch(store, app_for(store), wait=args.wait)
+    result = collect_batch(store, task_for(store), wait=args.wait)
     if "batch_id" in result:
         print(f"Batch {result['batch_id']} is {result['status']} {result['request_counts']}; "
               f"run again later or pass --wait.")
@@ -310,7 +314,7 @@ def cmd_resume(args) -> int:
         return 2
     if args.workers:
         store.update_run(config={**store.run()["config"], "max_workers": args.workers})
-    print_summary(store, run_live(store, app_for(store)))
+    print_summary(store, run_live(store, task_for(store)))
     refresh_dashboard(args, store)
     return 0
 

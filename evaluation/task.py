@@ -1,25 +1,26 @@
 """
-EvaluationApplication: a data_generation Application whose requests are evaluations.
+EvaluationTask: an InferenceTask whose requests are evaluations.
 
     subjects (outputs of earlier generation runs)  x  evaluators (personas, optional)
         -> one request per pair: the rubric form, the subject, the evaluator's persona and
            expectations -> a JSON answer -> validated against the rubric -> scored in code
         -> rows in evaluations, evaluation_item_scores, evaluation_red_flags
 
-Because it is an ordinary Application, an evaluation run gets everything a generation run
+Because it is an ordinary InferenceTask, an evaluation run gets everything a generation run
 has: the same tables, live or batch execution, resume, validation and validation retries.
 
 What is generic here: selecting subjects, pairing them with personas, supplying template
 variables, validating and scoring answers, writing result rows. What a subclass supplies:
 the rubric, the prompt template, the labels for per-label items, which items' N/A status is
-decided by facts, and the context shown to the evaluator. See celtic_cross.py.
+decided by facts, and the context shown to the evaluator. See
+applications/tarot/celtic_cross_evaluation.py.
 """
 import random
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
-from data_generation.pipeline import INPUT_KEY, Application
 from data_generation.store import DEFAULT_ROOT, RunStore, new_id, utc_now
+from data_generation.task import INPUT_KEY, InferenceTask
 from evaluation.checks import RubricAnswerCheck, extract_json
 from evaluation.expectations import load_expectations
 from evaluation.rubric import Labels, Rubric, get_rubric
@@ -31,7 +32,7 @@ from validation import NonEmpty, NotTruncated, Validator
 PAIRINGS = ("sample", "subject")
 
 
-class EvaluationApplication(Application):
+class EvaluationTask(InferenceTask):
     """
     subjects_root, subject_runs, subject_dataset, subject_templates, subject_models, valid_only
                          which generated outputs to evaluate (see subjects.load_subjects)
@@ -129,7 +130,7 @@ class EvaluationApplication(Application):
             "rubric": self.rubric.id, "rubric_sha256": self.rubric.sha256,
         }
 
-    # ---- Application interface -------------------------------------------------------
+    # ---- InferenceTask interface -----------------------------------------------------
     def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:
         """n subjects (a seeded sample if there are more), each repeated personas_per_subject times."""
         pool = list(self.subjects.values())

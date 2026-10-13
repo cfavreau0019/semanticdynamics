@@ -1,7 +1,7 @@
 """Tarot validation against the formats real models produced (Hermes on Featherless, OpenAI)."""
 import pytest
 
-from validation.tarot import (
+from applications.tarot.validation import (
     CELTIC_CROSS_POSITIONS, TAROT_CARDS, TarotCardMatcher, card_aliases, celtic_cross_validator, compare_cards,
     parse_state, spread_validator,
 )
@@ -219,5 +219,5 @@ def test_shortened_later_mentions_and_repeated_cards_are_not_contradictions():
     ("The Sun, and then the Moon reversed.", ["The Sun", "The Moon reversed"]),         # 'reversed' belongs to the Moon
 ])
 def test_card_mentions_read_orientation_next_to_each_card(text, expected):
-    from validation.tarot import TarotCardMatcher
+    from applications.tarot.validation import TarotCardMatcher
     assert TarotCardMatcher().mentions(text) == expected

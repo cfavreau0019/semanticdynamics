@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional, Sequence
 
 from llm.hooks import DEFAULT_VALIDATION_RETRIES, ValidateFn, apply_validation, merge_retry, needs_retry
-from llm.inference import generate_many
+from llm.text_generation import generate_many
 from llm.providers import LLMProvider, get_provider
 from llm.types import BatchJob, ChatRequest, ChatResponse, Usage
 

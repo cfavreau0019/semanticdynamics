@@ -1,22 +1,22 @@
 """evaluation.dashboard: the data joined from evaluation and generation runs, and the page built from it."""
 import json
 
+from applications.tarot.persona_expectations import TarotPersonaExpectations
 from data_generation.pipeline import prepare_run, run_live
-from evaluation.celtic_cross import EXPECTATION_CONTEXT
 from evaluation.dashboard import DATA_MARKER, build_data, main, render
 from evaluation.expectations import generate_expectations
-from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_app, readings, registry  # noqa: F401
+from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_task, readings, registry  # noqa: F401
 
 
 def evaluated(tmp_path, registry, readings):
     """An expectations run and an evaluation run (4 readings x 2 personas); returns (eval_root, store, requests)."""
     eval_root = tmp_path / "evaluations"
-    stage1 = generate_expectations("tarot_personas", provider="eval-scripted", context=EXPECTATION_CONTEXT,
+    stage1 = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                    root=eval_root, progress=False)
-    app = evaluation_app(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
-    store, requests = prepare_run(app, eval_config(dataset="eval-demo"), root=eval_root)
+    task = evaluation_task(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
+    store, requests = prepare_run(task, eval_config(dataset="eval-demo"), root=eval_root)
     registry.plan = {requests[1].metadata["input_id"]: ["real_flag"]}
-    run_live(store, app, requests, progress=False)
+    run_live(store, task, requests, progress=False)
     return eval_root, store, requests
 
 
@@ -32,7 +32,7 @@ def test_build_data_joins_evaluations_to_their_texts(tmp_path, registry, reading
     for sid, subject in data["subjects"].items():
         assert subject["text"] == texts[sid] and list(subject["input"]) == POSITIONS
         assert (subject["task"], subject["model"], subject["dataset"]) == ("tarot_celtic_cross", "scripted-model", "demo")
-        assert subject["template"] == "celtic_cross_v1" and subject["labels"]["2a.1"] == "Present"
+        assert subject["template"] == "celtic_cross_v4" and subject["labels"]["2a.1"] == "Present"
     for e in data["evaluations"]:
         assert e["ev"] == "evaluator-model" and e["sid"] in data["subjects"] and e["pid"] in data["personas"]
         assert len(e["s"]) == 47 and e["total"] == (60.0 if e["flags"] else 80.0)

@@ -1,11 +1,14 @@
 """
-Celtic Cross reading evaluation: the tarot-specific configuration of EvaluationApplication.
+Celtic Cross reading evaluation: stage 2, in which an evaluator (optionally as a persona)
+fills in the evaluation form for a reading. The mechanics are evaluation.task.EvaluationTask;
+this file is the tarot-specific configuration of it.
 
 Rubric:   evaluation/rubrics/celtic_cross_reading_v1.toml (the Celtic Cross Reading
           Evaluation Form)
 Prompts:  prompts/library/evaluation/celtic_cross_evaluation_v2.toml (stage 2: scoring; v1 is the
           same wording in an order that a prompt cache cannot reuse)
-          prompts/library/evaluation/reading_expectations_v1.toml    (stage 1: Part A3)
+          prompts/library/evaluation/reading_expectations_v1.toml    (stage 1: Part A3; see
+          persona_expectations.py)
 
 Tarot-specific facts supplied here:
   * the ten positions scored in section 2 are the positions of the draw the reading was for
@@ -15,16 +18,15 @@ Tarot-specific facts supplied here:
 """
 from typing import Any, Mapping, Optional
 
-from evaluation.application import EvaluationApplication
+from applications.tarot.validation import parse_state
 from evaluation.rubric import Labels
-from validation.tarot import parse_state
+from evaluation.task import EvaluationTask
 
-# What the persona is told they are about to receive, for stage 1 (persona expectations).
-EXPECTATION_CONTEXT = {"reading_type": "Celtic Cross tarot reading"}
 DECK = "Rider-Waite-Smith (standard card names; the reading did not state a deck)"
 
 
-class CelticCrossEvaluation(EvaluationApplication):
+class CelticCrossEvaluation(EvaluationTask):
+    """Celtic Cross readings scored with the Celtic Cross Reading Evaluation Form."""
     name = "celtic_cross_evaluation"
     subject_type = "tarot_reading"
     rubric_ref = "celtic_cross_reading_v1"

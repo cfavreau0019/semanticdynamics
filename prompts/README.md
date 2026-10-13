@@ -128,4 +128,4 @@ So a stored reading can always be traced to the precise wording that produced it
 ## Adding templates for another task
 
 1. Add TOML files under `prompts/library/<area>/`.
-2. In the `data_generation` application, return the variables your templates use from `template_variables(payload, persona)`. Each template takes only the variables it declares, so one application can serve templates with different needs.
+2. In the task (an `InferenceTask`, under `applications/<application>/`), return the variables your templates use from `template_variables(payload, persona)`. Each template takes only the variables it declares, so one task can serve templates with different needs.

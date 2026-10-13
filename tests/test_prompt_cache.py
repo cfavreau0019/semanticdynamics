@@ -1,8 +1,8 @@
 """Prompt (KV) caching: cached tokens are recorded, and templates keep what varies at the end."""
 from types import SimpleNamespace
 
+from applications.tarot.readings import TarotReadings
 from data_generation.pipeline import GenerationConfig, prepare_run, run_live, summarize
-from data_generation.tarot import TarotReadings
 from evaluation.rubric import get_rubric
 from llm import ChatResponse, Usage
 from llm.providers import register_provider
@@ -35,9 +35,9 @@ def test_cached_tokens_are_stored_and_summed(tmp_path, isolated_registry):
 
     provider = Cached()
     register_provider("cached", lambda **kw: provider)
-    app = TarotReadings()
-    store, requests = prepare_run(app, GenerationConfig(n=3, provider="cached"), root=tmp_path)
-    summary = run_live(store, app, requests, progress=False)
+    task = TarotReadings()
+    store, requests = prepare_run(task, GenerationConfig(n=3, provider="cached"), root=tmp_path)
+    summary = run_live(store, task, requests, progress=False)
     assert [r["cached_tokens"] for r in store.read("responses")] == [1024] * 3
     assert (summary["cached_tokens"], summary["prompt_tokens"]) == (3072, 3900)
 

@@ -5,10 +5,12 @@ evaluator. An evaluation run is a data_generation run whose requests are evaluat
   rubric         Rubric (scale, weighted sections of O/S items, red flags, grades), scoring
   checks         extract_json, RubricAnswerCheck, JsonFieldsCheck
   subjects       load_subjects: generated outputs to evaluate
-  expectations   stage 1: a persona's expectations before seeing the output
-  application    EvaluationApplication: the generic evaluation pipeline
-  celtic_cross   CelticCrossEvaluation: tarot-specific configuration
+  expectations   PersonaExpectations, stage 1: a persona's expectations before seeing the output
+  task           EvaluationTask, stage 2: the generic evaluation task
   evaluate_tarot command-line script
+
+What an application adds to the two tasks lives with it: applications/tarot/ has
+TarotPersonaExpectations and CelticCrossEvaluation.
 
 See README.md.
 """

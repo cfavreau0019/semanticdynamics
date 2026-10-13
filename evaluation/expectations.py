@@ -6,16 +6,21 @@ Expectations depend only on the persona and on what they are told they are about
 receive (the `context`), not on any particular output. They are therefore generated once
 per persona, as their own small run, and reused for every evaluation by that persona.
 
-    store = generate_expectations("tarot_personas", provider="openai", model="...",
-                                  context={"reading_type": "Celtic Cross tarot reading"})
+What is generic here: one request per persona, the fields of the answer, the
+persona_expectations table. What an application supplies, as a subclass of
+PersonaExpectations: the task's name, its prompt template and the context (see
+applications/tarot/persona_expectations.py).
+
+    store = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="openai", model="...")
     expectations = load_expectations(store)        # {persona_id: {...}}
 """
 import random
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
-from data_generation.pipeline import Application, GenerationConfig, final_responses, prepare_run, run_live
+from data_generation.pipeline import GenerationConfig, final_responses, prepare_run, run_live
 from data_generation.store import RunStore
+from data_generation.task import InferenceTask
 from evaluation.checks import JsonFieldsCheck
 from llm import ChatResponse
 from personas import PersonaSet
@@ -31,18 +36,19 @@ EXPECTATION_FIELDS = {
 }
 
 
-class PersonaExpectations(Application):
+class PersonaExpectations(InferenceTask):
     """
     One request per persona. `context` is what the persona is told they are about to
-    receive; its keys are the template's variables besides `persona`
-    (reading_expectations_v1 takes `reading_type` and an optional `question`).
+    receive; its keys are the template's variables besides `persona`.
+
+    A subclass sets `name`, the prompt template (`default_template` and `persona_template`,
+    the same one: every request has a persona) and `default_context`.
     """
-    name = "persona_expectations"
     input_type = "expectation_context"
-    default_template = persona_template = "reading_expectations_v1"
+    default_context: dict[str, Any] = {}
 
     def __init__(self, context: Optional[dict[str, Any]] = None):
-        self.context = dict(context or {})
+        self.context = dict(self.default_context if context is None else context)
         self._check = JsonFieldsCheck(EXPECTATION_FIELDS, name="expectations")
 
     def options(self) -> dict:
@@ -55,7 +61,7 @@ class PersonaExpectations(Application):
         return {"persona": persona, **payload}
 
     def validator(self):
-        return Validator([NotTruncated(), self._check], name="persona_expectations")
+        return Validator([NotTruncated(), self._check], name=self.name)
 
     def derived_rows(self, response: ChatResponse, response_id: str) -> dict[str, list[dict]]:
         fields, _ = self._check.read(response.text)
@@ -69,10 +75,10 @@ class PersonaExpectations(Application):
 
 
 def generate_expectations(
+    task: PersonaExpectations,
     persona_set: str,
     provider: str,
     model: Optional[str] = None,
-    context: Optional[dict[str, Any]] = None,
     persona_ids: Sequence[str] = (),
     root: str | Path = "data/evaluations",
     params: Optional[dict] = None,
@@ -86,14 +92,13 @@ def generate_expectations(
     people = PersonaSet.load(persona_set)
     if persona_ids:
         people = people.select(persona_ids)
-    app = PersonaExpectations(context)
     config = GenerationConfig(
         n=len(people), provider=provider, model=model, params=dict(params or {"max_tokens": 2000}),
         mode="dry_run" if dry_run else "live", max_workers=max_workers, name=name, dataset=dataset,
         persona_set=persona_set, persona_sampling="cycle", persona_ids=[str(i) for i in persona_ids])
-    store, requests = prepare_run(app, config, root=root)
+    store, requests = prepare_run(task, config, root=root)
     if not dry_run:
-        run_live(store, app, requests, progress=progress)
+        run_live(store, task, requests, progress=progress)
     return store
 
 

@@ -1,9 +1,9 @@
 """
 Generic generation pipeline: inputs -> prompts -> requests -> responses (+ validation),
 persisted as tables by RunStore. Task specifics (what an input is, which prompt variables
-it provides, how outputs are validated) come from an Application; see
-data_generation/tarot.py. Prompt text comes from the `prompts` library and optional
-personas from the `personas` package.
+it provides, how outputs are validated) come from an InferenceTask (task.py); the tasks
+themselves live in applications/<application>/. Prompt text comes from the `prompts` library
+and optional personas from the `personas` package.
 
 Order of writes (so an interrupted run can be resumed or collected from the tables alone):
     runs -> prompt_templates, personas -> inputs, input_items -> prompts -> requests
@@ -17,7 +17,6 @@ import hashlib
 import json
 import random
 import warnings
-from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any, Optional
@@ -26,72 +25,16 @@ from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider
 from llm.batch import wait_for_batch
 from data_generation.schema import SCHEMA_VERSION, TABLES
 from data_generation.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
+from data_generation.task import INPUT_KEY, InferenceTask
 from personas import SAMPLING_MODES, PersonaSet
 from prompts import PromptLibrary, PromptTemplate, default_library
-
-# metadata keys carried on each ChatRequest (never sent to the model)
-INPUT_KEY = "input"
-
-
-class Application(ABC):
-    """What a generation task has to provide."""
-
-    name: str                               # e.g. "tarot_celtic_cross"
-    input_type: str                         # e.g. "tarot_draw"
-    default_template: str                   # prompt library reference used when none is given
-    persona_template: Optional[str] = None  # default when personas are supplied (must accept `persona`)
-
-    @abstractmethod
-    def sample_inputs(self, n: int, rng: random.Random) -> list[dict]:
-        ...
-
-    def template_variables(self, payload: dict, persona: Optional[dict]) -> dict[str, Any]:
-        """
-        Everything a prompt template may use for this input. Each template takes the
-        variables it declares from this pool, so one application can serve templates with
-        different needs (e.g. with and without `persona`).
-        """
-        return {"input": payload, "persona": persona}
-
-    def assign_personas(self, payloads: list[dict], people: PersonaSet, rng: random.Random,
-                        mode: str) -> list[Optional[dict]]:
-        """One persona (or None) per payload. Override to control the pairing, e.g. distinct personas per subject."""
-        return people.sample(rng, len(payloads), mode)
-
-    def input_items(self, payload: dict) -> list[dict]:
-        """Long-form rows (label, value, entity, qualifier) for input_items; optional."""
-        return []
-
-    def reference_rows(self) -> dict[str, list[dict]]:
-        """Rows for reference tables this application uses (e.g. its rubric), written when a run is prepared."""
-        return {}
-
-    def validation_expected(self, metadata: dict) -> Any:
-        """What the validator compares a response against (`expected`); default: the input payload."""
-        return metadata.get(INPUT_KEY)
-
-    def derived_rows(self, response: ChatResponse, response_id: str) -> dict[str, list[dict]]:
-        """
-        Extra table rows computed from a finished request's returned response, e.g. parsed
-        scores: {table: [rows]}. Called once per request after its responses are written.
-        """
-        return {}
-
-    def validator(self):
-        """A validation.Validator whose `expected` is the input payload, or None."""
-        return None
-
-    def options(self) -> dict:
-        """Application settings to record in runs.config."""
-        return {}
-
 
 @dataclass
 class GenerationConfig:
     n: int                                    # number of inputs; requests = n x len(templates)
     provider: str
     model: Optional[str] = None
-    # prompt library refs ("name_vN" pinned, "name" = latest); [] = the application's default.
+    # prompt library refs ("name_vN" pinned, "name" = latest); [] = the task's default.
     # With several, every input is rendered with each one (a paired comparison).
     templates: list[str] = field(default_factory=list)
     system: Optional[str] = None              # overrides the templates' system prompt
@@ -112,13 +55,13 @@ class GenerationConfig:
 
 
 # ---- preparing a run -------------------------------------------------------------------
-def resolve_templates(app: Application, config: GenerationConfig,
+def resolve_templates(task: InferenceTask, config: GenerationConfig,
                       library: Optional[PromptLibrary] = None) -> list[PromptTemplate]:
     """The templates a run will use, pinned to exact versions (also written back to config.templates)."""
     library = library or default_library()
     refs = list(config.templates)
     if not refs:
-        refs = [app.persona_template if config.persona_set and app.persona_template else app.default_template]
+        refs = [task.persona_template if config.persona_set and task.persona_template else task.default_template]
     templates = [library.get(r) for r in refs]
     if len({t.id for t in templates}) != len(templates):
         raise ValueError(f"The same template is listed twice: {[t.id for t in templates]}")
@@ -142,7 +85,7 @@ def resolve_personas(config: GenerationConfig) -> Optional[PersonaSet]:
     return people.select(config.persona_ids) if config.persona_ids else people
 
 
-def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
+def prepare_run(task: InferenceTask, config: GenerationConfig, root=DEFAULT_ROOT,
                 library: Optional[PromptLibrary] = None) -> tuple[RunStore, list[ChatRequest]]:
     """
     Create the run and write runs, prompt_templates, personas, inputs, input_items, prompts
@@ -152,30 +95,30 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
     if config.mode not in ("live", "batch", "dry_run"):
         raise ValueError(f"mode must be live, batch or dry_run; got {config.mode!r}")
     library = library or default_library()
-    templates = resolve_templates(app, config, library)      # fail before anything is written
+    templates = resolve_templates(task, config, library)      # fail before anything is written
     people = resolve_personas(config)
     if config.seed is None:
         config.seed = random.SystemRandom().randrange(2**31)
 
     rng = random.Random(config.seed)
-    payloads = app.sample_inputs(config.n, rng)
+    payloads = task.sample_inputs(config.n, rng)
     # personas are drawn after the inputs, so a seed gives the same inputs with or without them
     if people:
-        assigned = app.assign_personas(payloads, people, rng, config.persona_sampling)
+        assigned = task.assign_personas(payloads, people, rng, config.persona_sampling)
     else:
         assigned = [None] * len(payloads)
     if len(assigned) != len(payloads):
         raise ValueError("assign_personas must return one entry per payload")
 
-    store = RunStore.create(root, task=app.name)
+    store = RunStore.create(root, task=task.name)
     sha, dirty = code_version()
     now = utc_now()
     store.upsert("runs", [{
-        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "application": app.name,
+        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "application": task.name,
         "mode": config.mode,
         "status": "prepared", "provider": config.provider, "model": config.model,
         "config": {**asdict(config), "persona_set_sha256": people.sha256 if people else None,
-                   "application_options": app.options()},
+                   "application_options": task.options()},
         "code_version": sha, "code_dirty": dirty, "schema_version": SCHEMA_VERSION,
         "summary": None, "created_at": now, "updated_at": now,
     }])
@@ -188,7 +131,7 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
     if people:
         used = {p["id"]: p for p in assigned if p is not None}
         store.append("personas", [people.row(p) for p in used.values()])
-    for table, rows in app.reference_rows().items():
+    for table, rows in task.reference_rows().items():
         store.append(table, rows)
 
     request_mode = "batch" if config.mode == "batch" else "live"
@@ -197,11 +140,11 @@ def prepare_run(app: Application, config: GenerationConfig, root=DEFAULT_ROOT,
         input_id = new_id("inp")
         persona_id = persona["id"] if persona else None
         inputs.append({"input_id": input_id, "run_id": store.run_id, "input_index": i,
-                       "input_type": app.input_type, "payload": payload, "persona_id": persona_id,
+                       "input_type": task.input_type, "payload": payload, "persona_id": persona_id,
                        "created_at": now})
         items += [{"input_id": input_id, "run_id": store.run_id, "item_index": k, **item}
-                  for k, item in enumerate(app.input_items(payload))]
-        variables = app.template_variables(payload, persona)
+                  for k, item in enumerate(task.input_items(payload))]
+        variables = task.template_variables(payload, persona)
 
         for template in templates:
             prompt_id, request_id = new_id("prm"), new_id("req")
@@ -301,7 +244,7 @@ def _attempt_rows(store: RunStore, request_id: str, attempt: int, *, text, model
 
 
 def write_response(store: RunStore, response: ChatResponse, previous_attempts: int = 0,
-                   app: Optional[Application] = None) -> None:
+                   task: Optional[InferenceTask] = None) -> None:
     """
     Write every attempt of a finished request: failed attempts first, the returned response
     last, numbered previous_attempts+1 .. previous_attempts+response.attempts (so a request
@@ -319,14 +262,14 @@ def write_response(store: RunStore, response: ChatResponse, previous_attempts: i
             tables[table] += r
     for table in ("responses", "response_texts", "validations", "validation_issues"):
         store.append(table, tables[table])
-    if app is not None and response.ok:
+    if task is not None and response.ok:
         returned_id = f"{response.request_id}-a{previous_attempts + response.attempts}"
         try:
-            derived = app.derived_rows(response, returned_id)
+            derived = task.derived_rows(response, returned_id)
         except Exception as e:  # the response itself is already saved; don't lose the run over a parser bug
             warnings.warn(f"derived_rows failed for {returned_id}: {type(e).__name__}: {e}")
             derived = {}
-        for table, rows in derived.items():  # the application needn't know the run id
+        for table, rows in derived.items():  # the task needn't know the run id
             has_run_id = "run_id" in TABLES[table].column_names
             store.append(table, [{**r, "run_id": store.run_id} if has_run_id else r for r in rows])
 
@@ -358,21 +301,21 @@ def _provider_for(store: RunStore, config: GenerationConfig):
     return llm
 
 
-def _validate_fn(app: Application, config: GenerationConfig):
+def _validate_fn(task: InferenceTask, config: GenerationConfig):
     if not config.validate:
         return None
-    validator = app.validator()
+    validator = task.validator()
     if validator is None:
         return None
     from validation import response_validator
 
     def expected(response, request):
-        return app.validation_expected(response.metadata or (request.metadata if request is not None else {}))
+        return task.validation_expected(response.metadata or (request.metadata if request is not None else {}))
 
     return response_validator(validator, expected=expected)
 
 
-def run_live(store: RunStore, app: Application, requests: Optional[list[ChatRequest]] = None,
+def run_live(store: RunStore, task: InferenceTask, requests: Optional[list[ChatRequest]] = None,
              progress: bool = True) -> dict:
     """
     Generate every request without a successful final response, so it also resumes a run:
@@ -389,8 +332,8 @@ def run_live(store: RunStore, app: Application, requests: Optional[list[ChatRequ
     store.update_run(status="running")
     try:
         generate_many(pending, provider=_provider_for(store, config), max_workers=config.max_workers,
-                      validate=_validate_fn(app, config), validation_retries=config.validation_retries,
-                      on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0), app),
+                      validate=_validate_fn(task, config), validation_retries=config.validation_retries,
+                      on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0), task),
                       progress=progress)
     except BaseException:
         store.update_run(status="interrupted", summary=summarize(store))
@@ -423,7 +366,7 @@ def submit_batch(store: RunStore, requests: Optional[list[ChatRequest]] = None) 
     return job
 
 
-def collect_batch(store: RunStore, app: Application, wait: bool = False, progress: bool = True) -> dict:
+def collect_batch(store: RunStore, task: InferenceTask, wait: bool = False, progress: bool = True) -> dict:
     """
     Collect the run's initial batch: fetch results, validate, regenerate invalid ones
     (config.retry_mode: live or follow-up batches), then write everything. Returns the run
@@ -444,7 +387,7 @@ def collect_batch(store: RunStore, app: Application, wait: bool = False, progres
         record_batch(store, job, 0)
 
     requests = [r for r in rebuild_requests(store) if r.id not in finished_request_ids(store)]
-    validate = _validate_fn(app, config)
+    validate = _validate_fn(task, config)
     responses = run_batch_results(job, llm, requests, validate=validate)
     if validate is not None and config.validation_retries > 0:
         responses = retry_invalid(responses, requests, validate, llm, retries=config.validation_retries,
@@ -453,7 +396,7 @@ def collect_batch(store: RunStore, app: Application, wait: bool = False, progres
                                   on_batch=lambda j, rnd: record_batch(store, j, rnd))
     offsets = _attempt_offsets(store)
     for r in responses:
-        write_response(store, r, offsets.get(r.request_id, 0), app)
+        write_response(store, r, offsets.get(r.request_id, 0), task)
     for b in store.read("batches"):
         record_batch(store, BatchJob(b["batch_id"], b["provider"], b["status"], b["raw_status"], b["endpoint"],
                                      request_counts=b["request_counts"] or {}, input_file=b["input_file"]),

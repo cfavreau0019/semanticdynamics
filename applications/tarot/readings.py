@@ -1,7 +1,7 @@
 """
-Tarot readings as a data_generation Application: sampling card draws from the deck config,
-the variables it hands to prompt templates (from the `prompts` library), and the regex
-validator from validation.tarot.
+Tarot readings: the task that asks for a Celtic Cross reading of a sampled card draw. It
+samples the draws from the deck config, hands them to the prompt templates
+(prompts/library/tarot/) and checks each reading with the validator in validation.py.
 
 The deck config (sandbox/vector_space_config.json, or $VECTOR_SPACE_CONFIG) supplies the
 positions (step_aliases), the cards (aliases) and whether cards can be reversed
@@ -15,10 +15,9 @@ import random
 from pathlib import Path
 from typing import Mapping, Optional
 
-from data_generation.pipeline import Application
+from applications.tarot.validation import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, celtic_cross_validator, parse_state
 from data_generation.store import REPO_ROOT
-from validation.extract import default_aliases
-from validation.tarot import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, parse_state, spread_validator
+from data_generation.task import InferenceTask
 
 DEFAULT_DECK_CONFIG = REPO_ROOT / "sandbox" / "vector_space_config.json"
 DRAW_MODES = ("replacement", "unique")
@@ -40,16 +39,22 @@ def resolve_deck_config(path: Optional[str | Path] = None) -> Path:
     raise FileNotFoundError(f"Deck config not found; tried {[str(c) for c in candidates]}")
 
 
-class TarotReadings(Application):
+class TarotReadings(InferenceTask):
     """
+    Celtic Cross readings of sampled card draws.
+
     Prompt templates live in prompts/library/tarot/ and receive these variables:
         cards     {position: card state} — the draw
         positions the spread's position names, in order
         persona   a persona record, or None
-    Defaults are pinned to exact versions so existing datasets keep their prompt:
-    celtic_cross_v1 without personas, celtic_cross_v2 (which accepts `persona`) with them.
+    The default templates are pinned to exact versions, so adding a template version does not
+    change what a run produces: celtic_cross_v4 without personas, celtic_cross_v2 (which
+    accepts `persona`) with them.
     """
+    name = "tarot_celtic_cross"
     input_type = "tarot_draw"
+    default_template = "celtic_cross_v4"
+    persona_template = "celtic_cross_v2"
 
     def __init__(self, deck_config: Optional[str | Path] = None, draw: str = "replacement",
                  pins: Optional[Mapping[str, str]] = None):
@@ -60,6 +65,9 @@ class TarotReadings(Application):
         config = json.loads(raw)
         self.deck_sha256 = hashlib.sha256(raw).hexdigest()
         self.positions: list[str] = list(config["step_aliases"])
+        if self.positions != list(CELTIC_CROSS_POSITIONS):
+            raise ValueError(f"{self.deck_config} is not a Celtic Cross deck: its positions are {self.positions}, "
+                             f"not {list(CELTIC_CROSS_POSITIONS)}")
         self.cards: list[str] = list(config["aliases"])
         self.reversible = bool(config.get("negative_polarity", False))
         self.states = [c + s for c in self.cards for s in ([ "", REVERSED_SUFFIX] if self.reversible else [""])]
@@ -76,11 +84,6 @@ class TarotReadings(Application):
                 raise ValueError("draw='unique' but the same card is pinned twice")
             if len(self.positions) > len(self.cards):
                 raise ValueError("More positions than cards; unique draws are impossible")
-
-        self.is_celtic_cross = self.positions == list(CELTIC_CROSS_POSITIONS)
-        self.name = "tarot_celtic_cross" if self.is_celtic_cross else "tarot_spread"
-        self.default_template = "celtic_cross_v1" if self.is_celtic_cross else "spread_v1"
-        self.persona_template = "celtic_cross_v2" if self.is_celtic_cross else None
 
     def template_variables(self, payload: dict, persona: Optional[dict]) -> dict:
         return {"cards": payload, "positions": list(payload), "persona": persona}
@@ -118,5 +121,4 @@ class TarotReadings(Application):
         return items
 
     def validator(self):
-        aliases = {p: CELTIC_CROSS_POSITIONS.get(p, default_aliases(p)) for p in self.positions}
-        return spread_validator(aliases, cards=self.cards, name=self.name)
+        return celtic_cross_validator(cards=self.cards, name=self.name)

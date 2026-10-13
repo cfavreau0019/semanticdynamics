@@ -11,7 +11,7 @@ network, and is rebuilt by running the command again. In it, scores can be aggre
 task, text, evaluating model, generating model, persona and rubric question; each text has
 its score distributions and the evaluators' comments.
 
-    task              the application of the generation run the text came from
+    task              the task of the generation run the text came from
     generating model  the model that wrote the text
     evaluating model  the model that filled in the form
 
@@ -171,7 +171,7 @@ def main(argv=None) -> int:
                         help="include only this evaluation run; repeatable (default: all)")
     parser.add_argument("--dataset", help="include only evaluation runs of this dataset")
     parser.add_argument("--task", action="append", default=[], metavar="NAME",
-                        help="include only evaluations of texts of this task, i.e. the application of the generation "
+                        help="include only evaluations of texts of this task, i.e. the task of the generation "
                              "run they came from, e.g. tarot_celtic_cross; repeatable (default: all)")
     parser.add_argument("--readings-root", help="where the generation runs are (default: where each evaluation "
                                                 "run found them)")

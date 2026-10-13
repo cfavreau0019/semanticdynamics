@@ -1,4 +1,4 @@
-"""data_generation: schema, store, tarot application, live/batch pipeline, resume, CLI."""
+"""data_generation: schema, store, the tarot readings task, live/batch pipeline, resume, CLI."""
 import json
 import random
 import re
@@ -10,6 +10,7 @@ import pytest
 import llm.providers as providers
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
+from applications.tarot.readings import TarotReadings
 from data_generation import schema
 from data_generation.generate_tarot import main
 from data_generation.pipeline import (
@@ -18,7 +19,6 @@ from data_generation.pipeline import (
     submit_batch, summarize,
 )
 from data_generation.store import RunStore
-from data_generation.tarot import TarotReadings
 from prompts import get_template, parse_id as parse_template_id
 from conftest import FakeOpenAIClient, batch_body
 from llm.providers.openai_compatible import OpenAICompatibleProvider
@@ -27,8 +27,8 @@ FILLER = "This card carries a meaningful theme for you, worth careful reflection
 
 
 def reading_from_prompt(prompt: str, drop: str = None) -> str:
-    """A well-formed reading restating the prompt's 'Position: Card' lines (optionally omitting one)."""
-    lines = re.findall(r"^([^:\n]+): (.+)$", prompt, flags=re.M)
+    """A well-formed reading restating the draw: the 'Position: Card' lines that end the prompt (optionally omitting one)."""
+    lines = re.findall(r"^([^:\n]+): (.+)$", prompt.strip().split("\n\n")[-1], flags=re.M)
     body = "\n\n".join(f"{i}. {pos}: {card} - {FILLER}" for i, (pos, card) in enumerate(lines, 1) if pos != drop)
     return f"Here is your reading.\n\n{body}\n\nOverall, a thoughtful spread."
 
@@ -161,19 +161,19 @@ def test_store_append_upsert_read(tmp_path):
         RunStore.create(tmp_path, run_id="run_test")
 
 
-# ---- tarot application ------------------------------------------------------------------
+# ---- tarot readings task ----------------------------------------------------------------
 def test_tarot_app_reads_deck_config():
-    app = TarotReadings()
-    assert app.name == "tarot_celtic_cross" and app.default_template == "celtic_cross_v1"
-    assert len(app.cards) == 78 and len(app.states) == 156 and len(app.positions) == 10
+    task = TarotReadings()
+    assert task.name == "tarot_celtic_cross" and task.default_template == "celtic_cross_v4"
+    assert len(task.cards) == 78 and len(task.states) == 156 and len(task.positions) == 10
 
 
 def test_draws_are_seeded_and_pinned():
-    app = TarotReadings(pins={"Outcome": "Death reversed"})
-    a = app.sample_inputs(5, random.Random(1))
-    assert a == app.sample_inputs(5, random.Random(1))
-    assert a != app.sample_inputs(5, random.Random(2))
-    assert all(d["Outcome"] == "Death reversed" and list(d) == app.positions for d in a)
+    task = TarotReadings(pins={"Outcome": "Death reversed"})
+    a = task.sample_inputs(5, random.Random(1))
+    assert a == task.sample_inputs(5, random.Random(1))
+    assert a != task.sample_inputs(5, random.Random(2))
+    assert all(d["Outcome"] == "Death reversed" and list(d) == task.positions for d in a)
 
 
 def test_unique_vs_replacement_draws():
@@ -196,23 +196,32 @@ def test_bad_tarot_options(kwargs, match):
         TarotReadings(**kwargs)
 
 
+def test_a_deck_that_is_not_a_celtic_cross_is_refused(tmp_path):
+    deck = json.loads(TarotReadings().deck_config.read_text(encoding="utf-8"))
+    three_cards = tmp_path / "three_card_spread.json"
+    three_cards.write_text(json.dumps({**deck, "step_aliases": ["Past", "Present", "Future"]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="not a Celtic Cross deck"):
+        TarotReadings(three_cards)
+
+
 def test_input_items_and_template():
-    app = TarotReadings()
-    draw = app.sample_inputs(1, random.Random(3))[0]
-    items = app.input_items(draw)
-    assert [i["label"] for i in items] == app.positions
+    task = TarotReadings()
+    draw = task.sample_inputs(1, random.Random(3))[0]
+    items = task.input_items(draw)
+    assert [i["label"] for i in items] == task.positions
     assert all(i["value"] == (i["entity"] + (" reversed" if i["qualifier"] == "reversed" else "")) for i in items)
-    variables = app.template_variables(draw, None)
-    assert variables == {"cards": draw, "positions": app.positions, "persona": None}
-    prompt = get_template(app.default_template).render_from(variables)
-    assert prompt.system is None and prompt.user.startswith("You're a tarot reader.") and "Outcome: " in prompt.user
+    variables = task.template_variables(draw, None)
+    assert variables == {"cards": draw, "positions": task.positions, "persona": None}
+    prompt = get_template(task.default_template).render_from(variables)
+    assert prompt.system is None and prompt.user.startswith("You're an experienced tarot reader.")
+    assert prompt.user.rstrip().endswith("\n".join(f"{position}: {card}" for position, card in draw.items()))
 
 
 def test_tarot_validator_accepts_a_reading_of_the_draw():
-    app = TarotReadings()
-    draw = app.sample_inputs(1, random.Random(5))[0]
+    task = TarotReadings()
+    draw = task.sample_inputs(1, random.Random(5))[0]
     text = reading_from_prompt(get_template("celtic_cross_v1").render(cards=draw).user)
-    assert app.validator().validate(text, expected=draw, finish_reason="stop").passed
+    assert task.validator().validate(text, expected=draw, finish_reason="stop").passed
 
 
 # ---- pipeline: live ---------------------------------------------------------------------
@@ -233,11 +242,11 @@ def test_rebuild_requests_matches_prepared(tmp_path, scripted):
 
 
 def test_live_run_writes_all_tables(tmp_path, scripted):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(), root=tmp_path)
     first_input = requests[0].metadata["input_id"]
     scripted.plan = {first_input: ["invalid", "invalid", "ok"]}   # needs both default retries
-    summary = run_live(store, app, requests, progress=False)
+    summary = run_live(store, task, requests, progress=False)
 
     assert summary["n_requests"] == summary["n_finished"] == summary["n_valid"] == 4
     assert summary["n_regenerated"] == 1 and summary["n_attempts"] == 6
@@ -259,14 +268,14 @@ def test_live_run_writes_all_tables(tmp_path, scripted):
 
 
 def test_resume_after_api_errors_continues_attempt_numbers(tmp_path, scripted):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=3), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=3), root=tmp_path)
     bad = requests[1].metadata["input_id"]
     scripted.plan = {bad: ["error", "ok"]}
-    first = run_live(store, app, requests, progress=False)
+    first = run_live(store, task, requests, progress=False)
     assert (first["n_finished"], first["n_api_errors"]) == (2, 1) and store.run()["status"] == "partial"
 
-    second = run_live(store, app, progress=False)               # resume from the tables alone
+    second = run_live(store, task, progress=False)               # resume from the tables alone
     assert (second["n_finished"], second["n_api_errors"], second["n_valid"]) == (3, 0, 3)
     assert store.run()["status"] == "completed"
     rows = [r for r in store.read("responses") if r["request_id"] == requests[1].id]
@@ -277,20 +286,20 @@ def test_resume_after_api_errors_continues_attempt_numbers(tmp_path, scripted):
 
 
 def test_interrupted_run_is_marked_and_resumable(tmp_path, scripted):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=3, max_workers=1), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=3, max_workers=1), root=tmp_path)
     scripted.plan = {requests[2].metadata["input_id"]: ["interrupt", "ok"]}
     with pytest.raises(KeyboardInterrupt):
-        run_live(store, app, requests, progress=False)
+        run_live(store, task, requests, progress=False)
     assert store.run()["status"] == "interrupted"
-    assert run_live(store, app, progress=False)["n_finished"] == 3
+    assert run_live(store, task, progress=False)["n_finished"] == 3
 
 
 def test_no_validate(tmp_path, scripted):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=2, validate=False), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=2, validate=False), root=tmp_path)
     scripted.plan = {requests[0].metadata["input_id"]: ["invalid"]}
-    summary = run_live(store, app, requests, progress=False)
+    summary = run_live(store, task, requests, progress=False)
     assert summary["n_unvalidated"] == 2 and summary["n_attempts"] == 2 and store.read("validations") == []
 
 
@@ -326,33 +335,33 @@ def batch_provider(isolated_registry, tmp_path):
 
 def test_batch_submit_then_collect(tmp_path, batch_provider):
     p = batch_provider(statuses=("validating", "in_progress", "completed"))
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=3, provider="fake-batch", mode="batch"), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=3, provider="fake-batch", mode="batch"), root=tmp_path)
     job = submit_batch(store, requests)
     assert store.run()["status"] == "submitted"
     [b] = store.read("batches")
     assert (b["batch_id"], b["round"], b["status"], b["n_requests"], b["collected"]) == (job.id, 0, "pending", 3, False)
     assert Path(b["input_file"]).parent == store.batch_files_dir     # batch files live in the run dir
 
-    not_yet = collect_batch(store, app, wait=False, progress=False)
+    not_yet = collect_batch(store, task, wait=False, progress=False)
     assert not_yet["status"] == "running" and store.read("responses") == []
 
-    summary = collect_batch(store, app, wait=False, progress=False)
+    summary = collect_batch(store, task, wait=False, progress=False)
     assert summary["n_finished"] == summary["n_valid"] == 3
     assert {r["batch_id"] for r in store.read("responses")} == {job.id}
     assert all(b["collected"] for b in store.read("batches")) and store.run()["status"] == "completed"
     with pytest.raises(RuntimeError, match="no uncollected batch"):
-        collect_batch(store, app)
+        collect_batch(store, task)
     check_foreign_keys(store)
 
 
 def test_batch_retry_rounds_recorded(tmp_path, batch_provider):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=2, provider="fake-batch", mode="batch", retry_mode="batch",
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=2, provider="fake-batch", mode="batch", retry_mode="batch",
                                               poll_interval=0), root=tmp_path)
     batch_provider(invalid_first_time={requests[0].id})
     submit_batch(store, requests)
-    summary = collect_batch(store, app, wait=True, progress=False)
+    summary = collect_batch(store, task, wait=True, progress=False)
     assert summary["n_valid"] == 2 and summary["n_regenerated"] == 1
     assert sorted(b["round"] for b in store.read("batches")) == [0, 1]
     rows = [r for r in store.read("responses") if r["request_id"] == requests[0].id]
@@ -361,11 +370,11 @@ def test_batch_retry_rounds_recorded(tmp_path, batch_provider):
 
 
 def test_batch_collect_retries_live_by_default(tmp_path, batch_provider):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=2, provider="fake-batch", mode="batch"), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=2, provider="fake-batch", mode="batch"), root=tmp_path)
     batch_provider(invalid_first_time={requests[1].id})
     submit_batch(store, requests)
-    collect_batch(store, app, wait=True, progress=False)
+    collect_batch(store, task, wait=True, progress=False)
     rows = [r for r in store.read("responses") if r["request_id"] == requests[1].id]
     assert [r["batch_id"] is None for r in rows] == [False, True]   # retry was a live call
     assert [b["round"] for b in store.read("batches")] == [0]
@@ -449,10 +458,10 @@ def test_cli_batch_collect(tmp_path, batch_provider):
 
 # ---- prompts library + personas in the pipeline --------------------------------------------
 def test_default_templates_are_pinned(tmp_path, scripted):
-    app = TarotReadings()
-    plain, _ = prepare_run(app, config(n=1, mode="dry_run"), root=tmp_path)
-    with_people, _ = prepare_run(app, config(n=1, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
-    assert plain.run()["config"]["templates"] == ["celtic_cross_v1"]          # existing datasets' prompt
+    task = TarotReadings()
+    plain, _ = prepare_run(task, config(n=1, mode="dry_run"), root=tmp_path)
+    with_people, _ = prepare_run(task, config(n=1, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
+    assert plain.run()["config"]["templates"] == ["celtic_cross_v4"]          # pinned, not "the latest"
     assert with_people.run()["config"]["templates"] == ["celtic_cross_v2"]    # the persona-aware version
     assert plain.read("personas") == [] and plain.read("inputs")[0]["persona_id"] is None
 
@@ -469,11 +478,11 @@ def test_template_reference_resolves_to_a_pinned_version(tmp_path, scripted):
 
 
 def test_personas_and_two_templates_end_to_end(tmp_path, scripted):
-    app = TarotReadings()
+    task = TarotReadings()
     cfg = config(n=4, persona_set="tarot_personas", persona_sampling="cycle",
                  templates=["celtic_cross_v1", "celtic_cross_v2"])
     with pytest.warns(UserWarning, match="celtic_cross_v1.*take no"):
-        store, requests = prepare_run(app, cfg, root=tmp_path)
+        store, requests = prepare_run(task, cfg, root=tmp_path)
     assert len(requests) == 8 and len(store.read("inputs")) == 4 and len(store.read("prompts")) == 8
 
     inputs = store.read("inputs")
@@ -496,7 +505,7 @@ def test_personas_and_two_templates_end_to_end(tmp_path, scripted):
     assert requests[1].metadata["persona_id"] == inputs[0]["persona_id"]
     assert requests[1].metadata["template"] == "celtic_cross_v2"
 
-    summary = run_live(store, app, requests, progress=False)
+    summary = run_live(store, task, requests, progress=False)
     assert summary["n_finished"] == summary["n_valid"] == 8
     assert summary["by_template"] == {
         t: {"n_requests": 4, "n_finished": 4, "n_valid": 4, "n_invalid": 0, "n_valid_first_try": 4}
@@ -508,37 +517,37 @@ def test_personas_and_two_templates_end_to_end(tmp_path, scripted):
 
 
 def test_seed_gives_same_draws_with_or_without_personas(tmp_path, scripted):
-    app = TarotReadings()
-    a, _ = prepare_run(app, config(n=5, seed=9, mode="dry_run"), root=tmp_path)
-    b, _ = prepare_run(app, config(n=5, seed=9, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
+    task = TarotReadings()
+    a, _ = prepare_run(task, config(n=5, seed=9, mode="dry_run"), root=tmp_path)
+    b, _ = prepare_run(task, config(n=5, seed=9, mode="dry_run", persona_set="tarot_personas"), root=tmp_path)
     assert [i["payload"] for i in a.read("inputs")] == [i["payload"] for i in b.read("inputs")]
 
 
 def test_persona_restriction_and_errors(tmp_path, scripted):
-    app = TarotReadings()
-    store, _ = prepare_run(app, config(n=6, mode="dry_run", persona_set="tarot_personas",
+    task = TarotReadings()
+    store, _ = prepare_run(task, config(n=6, mode="dry_run", persona_set="tarot_personas",
                                        persona_ids=["3", "Maya Delgado"]), root=tmp_path)
     assert sorted(p["persona_number"] for p in store.read("personas")) == [1, 3]
     with pytest.raises(ValueError, match="without a persona_set"):
-        prepare_run(app, config(n=1, persona_ids=["1"]), root=tmp_path)
+        prepare_run(task, config(n=1, persona_ids=["1"]), root=tmp_path)
     with pytest.raises(KeyError, match="No persona"):
-        prepare_run(app, config(n=1, persona_set="tarot_personas", persona_ids=["nobody"]), root=tmp_path)
+        prepare_run(task, config(n=1, persona_set="tarot_personas", persona_ids=["nobody"]), root=tmp_path)
     with pytest.raises(FileNotFoundError):
-        prepare_run(app, config(n=1, persona_set="no_such_set"), root=tmp_path)
+        prepare_run(task, config(n=1, persona_set="no_such_set"), root=tmp_path)
 
 
 def test_first_try_validity_per_template(tmp_path, scripted):
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=3), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=3), root=tmp_path)
     scripted.plan = {requests[0].metadata["input_id"]: ["invalid", "ok"]}
-    stats = run_live(store, app, requests, progress=False)["by_template"]["celtic_cross_v1"]
+    stats = run_live(store, task, requests, progress=False)["by_template"]["celtic_cross_v4"]
     assert stats == {"n_requests": 3, "n_finished": 3, "n_valid": 3, "n_invalid": 0, "n_valid_first_try": 2}
 
 
 def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
     """Old runs have config['template'] (a string) and no persona/template-hash columns."""
-    app = TarotReadings()
-    store, requests = prepare_run(app, config(n=2), root=tmp_path)
+    task = TarotReadings()
+    store, requests = prepare_run(task, config(n=2, templates=["celtic_cross_v1"]), root=tmp_path)
     run = store.run()
     old_config = {k: v for k, v in run["config"].items()
                   if k not in ("templates", "persona_set", "persona_sampling", "persona_ids", "persona_set_sha256")}
@@ -553,7 +562,7 @@ def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
     rebuilt = rebuild_requests(store)
     assert [r.messages for r in rebuilt] == [r.messages for r in requests]
     assert all(r.metadata["persona_id"] is None for r in rebuilt)
-    summary = run_live(store, app, progress=False)                     # resume an old run
+    summary = run_live(store, task, progress=False)                     # resume an old run
     assert summary["n_valid"] == 2 and summary["by_template"]["celtic_cross_v1"]["n_finished"] == 2
 
 

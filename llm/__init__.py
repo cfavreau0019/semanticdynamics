@@ -1,10 +1,10 @@
 """
 LLM access for the project:
 
-  inference   generate / generate_many     live chat calls (single + concurrent)
-  batch       run_batch / wait_for_batch   asynchronous provider batch jobs (OpenAI)
-  embeddings  embed / embed_documents      sentence & chunk embeddings
-  whitebox    WhiteBoxModel                NNsight hidden states (imported lazily: pulls in torch)
+  text_generation  generate / generate_many     live chat calls (single + concurrent)
+  batch            run_batch / wait_for_batch   asynchronous provider batch jobs (OpenAI)
+  embeddings       embed / embed_documents      sentence & chunk embeddings
+  whitebox         WhiteBoxModel                NNsight hidden states (imported lazily: pulls in torch)
 
 Providers are chosen per call with provider="openai" | "featherless" | <LLMProvider>.
 """
@@ -15,7 +15,7 @@ from llm.providers import (
     LLMProvider, OpenAICompatibleProvider, available_providers, get_provider, register_provider,
 )
 from llm.hooks import apply_validation, attach_validation
-from llm.inference import chat, generate, generate_many
+from llm.text_generation import chat, generate, generate_many
 from llm.batch import (
     load_requests, load_responses, read_jsonl, retry_invalid, run_batch, run_batch_results,
     save_requests, save_responses, wait_for_batch, write_jsonl,

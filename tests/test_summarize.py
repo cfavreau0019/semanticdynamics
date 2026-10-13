@@ -38,7 +38,7 @@ def test_select_by_every_dimension(tmp_path, registry, readings):
     eval_root, store, _ = evaluated(tmp_path, registry, readings)
     data = build_data(eval_root)
     assert len(select(data, TASK)) == 8 and select(data, "other_task") == []
-    assert len(select(data, TASK, {"template": ["celtic_cross_v1"], "generating_model": ["scripted-model"],
+    assert len(select(data, TASK, {"template": ["celtic_cross_v4"], "generating_model": ["scripted-model"],
                                    "evaluating_model": ["evaluator-model"], "run": [store.run_id]})) == 8
     assert len(select(data, TASK, {"readings_dataset": ["demo"]})) == 8
     for dimension in ("template", "generating_model", "evaluating_model", "run", "readings_dataset"):

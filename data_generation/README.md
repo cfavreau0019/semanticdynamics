@@ -7,10 +7,12 @@ data_generation/
   schema.py          table definitions: validate JSONL rows and generate schema.sql
   schema.sql         Postgres DDL (generated; don't edit by hand)
   store.py           RunStore: data/generations/<run_id>/<table>.jsonl
-  pipeline.py        Application interface; prepare_run, run_live, submit_batch, collect_batch
-  tarot.py           TarotReadings application: card draws, prompt variables, validator
+  task.py            InferenceTask: what a task supplies to the pipeline
+  pipeline.py        prepare_run, run_live, submit_batch, collect_batch
   generate_tarot.py  command-line entry point
 ```
+
+The tasks themselves live with their application. `applications/tarot/readings.py` is `TarotReadings`: card draws, prompt variables, validator.
 
 ## Tarot readings from the command line
 
@@ -56,14 +58,14 @@ python -m data_generation.generate_tarot list --dataset tarot-v1      # runs + c
 | `--validation-retries` | `2` | Regenerations per reading that fails validation |
 | `--retry-mode` | `live` | Batch runs only: regenerate invalid readings live (fast) or as follow-up batches (cheaper, slower) |
 | `--deck-config` | `$VECTOR_SPACE_CONFIG`, else `sandbox/vector_space_config.json` | Supplies the positions, the cards, and whether cards can be reversed |
-| `--template NAME` | `celtic_cross_v1` (`celtic_cross_v2` with `--personas`) | A template from the [prompts library](../prompts/README.md). `name_vN` pins a version; a bare name takes the latest. Repeat the flag to render every draw with each template. |
+| `--template NAME` | `celtic_cross_v4` (`celtic_cross_v2` with `--personas`) | A template from the [prompts library](../prompts/README.md). `name_vN` pins a version; a bare name takes the latest. Repeat the flag to render every draw with each template. |
 | `--personas SET` | – | Assign one persona per draw from a [persona set](../personas/README.md), e.g. `tarot_personas` |
 | `--persona-sampling` | `random` | `random`: seeded, with replacement. `cycle`: in order, every persona equally often. |
 | `--persona ID` | – | Restrict to specific personas (id, number or full name); repeatable |
 
 ### Prompts, personas and comparing prompt versions
 
-Prompt text lives in the `prompts` package as versioned template files; the tarot application only supplies the variables (`cards`, `positions`, `persona`).
+Prompt text lives in the `prompts` package as versioned template files; the tarot readings task only supplies the variables (`cards`, `positions`, `persona`).
 
 ```bash
 python -m prompts list                                                     # available templates and their status
@@ -110,7 +112,7 @@ runs ─┬─< inputs ─┬─< input_items
 - **Reference tables** (`prompt_templates`, `personas`) describe things shared between runs, so they have no `run_id`. Each run's file holds the rows that run used, and the same row appears in every run that used it. Load them with `ON CONFLICT DO NOTHING`, or de-duplicate on the primary key.
 - **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. Version 3 added the evaluation tables (`rubrics`, `persona_expectations`, `evaluations`, `evaluation_item_scores`, `evaluation_red_flags`), which are written by the [evaluation](../evaluation/README.md) package. When querying files from both versions together in DuckDB, pass `union_by_name=true` to `read_json`.
 - **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m data_generation.schema > data_generation/schema.sql`.
-- **Run ids name the task.** A run id is `run_<application>_<YYYYMMDD>_<HHMMSS>_<6 hex>` (UTC), e.g. `run_tarot_celtic_cross_20261005_142210_3fa9c1`, so run folders group by task and sort by start time within it. Runs created before this naming have no task part (`run_20261001_…`). `list` always sorts by each run's recorded start time.
+- **Run ids name the task.** A run id is `run_<task>_<YYYYMMDD>_<HHMMSS>_<6 hex>` (UTC), e.g. `run_tarot_celtic_cross_20261005_142210_3fa9c1`, so run folders group by task and sort by start time within it. Runs created before this naming have no task part (`run_20261001_…`). `list` always sorts by each run's recorded start time.
 - **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table except the reference tables carries `run_id`, so runs can be combined, deleted or partitioned as units.
 - **JSON columns (JSONB)** hold nested JSON, not strings. Timestamps are ISO-8601 UTC.
 - **Batch files for a run** (provider input, output and error JSONL) are kept in `<run_dir>/batch_files/`.
@@ -156,17 +158,17 @@ Load tables in the order they appear in `schema.sql` so foreign keys resolve.
 
 **Large binary data** (hidden states, and embeddings before pgvector) should stay in files such as `.npy` or safetensors, with the tables storing a path to each file.
 
-## Adding another application
+## Adding another task
 
-Subclass `pipeline.Application`:
+Subclass `task.InferenceTask`, in a file of its own under `applications/<application>/`:
 - `sample_inputs(n, rng)` returns a list of payload dicts;
 - `default_template` (and optionally `persona_template`) name templates in the prompts library;
 - `template_variables(payload, persona)` returns the variables those templates use;
 - optionally `input_items(payload)`, `validator()` and `options()`;
-- optionally, for richer applications such as evaluation:
+- optionally, for richer tasks such as evaluation:
   - `assign_personas(...)` controls persona pairing;
   - `reference_rows()` supplies reference-table rows written at preparation;
   - `validation_expected(metadata)` sets what the validator compares against;
   - `derived_rows(response, response_id)` supplies extra tables parsed from responses.
 
-`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged. `tarot.py` is the reference implementation.
+`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged. `applications/tarot/readings.py` is the reference implementation.

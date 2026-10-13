@@ -34,8 +34,7 @@ if __package__ in (None, ""):  # allow `python evaluation/summarize.py`
 
 from data_generation.store import utc_now  # noqa: E402
 from evaluation.dashboard import EVALUATIONS_ROOT, build_data  # noqa: E402
-from llm import ChatRequest  # noqa: E402
-from llm.inference import chat  # noqa: E402
+from llm import ChatRequest, chat  # noqa: E402
 from prompts import get_template  # noqa: E402
 
 DEFAULT_PROVIDER, DEFAULT_MODEL = "openai", "gpt-6-luna"
@@ -389,7 +388,7 @@ def write_summary(out_dir: Path, result: dict, task: str, variables: Mapping[str
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="summarize", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--task", required=True, help="the task whose evaluations to summarise: the application of "
+    parser.add_argument("--task", required=True, help="the task whose evaluations to summarise: the task of "
                                                       "the generation runs, e.g. tarot_celtic_cross")
     parser.add_argument("--template", action="append", default=[], metavar="NAME",
                         help="only texts generated with this prompt template; repeatable")

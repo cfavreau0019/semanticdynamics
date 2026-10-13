@@ -5,7 +5,9 @@ LLM-output validation without further LLM calls (regex / vocabulary based).
   extract     LabeledEntryExtractor, VocabularyMatcher, FreeTextMatcher
   checks      NonEmpty, NotTruncated, RegexCheck, NoRefusal, LabeledValuesCheck, ForeignValuesCheck
   responses   response_validator (hook for llm), summary_frame, issues_frame
-  tarot       celtic_cross_validator, spread_validator, TAROT_CARDS
+
+Task-specific configurations live with their application, e.g. applications/tarot/validation.py
+(celtic_cross_validator, spread_validator, TAROT_CARDS).
 """
 from validation.core import (
     ERROR, WARNING, Check, CheckResult, Issue, ValidationContext, ValidationResult, Validator,
