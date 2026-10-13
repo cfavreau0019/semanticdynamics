@@ -51,6 +51,19 @@ def code_version() -> tuple[Optional[str], Optional[bool]]:
         return None, None
 
 
+def current_run_row(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    A runs row in the current shape, whichever schema version wrote it. Before version 5 the
+    task was `application`, and its settings were config.application_options.
+    """
+    if "application" in row:
+        row = {("task" if k == "application" else k): v for k, v in row.items()}
+    config = row.get("config") or {}
+    if "application_options" in config:
+        row = {**row, "config": {("task_options" if k == "application_options" else k): v for k, v in config.items()}}
+    return row
+
+
 class RunStore:
     def __init__(self, run_dir: Path):
         self.dir = Path(run_dir)
@@ -116,10 +129,11 @@ class RunStore:
             return [json.loads(line) for line in f if line.strip()]
 
     def run(self) -> dict[str, Any]:
+        """The run's row, in the current shape (see current_run_row). Read runs through this, not read("runs")."""
         rows = self.read("runs")
         if not rows:
             raise ValueError(f"{self.dir} has no runs row")
-        return rows[0]
+        return current_run_row(rows[0])
 
     def update_run(self, **changes) -> dict[str, Any]:
         row = {**self.run(), **changes, "updated_at": utc_now()}

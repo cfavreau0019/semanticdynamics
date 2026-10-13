@@ -219,7 +219,7 @@ def cmd_list(args) -> int:
         s = r["summary"] or {}
         for k in totals:
             totals[k] += s.get(k) or 0
-        print(f"{r['run_id']}  {r['status']:<11} {r['application']:<19} {r['mode']:<7} "
+        print(f"{r['run_id']}  {r['status']:<11} {r['task']:<19} {r['mode']:<7} "
               f"{r['provider']}/{r['model'] or '-'}  "
               f"{s.get('n_finished', 0)}/{s.get('n_requests', '?')} finished, {s.get('n_valid', 0)} valid"
               f"  dataset={r.get('dataset') or '-'}{'  ' + r['name'] if r['name'] else ''}")

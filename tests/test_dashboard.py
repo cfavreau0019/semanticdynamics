@@ -5,6 +5,7 @@ from applications.tarot.persona_expectations import TarotPersonaExpectations
 from data_generation.pipeline import prepare_run, run_live
 from evaluation.dashboard import DATA_MARKER, build_data, main, render
 from evaluation.expectations import generate_expectations
+from test_data_generation import as_schema_version_4
 from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_task, readings, registry  # noqa: F401
 
 
@@ -39,6 +40,17 @@ def test_build_data_joins_evaluations_to_their_texts(tmp_path, registry, reading
         assert e["out"]["persona_reaction"] and set(e["sec"]) == {s.key for s in RUBRIC.sections}
     assert [e["flags"][0]["id"] for e in data["evaluations"] if e["flags"]] == ["RF5"]
     assert all(p["name"] for p in data["personas"].values())
+
+
+def test_runs_written_before_schema_version_5_are_shown_the_same(tmp_path, registry, readings):
+    eval_root, store, _ = evaluated(tmp_path, registry, readings)
+    before = build_data(eval_root)
+    for old_run in (store, readings[1]):                # the evaluation run and the generation run it scored
+        as_schema_version_4(old_run)
+    after = build_data(eval_root, tasks=["tarot_celtic_cross"])
+    assert {s["task"] for s in after["subjects"].values()} == {"tarot_celtic_cross"}
+    before.pop("generated_at"), after.pop("generated_at")
+    assert after == before
 
 
 def test_build_data_selection_and_missing_generation_run(tmp_path, registry, readings):

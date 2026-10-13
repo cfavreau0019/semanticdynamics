@@ -256,7 +256,7 @@ def test_live_run_writes_all_tables(tmp_path, scripted):
     assert summary["total_tokens"] == 6 * 110          # every attempt counts toward cost
     run = store.run()
     assert run["status"] == "completed" and run["summary"] == summary and run["schema_version"] == schema.SCHEMA_VERSION
-    assert run["config"]["application_options"]["draw"] == "replacement"
+    assert run["config"]["task_options"]["draw"] == "replacement"
 
     retried = [r for r in store.read("responses") if r["request_id"] == requests[0].id]
     assert [r["attempt"] for r in retried] == [1, 2, 3]
@@ -569,6 +569,41 @@ def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
     assert summary["n_valid"] == 2 and summary["by_template"]["celtic_cross_v1"]["n_finished"] == 2
 
 
+def as_schema_version_4(store: RunStore) -> None:
+    """Rewrite the run's row as version 4 wrote it: `application`, and config.application_options."""
+    run = store.run()
+    config_v4 = {("application_options" if k == "task_options" else k): v for k, v in run["config"].items()}
+    row = {("application" if k == "task" else k): v for k, v in {**run, "config": config_v4, "schema_version": 4}.items()}
+    store.path("runs").write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+
+def test_runs_written_before_schema_version_5_still_work(tmp_path, scripted, capsys):
+    """Their row names the task `application`; everything reads it through RunStore.run(), in the current shape."""
+    task = TarotReadings(pins={"Outcome": "Death"})
+    store, requests = prepare_run(task, config(n=2, dataset="d", seed=7), root=tmp_path)
+    run_live(store, task, requests[:1], progress=False)
+    as_schema_version_4(store)
+    on_disk = lambda: json.loads(store.path("runs").read_text(encoding="utf-8"))
+    assert on_disk()["application"] == "tarot_celtic_cross" and "task" not in on_disk()
+
+    run = store.run()
+    assert run["task"] == "tarot_celtic_cross" and "application" not in run and run["schema_version"] == 4
+    assert run["config"]["task_options"]["pins"] == {"Outcome": "Death"} and "application_options" not in run["config"]
+    assert [r["task"] for r in list_runs(tmp_path)] == ["tarot_celtic_cross"]
+    assert type(applications.task_of(run)) is TarotReadings
+    out = str(tmp_path)
+    assert main(["--out", out, "status", store.run_id]) == 0 and main(["--out", out, "list"]) == 0
+    assert "tarot_celtic_cross" in capsys.readouterr().out
+    assert on_disk()["application"] == "tarot_celtic_cross"                 # reading leaves the file as it was
+
+    main(["--out", out, *RUN, "--n", "1", "--dry-run", "--provider", "tarot-scripted", "--dataset", "d", "--seed", "7",
+          "--pin", "Outcome=Death"])
+    assert "already has run(s) with --seed 7" in capsys.readouterr().err    # its recorded settings are still compared
+    assert main(["--out", out, "resume", store.run_id]) == 0                # the task is rebuilt from the old row
+    assert store.run()["status"] == "completed" and len(final_responses(store)) == 2
+    assert on_disk()["task"] == "tarot_celtic_cross" and on_disk()["schema_version"] == 4     # rewritten by the update
+
+
 def test_cli_personas_and_templates(tmp_path, scripted, capsys):
     out = str(tmp_path)
     assert main(["--out", out, *RUN, "--n", "2", "--provider", "tarot-scripted", "--personas", "tarot_personas",
@@ -650,8 +685,8 @@ def test_the_script_runs_a_task_of_another_application(tmp_path, scripted, monke
     [run_dir] = list(tmp_path.glob("run_three_cards_*"))
     store = RunStore.open(run_dir.name, tmp_path)
     run = store.run()
-    assert (run["application"], run["status"]) == ("three_cards", "completed")
-    assert run["config"]["application_options"] == {"deck": ["Strength", "Justice"]}
+    assert (run["task"], run["status"]) == ("three_cards", "completed")
+    assert run["config"]["task_options"] == {"deck": ["Strength", "Justice"]}
     assert run["config"]["templates"] == ["spread_v1"] and run["summary"]["n_unvalidated"] == 3     # it has no validator
     assert all(set(i["payload"].values()) <= {"Strength", "Justice"} for i in store.read("inputs"))
     assert main(["--out", out, "resume", run_dir.name]) == 0

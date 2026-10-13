@@ -59,4 +59,4 @@ def get_task(name: str) -> type:
 
 def task_of(run: dict):
     """The task of an existing run, rebuilt from what its runs row recorded (to resume or collect the run)."""
-    return get_task(run["application"]).from_options(run["config"]["application_options"])
+    return get_task(run["task"]).from_options(run["config"]["task_options"])

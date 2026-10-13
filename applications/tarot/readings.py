@@ -157,7 +157,7 @@ class TarotReadings(InferenceTask):
         mine = self.options()
         same_draws = lambda o: all(o.get(k) == mine[k] for k in ("deck_sha256", "draw", "pins"))
         clashes = [r["run_id"] for r in list_runs(root, config.dataset)
-                   if r["config"].get("seed") == config.seed and same_draws(r["config"].get("application_options") or {})]
+                   if r["config"].get("seed") == config.seed and same_draws(r["config"].get("task_options") or {})]
         if not clashes:
             return []
         return [f"dataset {config.dataset!r} already has run(s) with --seed {config.seed} and the same draw settings "

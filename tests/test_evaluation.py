@@ -398,7 +398,7 @@ def test_expectations_run(tmp_path, registry):
     store = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                   persona_ids=["1", "2", "3"], root=tmp_path, progress=False)
     run = store.run()
-    assert run["application"] == "persona_expectations" and run["status"] == "completed"
+    assert run["task"] == "persona_expectations" and run["status"] == "completed"
     assert store.run_id.startswith("run_persona_expectations_2")
     assert run["config"]["templates"] == ["reading_expectations_v1"]
     rows = store.read("persona_expectations")
@@ -421,7 +421,7 @@ def test_two_stage_evaluation_end_to_end(tmp_path, registry, readings):
                                    root=eval_root, progress=False)
     task = evaluation_task(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
     store, requests = prepare_run(task, eval_config(), root=eval_root)
-    assert len(requests) == 8 and store.run()["application"] == "celtic_cross_evaluation"
+    assert len(requests) == 8 and store.run()["task"] == "celtic_cross_evaluation"
     assert store.run_id.startswith("run_celtic_cross_evaluation_2")
     assert [r["rubric_id"] for r in store.read("rubrics")] == ["celtic_cross_reading_v1"]
 
@@ -564,10 +564,10 @@ def test_cli_evaluate_runs_both_stages(tmp_path, registry, readings, capsys):
     assert "evaluations: 4   mean total 80.0" in printed and "grades: B: 4" in printed and "red flags: none" in printed
     assert "section averages (1-5): card_accuracy 4.00" in printed                 # scale and ratings: from the rubric
     assert "would use again (0-10): 6.00   felt seen (1-5): 2.00" in printed
-    runs = {r["application"]: r for r in map(lambda p: RunStore(p).run(), (tmp_path / "evaluations").glob("run_*"))}
+    runs = {r["task"]: r for r in map(lambda p: RunStore(p).run(), (tmp_path / "evaluations").glob("run_*"))}
     assert set(runs) == {"persona_expectations", "celtic_cross_evaluation"}
     evaluation = runs["celtic_cross_evaluation"]
-    assert evaluation["config"]["application_options"]["expectations_run"] == runs["persona_expectations"]["run_id"]
+    assert evaluation["config"]["task_options"]["expectations_run"] == runs["persona_expectations"]["run_id"]
     assert evaluation["dataset"] == "eval-demo" and evaluation["config"]["params"] == {"max_tokens": 4000}
 
     assert main(["--out", out, "status", evaluation["run_id"]]) == 0
@@ -670,7 +670,7 @@ def test_readings_can_be_selected_by_generating_model_and_template(tmp_path, reg
     assert main([*common, "--subject-model", "scripted-model", "--subject-template", "celtic_cross_v4"]) == 0
     assert "prepared 4 evaluations of 4 subjects" in capsys.readouterr().out
     [run] = [RunStore(p).run() for p in (tmp_path / "evaluations").glob("run_*")]
-    assert run["config"]["application_options"]["subject_models"] == ["scripted-model"]
+    assert run["config"]["task_options"]["subject_models"] == ["scripted-model"]
 
     assert main([*common, "--subject-model", "other-model"]) == 1                             # says what there is
     assert "The selected runs hold: 4 of celtic_cross_v4 by scripted-model" in capsys.readouterr().err

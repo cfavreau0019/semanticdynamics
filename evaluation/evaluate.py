@@ -192,7 +192,7 @@ def score_report(store: RunStore) -> list[str]:
 
 def print_summary(store: RunStore, summary: dict) -> None:
     run = store.run()
-    print(f"\nrun {store.run_id}  [{run['status']}]  {run['application']}  {run['provider']}/"
+    print(f"\nrun {store.run_id}  [{run['status']}]  {run['task']}  {run['provider']}/"
           f"{run['model'] or '(default model)'}{'  dataset=' + run['dataset'] if run.get('dataset') else ''}")
     print(f"  tables: {store.dir}")
     for k in ("n_requests", "n_finished", "n_api_errors", "n_valid", "n_invalid", "n_regenerated", "total_tokens",
@@ -339,7 +339,7 @@ def cmd_list(args) -> int:
     for r in runs:
         s = r["summary"] or {}
         n_eval = len(RunStore.open(r["run_id"], args.out).read("evaluations"))
-        print(f"{r['run_id']}  {r['status']:<11} {r['application']:<24} {r['provider']}/{r['model'] or '-'}  "
+        print(f"{r['run_id']}  {r['status']:<11} {r['task']:<24} {r['provider']}/{r['model'] or '-'}  "
               f"{s.get('n_finished', 0)}/{s.get('n_requests', '?')} finished"
               f"{f', {n_eval} evaluations' if n_eval else ''}  dataset={r.get('dataset') or '-'}"
               f"{'  ' + r['name'] if r['name'] else ''}")

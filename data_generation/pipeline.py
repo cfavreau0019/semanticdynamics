@@ -114,11 +114,11 @@ def prepare_run(task: InferenceTask, config: GenerationConfig, root=DEFAULT_ROOT
     sha, dirty = code_version()
     now = utc_now()
     store.upsert("runs", [{
-        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "application": task.name,
+        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "task": task.name,
         "mode": config.mode,
         "status": "prepared", "provider": config.provider, "model": config.model,
         "config": {**asdict(config), "persona_set_sha256": people.sha256 if people else None,
-                   "application_options": task.options()},
+                   "task_options": task.options()},
         "code_version": sha, "code_dirty": dirty, "schema_version": SCHEMA_VERSION,
         "summary": None, "created_at": now, "updated_at": now,
     }])

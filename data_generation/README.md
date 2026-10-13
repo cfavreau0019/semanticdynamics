@@ -90,7 +90,7 @@ runs ─┬─< inputs ─┬─< input_items
 
 | Table | One row per | Key columns |
 |---|---|---|
-| `runs` | generation run | dataset (groups runs), config (JSONB: templates, persona set, params, seed, retries, deck file and its hash), code_version (git sha) + code_dirty, schema_version, status, summary |
+| `runs` | generation run | task (the inference task's name), dataset (groups runs), config (JSONB: templates, persona set, params, seed, retries, and under `task_options` the task's own settings, such as the deck file and its hash), code_version (git sha) + code_dirty, schema_version, status, summary |
 | `personas` | persona used by the run | persona_set, persona_number, name, payload (JSONB), content_sha256 |
 | `inputs` | structured input (card draw) | payload (JSONB `{position: card}`), input_index, persona_id |
 | `input_items` | element of an input | label, value, entity, qualifier (position, `"Death reversed"`, `"Death"`, `"reversed"`) |
@@ -112,7 +112,10 @@ runs ─┬─< inputs ─┬─< input_items
   - *Append-only* (most tables) are only ever appended to.
   - *Mutable* (`runs`, `batches`, both small) are rewritten atomically when a status changes. Load them with upsert-by-primary-key.
 - **Reference tables** (`prompt_templates`, `personas`) describe things shared between runs, so they have no `run_id`. Each run's file holds the rows that run used, and the same row appears in every run that used it. Load them with `ON CONFLICT DO NOTHING`, or de-duplicate on the primary key.
-- **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. Version 3 added the evaluation tables (`rubrics`, `persona_expectations`, `evaluations`, `evaluation_item_scores`, `evaluation_red_flags`), which are written by the [evaluation](../evaluation/README.md) package. When querying files from both versions together in DuckDB, pass `union_by_name=true` to `read_json`.
+- **Schema versions.** Version 2 added the two reference tables, `inputs.persona_id` and `prompts.template_sha256`. The new columns are nullable, so version 1 runs still load, resume and summarise. Version 3 added the evaluation tables (`rubrics`, `persona_expectations`, `evaluations`, `evaluation_item_scores`, `evaluation_red_flags`), which are written by the [evaluation](../evaluation/README.md) package. Version 4 added `responses.cached_tokens`. Version 5 renamed `runs.application` to `runs.task` and `config.application_options` to `config.task_options`, because "application" now means a set of tasks such as tarot.
+  - Earlier runs keep their files as they are. `RunStore.run()` returns every run's row in the current shape, so read rows through it; a run's row is rewritten in that shape the next time the run is resumed or collected. `schema_version` stays the version the run was created with.
+  - When querying files of several versions together in DuckDB, pass `union_by_name=true` to `read_json`, and read the task as `coalesce(task, application)`.
+  - A Postgres database created from an earlier `schema.sql` needs `ALTER TABLE runs RENAME COLUMN application TO task;`.
 - **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m data_generation.schema > data_generation/schema.sql`.
 - **Run ids name the task.** A run id is `run_<task>_<YYYYMMDD>_<HHMMSS>_<6 hex>` (UTC), e.g. `run_tarot_celtic_cross_20261005_142210_3fa9c1`, so run folders group by task and sort by start time within it. Runs created before this naming have no task part (`run_20261001_…`). `list` always sorts by each run's recorded start time.
 - **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table except the reference tables carries `run_id`, so runs can be combined, deleted or partitioned as units.

@@ -22,11 +22,13 @@ Schema versions
   3  evaluation tables: rubrics (reference), persona_expectations, evaluations,
      evaluation_item_scores, evaluation_red_flags (new tables only; earlier runs load unchanged)
   4  responses.cached_tokens (nullable; earlier runs load unchanged and count as 0 cached)
+  5  runs.application renamed to runs.task, and config.application_options to config.task_options
+     (earlier runs keep their files; RunStore.run() reads their row in the new shape)
 """
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -63,16 +65,17 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("run_id", "TEXT", False),
        Column("name", "TEXT", doc="optional human label for the run"),
        Column("dataset", "TEXT", doc="groups runs that belong to one dataset (e.g. collected over several sessions)"),
-       Column("application", "TEXT", False, doc="e.g. tarot_celtic_cross"),
+       Column("task", "TEXT", False, doc="name of the inference task the run belongs to, e.g. tarot_celtic_cross"),
        Column("mode", "TEXT", False, doc="live | batch | dry_run"),
        Column("status", "TEXT", False,
               doc="prepared | running | submitted | completed | partial (some requests unfinished) | interrupted"),
        Column("provider", "TEXT"),
        Column("model", "TEXT"),
-       Column("config", "JSONB", False, doc="all generation settings (template, params, seed, retries, ...)"),
+       Column("config", "JSONB", False,
+              doc="all generation settings (templates, params, seed, retries, ...); task_options holds the task's own"),
        Column("code_version", "TEXT", doc="git commit of the code that produced the run"),
        Column("code_dirty", "BOOLEAN", doc="uncommitted changes present when the run started"),
-       Column("schema_version", "INTEGER", False),
+       Column("schema_version", "INTEGER", False, doc="schema version the run was created with"),
        Column("summary", "JSONB", doc="counts / token totals, filled in when the run finishes"),
        Column("created_at", "TIMESTAMPTZ", False),
        Column("updated_at", "TIMESTAMPTZ", False),
