@@ -383,7 +383,10 @@ def test_load_subjects(readings):
 def test_subjects_skip_invalid_and_failed_readings(tmp_path, registry):
     reader = providers.get_provider("tarot-scripted")
     root, task = tmp_path / "g", TarotReadings()
-    store, requests = prepare_run(task, GenerationConfig(n=3, provider="tarot-scripted", validation_retries=0), root=root)
+    # seeded: in about 6% of draws the Outcome card also sits in another position, and then the "invalid" reading
+    # (its Outcome line dropped) still names that card and passes
+    config = GenerationConfig(n=3, provider="tarot-scripted", seed=1, validation_retries=0)
+    store, requests = prepare_run(task, config, root=root)
     reader.plan = {requests[0].metadata["input_id"]: ["invalid"], requests[1].metadata["input_id"]: ["error"]}
     run_live(store, task, requests, progress=False)
     assert len(load_subjects(root, runs=[store.run_id])) == 1
