@@ -15,3 +15,5 @@ uvicorn
 nnsight
 pytest
 jinja2
+pyyaml
+jsonschema

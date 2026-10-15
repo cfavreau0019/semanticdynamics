@@ -2,6 +2,10 @@
 The tarot application: Celtic Cross readings of sampled card draws, and their evaluation
 by personas with the Celtic Cross Reading Evaluation Form.
 
+application.yaml describes the whole application and is the place to start: its schemas,
+personas, prompts, rubric, tasks and workflows, one file (or folder) each. The code does not
+read those files yet; tests/test_tarot_application_files.py keeps them in step with it.
+
 Tasks, one file each:
   readings                  TarotReadings: a card draw -> a reading
   persona_expectations      TarotPersonaExpectations: evaluation stage 1, what each persona

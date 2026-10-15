@@ -1,0 +1,175 @@
+# How the tarot tasks combine into experiments. A workflow is a list of steps. A step runs a
+# task (tasks.yaml) or an engine operation, with parameters, and may use what an earlier step
+# produced. Nothing runs these files yet: each step gives the command that does it today.
+#
+#   $params.<name>    a parameter of the workflow
+#   $<step>.<output>  what an earlier step produced, e.g. $expectations.run_id
+#
+# Every run of a step records its settings, seed and code version, so a workflow can be
+# stopped and picked up later: a live run is finished with `resume <run_id>`, and a batch
+# run is collected with `collect <run_id>`.
+
+workflows:
+
+  generate_readings:
+    description: >-
+      Build a dataset of readings, over as many sessions as needed: every run given the same dataset
+      label belongs to it, and each run draws with its own recorded seed.
+    params:
+      dataset: {required: true, example: tarot-v4}
+      n: {default: 500, description: draws per run}
+      provider: {default: featherless}
+      model: {description: the provider's default when not given}
+      mode: {default: live, choices: [live, batch]}
+    steps:
+      - id: readings
+        task: tarot_celtic_cross
+        with: {n: $params.n, dataset: $params.dataset, provider: $params.provider, model: $params.model,
+               mode: $params.mode}
+        produces: {run_id: a generation run, dataset: the label}
+        command: >-
+          python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v4
+          --provider openai --model <model> [--mode batch]
+    then: >-
+      `python -m data_generation.generate list --dataset tarot-v4` shows the dataset's runs and totals;
+      `status <run_id>` the valid and first-try valid rates per template.
+
+  compare_reading_prompts:
+    description: >-
+      Paired comparison of prompt versions: every draw is read once with each template, so the
+      templates differ only in their wording.
+    params:
+      templates: {example: [celtic_cross_v3, celtic_cross_v4]}
+      n: {default: 50}
+      dataset: {example: tarot-v3-vs-v4}
+    steps:
+      - id: readings
+        task: tarot_celtic_cross
+        with: {templates: $params.templates, n: $params.n, dataset: $params.dataset}
+        command: >-
+          python -m data_generation.generate run tarot_celtic_cross --n 50 --template celtic_cross_v3
+          --template celtic_cross_v4 --dataset tarot-v3-vs-v4
+      - id: evaluate
+        workflow: evaluate_readings
+        with: {subject_dataset: $readings.dataset, subject_templates: $params.templates}
+      - id: compare
+        workflow: summarize_evaluations
+        with: {readings_dataset: $readings.dataset, by: [template]}
+
+  evaluate_readings:
+    description: >-
+      Personas judge readings with the Celtic Cross Reading Evaluation Form: each persona first records
+      what they expect, then fills in the form for the readings they are given.
+    params:
+      subject_dataset: {example: tarot-v4, description: or subject_runs}
+      subject_templates: {default: [celtic_cross_v4]}
+      n: {description: readings to evaluate; all when not given}
+      personas: {default: tarot_personas}
+      personas_per_subject: {default: 1}
+      expectations: {description: an existing persona_expectations run to reuse}
+      provider: {default: openai}
+      model: {}
+      mode: {default: live, choices: [live, batch]}
+    steps:
+      - id: expectations
+        task: persona_expectations
+        with: {personas: $params.personas, provider: $params.provider, model: $params.model}
+        skip_when: $params.expectations is given, there are no personas, or it is a dry run
+        produces: {run_id: a persona_expectations run}
+        command: >-
+          python -m evaluation.evaluate expectations celtic_cross_evaluation --provider openai
+          --model <model>
+      - id: evaluations
+        task: celtic_cross_evaluation
+        needs: [expectations]
+        with: {subject_dataset: $params.subject_dataset, subject_templates: $params.subject_templates,
+               n: $params.n, personas: $params.personas, personas_per_subject: $params.personas_per_subject,
+               expectations: $expectations.run_id, provider: $params.provider, model: $params.model,
+               mode: $params.mode}
+        produces: {run_id: an evaluation run}
+        command: >-
+          python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v4 --n 50
+          --expectations <expectations_run_id> --provider openai --model <model>
+        note: without --expectations, `evaluate run` performs the expectations step itself first
+      - id: dashboard
+        engine: evaluation.dashboard
+        needs: [evaluations]
+        when: >-
+          automatically whenever run, resume or collect adds evaluations (--no-dashboard turns it off)
+        with: {evaluations_root: data/evaluations}
+        produces: {page: data/evaluations/dashboard.html}
+        command: python -m evaluation.dashboard [--task tarot_celtic_cross] [--dataset <evaluation dataset>]
+
+  compare_evaluator_models:
+    description: >-
+      The same readings, judged by the same personas with the same expectations, by several evaluator
+      models, so only the model differs.
+    params:
+      models: {example: [gpt-6-sol, gpt-6-luna]}
+      subject_dataset: {example: tarot-v4}
+    steps:
+      - id: expectations
+        task: persona_expectations
+        command: python -m evaluation.evaluate expectations celtic_cross_evaluation --model <model>
+      - id: evaluations
+        task: celtic_cross_evaluation
+        for_each: {model: $params.models}
+        needs: [expectations]
+        with: {subject_dataset: $params.subject_dataset, model: $model, expectations: $expectations.run_id,
+               seed: "the same for every model, so they score the same readings"}
+        command: >-
+          python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v4 --seed 5
+          --expectations <expectations_run_id> --model <model>
+      - id: compare
+        workflow: summarize_evaluations
+        with: {by: [evaluating_model]}
+
+  summarize_evaluations:
+    description: >-
+      A model writes a report of what the evaluations of the readings say: scores per section and
+      question, the evaluators' comments, red flags, and differences between groups.
+    params:
+      readings_dataset: {description: only evaluations of readings of this generation dataset}
+      filters: {description: "template, generating_model, evaluating_model, persona, run"}
+      by: {description: "dimensions to compare in the report, e.g. [generating_model]"}
+      each: {description: one report per value of this dimension}
+      focus: {description: an extra question for the report to answer}
+    steps:
+      - id: summary
+        engine: evaluation.summary      # generic: any task's evaluations under one rubric
+        with: {task: tarot_celtic_cross, readings_dataset: $params.readings_dataset, by: $params.by,
+               each: $params.each, focus: $params.focus, template: evaluation_summary_v1,
+               provider: openai, model: gpt-6-luna, max_tokens: 4000, comments_per_question: 6,
+               comments_overall: 20, seed: 0}
+        produces: {report: "data/evaluations/summaries/summary_<task>_<time>.md, with the prompt and usage in a .json beside it"}
+        command: >-
+          python -m evaluation.summarize --task tarot_celtic_cross --readings-dataset tarot-v4
+          [--by generating_model] [--dry-run]
+
+  readings_end_to_end:
+    description: Readings, then their evaluation, then the report.
+    params: {dataset: {required: true, example: tarot-v4}}
+    steps:
+      - {id: generate, workflow: generate_readings, with: {dataset: $params.dataset}}
+      - {id: evaluate, workflow: evaluate_readings, needs: [generate], with: {subject_dataset: $params.dataset}}
+      - {id: report, workflow: summarize_evaluations, needs: [evaluate], with: {readings_dataset: $params.dataset}}
+
+  reading_geometry:
+    status: exploratory; done in notebooks only (sandbox/llm_explore.ipynb sections 8-10, sandbox/population_generator.ipynb)
+    description: >-
+      Readings as texts in an embedding space: each reading embedded sentence by sentence, and the
+      geometry of those embeddings compared, layer by layer, with a white-box model's hidden states
+      for the same text (representational similarity).
+    steps:
+      - id: readings
+        task: tarot_celtic_cross
+      - id: embeddings
+        engine: embeddings              # llm.embeddings: embed_documents, split into sentences
+        needs: [readings]
+        with: {provider: featherless, model: Qwen/Qwen3-Embedding-8B, split: sentences}
+      - id: hidden_states
+        engine: whitebox                # llm.whitebox: WhiteBoxModel.hidden_states, NNsight, remote on NDIF
+        needs: [readings]
+      - id: compare
+        engine: analysis                # notebooks; coordinate_systems for geometry on the sphere
+        needs: [embeddings, hidden_states]

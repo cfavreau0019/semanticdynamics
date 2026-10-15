@@ -1,0 +1,60 @@
+# The tarot application. Start here: this file says what the application is and where each of
+# its parts is. Everything specific to tarot belongs in this folder, and the engines it runs on
+# (inference, generation, evaluation, personas, embeddings, persistence) know nothing about
+# tarot. A new application is a new folder with the same files.
+#
+# Status: a specification, written from the code as of 2026-10-15. The code does not read these
+# files yet. It still reads the places listed under `read_from`, and the Python files in this
+# folder. The task registry, which will load an application from its folder, is the next step.
+
+name: tarot
+title: Celtic Cross tarot readings, evaluated by personas
+description: >-
+  A model reads sampled Celtic Cross card draws. Personas, played by a model, then judge each reading
+  with the Celtic Cross Reading Evaluation Form: each first records what they expect from a reading,
+  then fills in the form for the readings they are given. A model summarises the judgments. The
+  readings are also the texts that the semantic-dynamics analysis embeds.
+
+parts:
+  schemas: schemas.yaml               # the data: vocabulary (cards, positions), and every input and output
+  personas: personas.yaml             # the people: the set, their roles, and what prompts may disclose
+  prompts: prompts/                   # prompt templates, one file per version
+  rubrics: rubrics/                   # evaluation forms, one file per version
+  tasks: tasks.yaml                   # each kind of LLM request: the task registry's entries
+  workflows: workflows.yaml           # how tasks and engine steps combine into experiments
+
+tasks: [tarot_celtic_cross, persona_expectations, celtic_cross_evaluation]     # names stored with every run
+
+engines:                              # the execution layer, and where each engine lives today
+  inference: llm (providers, text_generation, batch, whitebox)
+  generation: data_generation (task, pipeline, generate.py)
+  evaluation: evaluation (task, expectations, rubric, checks, subjects, evaluate.py, dashboard, summarize)
+  personas: personas
+  prompts: prompts (rendering, library, locks)
+  validation: validation
+  embeddings: llm.embeddings, embeddings.py, coordinate_systems (used from notebooks only)
+  persistence: data_generation (store, schema; JSONL tables per run under data/)
+  experiment_tracking: >-
+    the runs table (settings, seed, git commit, schema version), dataset labels, and the content hashes
+    of prompts, rubrics, personas and the deck
+
+storage:
+  generations: data/generations/
+  evaluations: data/evaluations/      # with dashboard.html and summaries/
+  datasets: runs that share a label (runs.dataset), e.g. tarot-v1, tarot-v4
+
+code:                                 # Python in this folder, until the registry builds tasks from the files
+  readings.py: TarotReadings, the tarot_celtic_cross task; drawing, its options, the seed-reuse warning
+  persona_expectations.py: TarotPersonaExpectations; nothing in it that tasks.yaml does not now say
+  celtic_cross_evaluation.py: CelticCrossEvaluation; position labels, N/A rules, the evaluator's context
+  validation.py: the card vocabulary, position names, the card matcher and the reading validator
+
+read_from:                            # what the code reads today instead of these files
+  prompts/: prompts/library/tarot/ and prompts/library/evaluation/ (TOML; the same content hashes)
+  rubrics/: evaluation/rubrics/ (TOML; the same content hash)
+  schemas.yaml: >-
+    sandbox/vector_space_config.json (cards, positions, reversals) and validation.py (names in text);
+    the other schemas are implicit in the task classes and evaluation/expectations.py
+  personas.yaml: personas/tarot_personas.json, and the prompt templates
+  tasks.yaml: the classes above, and the defaults of data_generation/generate.py and evaluation/evaluate.py
+  workflows.yaml: the command-line scripts and the READMEs
