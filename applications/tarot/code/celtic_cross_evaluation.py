@@ -18,9 +18,9 @@ Tarot-specific facts supplied here:
 """
 from typing import Any, Mapping, Optional
 
-from applications.tarot.persona_expectations import TarotPersonaExpectations
-from applications.tarot.readings import TarotReadings
-from applications.tarot.validation import parse_state
+from applications.tarot.code.persona_expectations import TarotPersonaExpectations
+from applications.tarot.code.readings import TarotReadings
+from applications.tarot.code.validation import parse_state
 from evaluation.rubric import Labels
 from evaluation.task import EvaluationTask
 

@@ -16,7 +16,7 @@ import random
 from pathlib import Path
 from typing import Mapping, Optional
 
-from applications.tarot.validation import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, celtic_cross_validator, parse_state
+from applications.tarot.code.validation import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, celtic_cross_validator, parse_state
 from data_generation.pipeline import list_runs
 from data_generation.store import REPO_ROOT
 from data_generation.task import InferenceTask
