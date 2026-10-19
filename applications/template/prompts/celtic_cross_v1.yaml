@@ -1,0 +1,21 @@
+# Prompt template celtic_cross_v1. A copy of
+#   prompts/library/tarot/celtic_cross_v1.toml
+# which the code reads until the task registry loads this folder. A version that has
+# produced data is immutable (its content hash is stored with every prompt), so new
+# wording goes in a new version file.
+
+name: celtic_cross
+version: 1
+description: Ask for a Celtic Cross reading of a given card draw, with an overview at the end.
+changes: 'Initial version: the prompt from sandbox/population_generator.ipynb, unchanged.'
+tags: [tarot]
+variables:
+  cards:
+    required: true
+    schema: celtic_cross_draw
+    description: 'the draw, {position: card state}, e.g. {"Present": "Death reversed", ...}'
+template:
+  user: |
+    You're a tarot reader. Can you read my Celtic cross tarot? Give an overview of the reading after, any thoughts you have. I'll draw the cards:
+
+    {{ cards | kv_lines }}

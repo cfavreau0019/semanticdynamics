@@ -18,15 +18,15 @@ applications/tarot/
 ```python
 from llm import generate_many, save_responses
 from validation import response_validator, summary_frame, issues_frame
-from applications.tarot.validation import celtic_cross_validator
+from applications.tarot.code.validation import celtic_cross_validator
 
-validate = response_validator(celtic_cross_validator(), expected="instant")   # expected = metadata["instant"]
+validate = response_validator(celtic_cross_validator(), expected="instant")  # expected = metadata["instant"]
 
 responses = generate_many(reqs, provider="featherless", validate=validate,
                           on_result=lambda r: save_responses([r], path, append=True))  # checkpoints include validation
-[r.valid for r in responses]              # True / False / None (API failure or validator error)
-summary_frame(responses)                  # one row per response
-issues_frame(responses)                   # one row per issue; group by code / label
+[r.valid for r in responses]  # True / False / None (API failure or validator error)
+summary_frame(responses)  # one row per response
+issues_frame(responses)  # one row per issue; group by code / label
 ```
 
 What `celtic_cross_validator()` checks:

@@ -9,7 +9,10 @@
 # Keys starting with x- carry what JSON Schema cannot say: where a value comes from, how it is
 # drawn, derived or stored. `implemented_by` names the code that does it today.
 
-vocabulary:
+vocabulary: # CJF : should this correspond to specific data inputs (prompt or otherwise?)
+            # the used tarot inputs are in vector_space_config.json
+            # probably want to not have this as a specific format/yaml file unless needed
+            # let the application dictate how to lay out this metadata
 
   cards:
     description: The 78 cards of a Rider-Waite-Smith deck, named as in the deck config.

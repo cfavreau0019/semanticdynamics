@@ -1,0 +1,202 @@
+# The tarot application's tasks. A task is one kind of LLM/model request: what a request is made
+# from, which prompt renders it, who takes part, what the model must return, and what is kept.
+# These are the task registry's entries. A task's key is its name, which every run stores
+# (runs.task), so a task is never renamed: a different task gets a new name.
+#
+# Each task has
+#   engine          the execution engine that runs it: generation, evaluation, embedding
+#   implemented_by  the class that implements it today, until the registry builds tasks from
+#                   this file
+#   input           what one request is made from: its schema (schemas.yaml), the input_type it
+#                   is stored under, and where inputs come from
+#   personas        whether and how personas take part (personas.yaml)
+#   prompt          the template (prompts/), its alternatives, and where each variable comes from
+#   output          what the model returns, how it is checked and retried, and what is stored
+#   options         the task's own settings: offered on the command line, recorded with each run
+#                   (runs.config.task_options), and enough to rebuild the task to resume a run.
+#                   {recorded: ...} marks a setting that is recorded but not chosen
+#   run_defaults    defaults for a run of the task
+#
+# Where a template variable comes from:
+#   input, input.<field>      the request's input, or one of its fields
+#   persona                   the persona assigned to the request (none without personas)
+#   facts.<name>              derived from the input (x-facts in schemas.yaml)
+#   subject.text              the text being evaluated
+#   rubric.form, rubric.response_format   rendered from the task's rubric
+#   <task>                    the output of another task for this persona (e.g. persona_expectations)
+
+tasks:
+
+  [task_name]:
+
+    description:
+    version:
+    created_by:
+    created_ts:
+    permissions:
+    engine: inference
+    implemented_by: # (optional) path:ChildInferenceTask if requires additional code extensions
+
+    instantiation:  # file laying out schema for input and output states
+                    # for now, just use the format of "vector_space_config.json"
+    prompt:
+      templates:  # Accepted formats:
+                  #   -- supply as list, even if only one template
+                  #   [
+                  #   Basic Format :  ( 1. template , 2. prompt variables **Optional , 3. personas **Optional )
+                  #   ]
+                  #   1. template can be a string (jinja format) or toml file
+                  #   2. prompt variables can be a dict (jinja variable to value mapping) or yaml file
+                  #   3. personas can be a list of dicts whose keys and values describe individual persona, or else a json file
+      retired_templates:     # used by earlier datasets
+
+    model:
+      provider: # openai, featherless
+      name: # like gpt-6-luna
+      parameters:
+        max_tokens:
+        temperature:
+
+    execution: # kwargs to supply during the execution call
+      workers:
+      mode: # batch or live
+
+    validation:
+      custom_validator: # the name stored in validations.validator
+      checks:  # pre-built general checks to run on output
+        # examples
+        # non_empty: {min_chars: 200}
+        # not_truncated: {}             # generation stopped at the token limit
+        # no_refusal: {}                # "I can't help with that", "As an AI ..." (validation/checks.py)
+      retries:  # regenerations of a reading that fails (--validation-retries)
+
+
+
+  [evaluation_task_name]:
+
+    description:
+    version:
+    created_by:
+    created_ts:
+    permissions:
+    engine: evaluation
+    implemented_by: # (optional) path:ChildInferenceTask if requires additional code extensions
+
+    instantiation:  # file laying out schema for input and output states
+                    # for now, just use the format of "vector_space_config.json"
+
+    rubric: # !!! CJF not done
+      id: celtic_cross_reading_v1
+      labels:
+        positions: input.subject_input.keys   # items 2a and 2b are scored once per position
+      na_rules: # N/A exactly when; the facts decide, not the evaluator
+        "1.2": facts.n_reversed == 0                     # no card in the draw is reversed
+        "7.4": persona_expectations.must_haves is empty  # the evaluator listed no must-haves
+
+    prompt:
+      templates:  # Accepted formats:
+                  #   -- supply as list, even if only one template
+                  #   [
+                  #   Basic Format :  ( 1. template , 2. prompt variables **Optional , 3. personas **Optional )
+                  #   ]
+                  #   1. template can be a string (jinja format) or toml file
+                  #   2. prompt variables can be a dict (jinja variable to value mapping) or yaml file
+                  #   3. personas can be a list of dicts whose keys and values describe individual persona, or else a json file
+      retired_templates:     # used by earlier datasets
+
+    model:
+      provider: # openai, featherless
+      name: # like gpt-6-luna
+      parameters:
+        max_tokens:
+        temperature:
+
+    execution: # kwargs to supply during the execution call
+      workers:
+      mode: # batch or live
+
+    validation:
+      custom_validator: # the name stored in validations.validator
+      checks:  # pre-built general checks to run on output
+        # examples
+        # non_empty: {min_chars: 200}
+        # not_truncated: {}             # generation stopped at the token limit
+        # no_refusal: {}                # "I can't help with that", "As an AI ..." (validation/checks.py)
+      retries:  # regenerations of a reading that fails (--validation-retries)
+
+
+
+
+  celtic_cross_evaluation:
+    title: A Celtic Cross reading scored with the Celtic Cross Reading Evaluation Form
+    engine: evaluation
+    implemented_by: applications.tarot.celtic_cross_evaluation:CelticCrossEvaluation
+    input:
+      schema: evaluation_subject
+      input_type: evaluation
+      source:
+        subjects: final responses of tarot_celtic_cross runs; stored as subject_type tarot_reading
+        select: a generation dataset or runs (one is required), then by prompt template, by model, valid only
+        sample: n subjects, seeded; each is repeated once per evaluating persona
+    personas:
+      role: evaluator
+      use: optional                   # --no-personas: one neutral evaluation per reading
+      set: tarot_personas
+      per_input: 1
+      per_subject: {default: 1, flag: --personas-per-subject}
+      pairing:
+        sample: draw distinct personas for each reading
+        subject: the persona the reading was written for evaluates it (readings generated with personas)
+      expectations: >-
+        from a persona_expectations run, generated first unless one is given (--expectations RUN_ID),
+        stage 1 is turned off (--no-expectations), or the run is a dry run
+    rubric:
+      id: celtic_cross_reading_v1
+      labels:
+        positions: input.subject_input.keys   # items 2a and 2b are scored once per position
+      na_rules:                       # N/A exactly when; the facts decide, not the evaluator
+        "1.2": facts.n_reversed == 0                     # no card in the draw is reversed
+        "7.4": persona_expectations.must_haves is empty  # the evaluator listed no must-haves
+      implemented_by: applications/tarot/celtic_cross_evaluation.py (labels, na_required)
+    prompt:
+      template: celtic_cross_evaluation_v2
+      alternatives: [celtic_cross_evaluation_v1]   # same wording, persona first; scores are not strictly comparable
+      variables:
+        reading_text: subject.text
+        cards: input.subject_input
+        context: facts                # schema evaluation_context: question_asked, deck, reversals_used, n_reversed
+        rubric_form: rubric.form
+        response_format: rubric.response_format
+        persona: persona
+        expectations: persona_expectations
+    output:
+      schema: evaluation_answer
+      validation:
+        validator: celtic_cross_reading_v1_answer
+        checks:
+          non_empty: {}
+          not_truncated: {}
+          rubric_answer:              # evaluation/checks.py RubricAnswerCheck
+            structure: every item scored, whole numbers on the scale, N/A only where allowed
+            na_rules: rubric.na_rules
+            quotes: every red-flag quote must appear in the reading
+        retries: 2
+      scoring: >-
+        computed from the answer by the rubric: section averages, weights, caps, total and grade. An
+        answer that still fails after retries is kept in responses and validations but never scored.
+      stored: [rubrics, evaluations, evaluation_item_scores, evaluation_red_flags]
+      evaluator_type: llm
+    options:
+      subjects_root: {default: data/generations, flag: --subjects-root}
+      subject_dataset: {flag: --subject-dataset}
+      subject_runs: {default: [], flag: --subject-run}
+      subject_templates: {default: [celtic_cross_v4], flag: --subject-template}   # what tarot_celtic_cross writes by default
+      subject_models: {default: [], flag: --subject-model}
+      valid_only: {default: true, flag: --include-invalid}
+      personas_per_subject: {default: 1, flag: --personas-per-subject}
+      pairing: {default: sample, choices: [sample, subject], flag: --pairing}
+      expectations_run: {flag: --expectations}
+      expectations_root: {recorded: where the evaluation runs are}
+      rubric: {default: celtic_cross_reading_v1, flag: --rubric}
+      rubric_sha256: {recorded: the rubric's content hash}
+    run_defaults: {provider: openai, max_tokens: 4000, workers: 4, mode: live, json_mode: false}

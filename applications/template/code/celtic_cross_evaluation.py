@@ -1,0 +1,57 @@
+"""
+Celtic Cross reading evaluation: stage 2, in which an evaluator (optionally as a persona)
+fills in the evaluation form for a reading. The mechanics are evaluation.task.EvaluationTask;
+this file is the tarot-specific configuration of it.
+
+Rubric:   evaluation/rubrics/celtic_cross_reading_v1.toml (the Celtic Cross Reading
+          Evaluation Form)
+Prompts:  prompts/library/evaluation/celtic_cross_evaluation_v2.toml (stage 2: scoring; v1 is the
+          same wording in an order that a prompt cache cannot reuse)
+          prompts/library/evaluation/reading_expectations_v1.toml    (stage 1: Part A3; see
+          persona_expectations.py)
+
+Tarot-specific facts supplied here:
+  * the ten positions scored in section 2 are the positions of the draw the reading was for
+  * item 1.2 (reversals) is N/A exactly when no card in the draw is reversed
+  * item 7.4 (must-haves) is N/A exactly when the evaluator listed no must-haves
+  * the readings were generated without a question, from standard Rider-Waite-Smith card names
+"""
+from typing import Any, Mapping, Optional
+
+from applications.tarot.code.persona_expectations import TarotPersonaExpectations
+from applications.tarot.code.readings import TarotReadings
+from applications.tarot.code.validation import parse_state
+from evaluation.rubric import Labels
+from evaluation.task import EvaluationTask
+
+DECK = "Rider-Waite-Smith (standard card names; the reading did not state a deck)"
+
+
+class CelticCrossEvaluation(EvaluationTask):
+    """Celtic Cross readings scored with the Celtic Cross Reading Evaluation Form."""
+    name = "celtic_cross_evaluation"
+    subject_type = "tarot_reading"
+    rubric_ref = "celtic_cross_reading_v1"
+    default_template = persona_template = "celtic_cross_evaluation_v2"
+    default_personas = "tarot_personas"
+    default_subject_templates = (TarotReadings.default_template,)      # the readings a plain generation run writes
+    expectations_task = TarotPersonaExpectations
+
+    def labels(self, payload: dict) -> Labels:
+        return {"positions": list(payload["subject_input"])}
+
+    def na_required(self, payload: dict, expectations: Optional[dict]) -> Mapping[str, bool]:
+        any_reversed = any(parse_state(state)[1] for state in payload["subject_input"].values())
+        return {"1.2": not any_reversed,
+                "7.4": not (expectations or {}).get("must_haves")}
+
+    def context(self, payload: dict) -> dict[str, Any]:
+        n_reversed = sum(parse_state(state)[1] for state in payload["subject_input"].values())
+        return {"question_asked": "none", "deck": DECK, "reversals_used": "yes" if n_reversed else "no",
+                "n_reversed": n_reversed}
+
+    def template_variables(self, payload: dict, persona: Optional[dict]) -> dict[str, Any]:
+        variables = super().template_variables(payload, persona)
+        variables["cards"] = variables.pop("subject_input")
+        variables["reading_text"] = variables.pop("subject_text")
+        return variables

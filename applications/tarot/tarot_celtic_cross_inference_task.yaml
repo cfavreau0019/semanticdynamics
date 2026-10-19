@@ -1,0 +1,135 @@
+# SemanticDynamics — Celtic Cross tarot reading inference task
+
+tarot_celtic_cross:
+  # PURPOSE AND PROVENANCE ---------------------------------------------------
+  description: >-
+    Generate a connected, position-aware Celtic Cross tarot reading from
+    ten sampled or pinned card states (including reversals). The same draw
+    may be rendered with multiple versioned prompt templates for paired
+    inference experiments. Retain the sampled draw for subsequent response
+    validation and research analysis.
+  version: 1
+  created_by: cfavreau0019
+  created_ts: 10-19-2026
+  permissions: null
+
+  # TASK ENGINE AND PYTHON EXTENSION ----------------------------------------
+  engine: inference
+  implemented_by: applications.tarot.readings:TarotReadings
+  # Currently required for the application's specialized behavior:
+  #   * sample 10 card states in canonical Celtic Cross position order;
+  #   * optionally draw with/without replacement and honor pinned cards;
+  #   * expose the sampled draw as Jinja variable `cards`;
+  #   * carry the original draw forward as expected validation state.
+  # As the generic instantiator develops, some of this may become declarative.
+
+  # BROADER UNDERLYING STATE ------------------------------------------------
+  instantiation: vector_space_config.json
+  # Existing JSON specifies `step_aliases` (10 positions), `aliases` (78
+  # cards), and `negative_polarity` (whether reversed states are possible).
+  # It is a STATE-SPACE SPECIFICATION, not a fully resolved card draw.
+  # The task implementation currently generates one concrete draw per input
+  # from this specification; its initial default is replacement sampling.
+  # Unique draws, pinned cards, and the optional VECTOR_SPACE_CONFIG override
+  # are currently options of TarotReadings, not keys in this JSON file.
+  #
+  # NOTE: The existing raw instant/draw is {position: card_state}, whereas
+  # the TOML templates expect `cards: {position: card_state}`. Today the
+  # TarotReadings.template_variables() adapter provides this mapping.
+  # A future registry must retain that adapter or formalize the mapping;
+  # the JSON file alone does not supply a top-level `cards` variable.
+  # Sample the draw ONCE per base input and preserve it across every prompt
+  # variant and validation retry.
+
+  # VERSIONED PROMPTS -------------------------------------------------------
+  prompt:
+    templates:              # Always a list, even with only one active template.
+      - template: celtic_cross_v4
+        # Registered prompt ID, currently stored in
+        # prompts/library/tarot/celtic_cross_v4.toml.
+        # TOML declares required = ["cards"] and contains the Jinja body.
+        # No `variables` mapping is duplicated here: TarotReadings currently
+        # supplies `cards` from the instantiated draw (see note above).
+        # No personas: this is the current default non-persona prompt.
+
+      # OPTIONAL PERSONA-ENABLED VARIANT (not activated by default):
+      # - template: celtic_cross_v2
+      #   personas: personas/tarot_personas.json
+      #   # This template declares required = ["cards"], optional = ["persona"].
+      #   # Persona assignment happens after drawing cards; enabling it should
+      #   # not change the sampled draws for a fixed run seed.
+      #   # If v2 is enabled alongside v4, render both on the same base draw.
+
+    retired_templates:
+      - celtic_cross_v1
+      - celtic_cross_v3
+      # Previous prompt versions recorded in older research datasets.
+      # Their historical content hashes and rendered prompts remain in the
+      # run records; listing here does not cause them to execute.
+      # The persona-capable v2 is NOT retired.
+
+  # MODEL -------------------------------------------------------------------
+  model:
+    provider: openai
+    name: gpt-6-luna
+    parameters:
+      max_tokens: 3600        # Existing tarot task default; provider may rename.
+      # temperature: 0.7     # Optional; intentionally defer to provider default.
+      # top_p: 1.0           # Optional; do not set unless supported/needed.
+      # stop: ["END"]       # Optional; supported by some model APIs.
+      # seed: 1234           # Optional MODEL-generation seed; distinct from
+      #                      # execution.seed for card/persona sampling.
+      # response_format:     # Optional; free-text readings do not need JSON.
+      #   type: json_object
+      # Other model options (reasoning_effort, logprobs, penalties, etc.)
+      # should be enabled only when accepted by the selected model/provider.
+    extra_body: {}           # For provider-specific parameters, if needed.
+      # e.g. top_k, min_p, repetition_penalty for compatible servers.
+
+  # RUN EXECUTION -----------------------------------------------------------
+  execution:
+    mode: live               # Current task default. Batch only if provider supports it.
+    workers: 2               # Max concurrent requests in live mode.
+    n: 1                     # Base card draws per run; override for dataset generation.
+    seed: null               # Generate and record a run seed unless supplied.
+    # retry_mode: live       # Existing default for batch validation retries.
+    # poll_interval: 60      # Batch-only status polling, if enabled.
+    # With N base draws and T active prompt templates, expect N x T requests
+    # (before any validation retries).
+
+  # MODEL OUTPUT ------------------------------------------------------------
+  #output:
+  #  format: text             # A prose reading, not a JSON object.
+  #  schema: reading          # Existing application schema in schemas.yaml.
+    # This output block is from the proposed reference and is not yet a
+    # separate declarative contract in the existing generation pipeline.
+
+  # POST-INFERENCE VALIDATION -----------------------------------------------
+  validation:
+    custom_validator: tarot_celtic_cross
+    # applications.tarot.validation.celtic_cross_validator is the current
+    # implementation. It compares the reading with the original card draw:
+    # card/position associations, reversals, unexpected cards, and ordering.
+    checks:
+      non_empty:
+        min_chars: 200       # Existing validator threshold.
+      not_truncated: {}      # Reject responses cut short at the token ceiling.
+      no_refusal: {}         # Heuristic rejection of refusal-style responses.
+    retries: 2               # Additional generations after failed validation.
+    # IMPORTANT: current `celtic_cross_validator()` ALREADY contains these
+    # generic checks plus domain-specific `positions` and `foreign_cards`.
+    # The future declarative loader must NOT apply the generic checks twice.
+    # Reuse the SAME resolved draw across retries; do not resample cards.
+
+# IMPLEMENTATION NOTES (not additional YAML config fields):
+# - Current CLI-specific draw options remain in TarotReadings for now:
+#     draw='replacement' (or 'unique'); pins={}; deck_config=...
+# - The existing generator provides prompt variables:
+#     cards = {position: card_state}, positions = list(cards), persona = ...
+# - The custom validator also reports mismatched/missing labeled positions,
+#   reversal mistakes, out-of-order positions (warnings), and foreign cards
+#   (warnings). These rules are delegated to the Python validator.
+# - Record original draw/instant, deck fingerprint, run seed, chosen template
+#   and hash, rendered prompt, model parameters, attempts, and validations.
+# - This is a CONFIGURATION DRAFT, not a replacement for the old tasks.yaml
+#   or a claim the YAML registry already loads this shape.

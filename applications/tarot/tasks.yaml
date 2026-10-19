@@ -1,10 +1,10 @@
-# The tarot application's tasks. A task is one kind of LLM request: what a request is made
+# The tarot application's tasks. A task is one kind of LLM/model request: what a request is made
 # from, which prompt renders it, who takes part, what the model must return, and what is kept.
 # These are the task registry's entries. A task's key is its name, which every run stores
 # (runs.task), so a task is never renamed: a different task gets a new name.
 #
 # Each task has
-#   engine          the execution engine that runs it: generation or evaluation
+#   engine          the execution engine that runs it: generation, evaluation, embedding
 #   implemented_by  the class that implements it today, until the registry builds tasks from
 #                   this file
 #   input           what one request is made from: its schema (schemas.yaml), the input_type it
@@ -28,21 +28,27 @@
 tasks:
 
   tarot_celtic_cross:
+    # CJF : Overall comments... much of these fields can be more attributed to inputs directly into the
+    # prompt and not the task itself. They are also inputs of the task too, but it might make more
+    # sense to explicitly cast them inside the prompt part
+    # that way, the basic task structure also fits if you just feed exactly a prompt
+
     title: A Celtic Cross reading of a card draw
-    engine: generation
-    implemented_by: applications.tarot.readings:TarotReadings
+    engine: inference # CJF : I changed from "generation"
+    implemented_by: applications.tarot.readings:TarotReadings # CJF : Should in general be optional, done if a separate class needed
     input:
       schema: celtic_cross_draw
       input_type: tarot_draw
       source:
-        drawn_from: the deck config, sandbox/vector_space_config.json; it must be a Celtic Cross
+        # CJF : this should be streamlined.
+        drawn_from: the deck config, sandbox/vector_space_config.json; it must be a Celtic Cross # CJF does "drawn_from" correspond to anything?
         seed: >-
           one per run, chosen at random unless given, and recorded. Draws are made before personas are
           assigned, so a seed gives the same draws with or without personas.
-    personas:
-      role: reader
-      use: optional                   # --personas SET
-      per_input: 1
+    personas: # CJF can we fold this into the prompt?
+      role: reader # CJF does this correspond to any particular variable or code input? Like in the prompt template?
+      use: optional                   # --personas SET # CJF : seems like this would play a role in specific command line arguments
+      per_input: 1  # CJF same command line ambiguity here as well
     prompt:
       template: celtic_cross_v4
       with_personas: celtic_cross_v2  # the default when personas are used: it is the version that takes `persona`
@@ -50,7 +56,7 @@ tasks:
       # Several templates may be given (--template, repeatable): every draw is then read once with
       # each, a paired comparison.
       variables:
-        cards: input
+        cards: input  # CJF is the actual jinja variable of celtic_cross_v4?
         positions: input.keys         # offered to templates; none uses it yet
         persona: persona
     output:
@@ -75,19 +81,6 @@ tasks:
           foreign_cards: {severity: warning}     # cards named that were not drawn
         retries: 2                      # regenerations of a reading that fails (--validation-retries)
       stored: [response_texts, validations, validation_issues]
-    options:
-      deck_config:
-        default: sandbox/vector_space_config.json     # or $VECTOR_SPACE_CONFIG
-        flag: --deck-config
-      draw:
-        default: replacement
-        choices: [replacement, unique]  # see x-drawn of celtic_cross_draw
-        flag: --draw
-      pins:
-        default: {}
-        flag: --pin POSITION=CARD       # repeatable, e.g. --pin "Outcome=Death reversed"
-      deck_sha256: {recorded: the hash of the deck config}
-      positions: {recorded: the deck's positions}
     warnings:
       seed_reuse: >-
         a seed already used in the same dataset, with the same deck, draw and pins, repeats that run's

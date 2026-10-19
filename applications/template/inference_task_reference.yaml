@@ -1,0 +1,150 @@
+# SemanticDynamics — researcher reference for an inference-task definition
+# --------------------------------------------------------------------------
+# This file is a DOCUMENTED DESIGN TEMPLATE, not a claim that every field
+# is currently supported by the runtime or YAML task registry.
+#
+# Convention:
+#   - Uncomment optional keys only when needed.
+#   - Paths are illustrative, resolved relative to the application directory.
+#   - A value of null means "not specified", not necessarily a runtime default.
+#   - Prompt TOML files declare their own required/optional Jinja variables.
+#   - Provider-specific model parameters must be checked against the chosen API.
+#
+# Put this entry under `tasks:` if the application's tasks.yaml uses a
+# top-level tasks mapping. Replace `task_name` with a stable identifier.
+
+task_name:
+  # PURPOSE AND PROVENANCE --------------------------------------------------
+  description: "Describe the scientific or application purpose of this task."
+  version: 1                # Version of THIS task definition, not its prompt(s).
+  created_by: null          # Optional: researcher, team, or automated creator.
+  created_ts: null          # Optional: ISO 8601 UTC timestamp, e.g. 2026-10-18T22:00:00Z.
+  # tags: [baseline, summarization]  # Optional discovery/filtering labels (proposed).
+  # permissions:              # Optional access policy; exact enforcement model TBD.
+  #   execute: [researchers]
+  #   edit: [maintainers]
+  permissions: null
+
+  # IMPLEMENTATION ----------------------------------------------------------
+  engine: inference         # Routes this task to the generic inference engine.
+  implemented_by: null      # Optional: "package.module:ChildInferenceTask".
+                            # Use only for task-specific Python extensions;
+                            # omit when declarative configuration is sufficient.
+
+  # INSTANTIATION -----------------------------------------------------------
+  instantiation: null       # Optional: path to state specification (JSON for now).
+                            # Initially use vector_space_config.json conventions:
+                            # possible states/aliases, step aliases, polarity, etc.
+                            # An instantiation resolves to one immutable-in-practice
+                            # `instant` per input, shared across prompt versions and
+                            # preserved for output validation and retries.
+                            # Example: instantiations/vector_space_config.json
+                            # This describes broader state, not merely Jinja inputs.
+
+  # PROMPTS -----------------------------------------------------------------
+  prompt:
+    templates:              # REQUIRED nonempty list, even for one template.
+      - template: prompts/example_v1.toml
+        # `template`: prompt-library ID/path, as supported by the loader.
+        # Prefer explicit `inline:` for direct Jinja text; otherwise a string
+        # might be ambiguous with a filename or template ID.
+        # inline: "Summarize the following article: {{ article }}"
+        # `variables` is OPTIONAL when instantiation supplies the required
+        # names declared by the prompt TOML. Do not duplicate those names.
+        # With NO instantiation, variables can be inline assignments:
+        # variables:
+        #   article: "Example text"
+        #   style: concise
+        # OR a reference to a YAML file supplying the mappings:
+        # variables: prompts/variables/example.yaml
+        # `personas` is OPTIONAL and scoped to this template variant:
+        # personas:
+        #   - name: Example Persona
+        #     occupation: researcher
+        # OR: personas: personas/persona_set.json
+        # Template requirements, optional values, system/user messages, and
+        # Jinja body belong in the versioned prompt TOML wherever possible.
+        # Additional template entries run against the same resolved base
+        # instantiation (paired comparison), not newly sampled states.
+      # - template: prompts/example_v2.toml
+      # - inline: "Write one sentence explaining {{ concept }}."
+      #   variables: {concept: probability}
+
+    retired_templates: []    # Historical prompt IDs/paths kept for discovery.
+                             # Not selected for new runs; old dataset records
+                             # should retain hashes/versions independently.
+
+  # GENERATION MODEL --------------------------------------------------------
+  model:
+    provider: openai         # Registered provider ID, e.g. openai, featherless.
+    name: "MODEL_ID"        # Exact model ID accepted by the selected provider.
+    parameters:             # Provider-supported generation/request parameters.
+      max_tokens: 2048       # Requested output-token ceiling; provider adapter may
+                             # translate to max_completion_tokens, etc.
+      # temperature: 0.7     # Sampling randomness, when supported.
+      # top_p: 1.0           # Nucleus sampling probability threshold.
+      # stop: ["END"]       # Optional stopping sequences, when supported.
+      # presence_penalty: 0.0  # Penalize introducing already-used tokens/topics.
+      # frequency_penalty: 0.0 # Penalize repeated token frequency.
+      # seed: 123            # Provider-side generation seed, IF supported;
+                             # distinct from execution.seed for input sampling.
+      # response_format:     # API-level output format, e.g. supported JSON mode.
+      #   type: json_object
+      # logprobs: true       # Request token log probabilities, if supported.
+      # top_logprobs: 5      # Number of alternatives for returned token logprobs.
+      # logit_bias: {}       # Optional per-token logit biases (provider-specific).
+      # reasoning_effort: medium  # Some reasoning models only; not universal.
+      # NOTE: omitting a parameter defers to provider/model defaults. Do not
+      # assume every model supports temperature, stop, penalties, seed, etc.
+
+    extra_body: {}           # Non-standard backend request JSON fields, e.g. for
+                             # compatible vLLM/Featherless endpoints; forwarded
+                             # only if the selected provider supports them.
+      # top_k: 40           # Example fields in extra_body, not universal.
+      # min_p: 0.02
+      # repetition_penalty: 1.1
+
+  # RUN / EXECUTION ---------------------------------------------------------
+  execution:
+    mode: live               # live | batch; optionally dry_run for preview.
+                             # Batch requires provider support.
+    workers: 2               # Max parallel live inferences, not model tokens.
+    n: 1                     # Number of sampled/created base inputs in the run;
+                             # not the number of outputs returned per API call.
+    seed: null               # Seed for input/persona sampling; a generated seed
+                             # should be recorded when none is supplied.
+    # retry_mode: live       # For invalid outputs from batch jobs:
+                             # live | batch (where supported).
+    # poll_interval: 60      # Seconds between batch-status checks when waiting.
+    # dataset: null          # Optional experiment grouping label (proposed location).
+    # name: null             # Optional human-readable run name (proposed location).
+    # API transport retry/timeout settings belong to provider configuration
+    # unless you deliberately expose task-level overrides later.
+
+  # OUTPUT CONTRACT (OPTIONAL / PROPOSED) ----------------------------------
+  # output:                 # Desired representation before semantic checks.
+  #   format: text          # e.g. text | json (must match model/decoder support).
+  #   schema: null          # Optional structured-output schema identifier.
+
+  # RESPONSE VALIDATION -----------------------------------------------------
+  validation:
+    custom_validator: null   # Optional application-specific validator ID/name.
+                             # Its code may use both the model response and
+                             # the ORIGINAL resolved instantiation (`instant`).
+    checks:                  # Reusable generic checks; omit any not wanted.
+      non_empty:
+        min_chars: 1         # Minimum output text length.
+      not_truncated: {}      # Detect finish_reason indicating output truncation.
+      # no_refusal: {}       # Heuristic refusal detector; enable only when
+                             # refusal is incompatible with the task's purpose.
+      # json_fields:         # Only if wired into the desired generic registry.
+      #   schema: structured_answer
+    retries: 2               # Additional GENERATION attempts following failed
+                             # validation (not retries for API/network failures).
+                             # Do not change the instantiated state on retry.
+
+# RECOMMENDED RECORDING / REPRODUCIBILITY POLICY (not additional YAML keys):
+# Store the resolved instant, rendered messages, prompt/template hashes, task
+# version/hash, provider + actual model, request parameters/extra_body, RNG seed,
+# each attempt's response + validation, and usage where provided. Do not put
+# result artifacts or hashes that are computed at runtime into this template.

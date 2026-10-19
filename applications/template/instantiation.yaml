@@ -1,0 +1,17 @@
+
+# instantiations/celtic_cross.yaml
+
+version: 1
+
+state:
+  cards:
+    generate:
+      using: applications.tarot.readings:sample_spread
+      options:
+        deck_config: sandbox/vector_space_config.json
+        draw: unique
+
+  deck: rider_waite_smith
+
+sampling:
+  method: random
