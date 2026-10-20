@@ -3,7 +3,7 @@ Tarot configuration of the generic checks in `validation`: the 78-card vocabular
 Cross position aliases, and orientation handling. States follow the population generator's
 convention: "<card>" (upright) or "<card> reversed", e.g. "Death reversed".
 
-    from applications.tarot.validation import celtic_cross_validator
+    from applications.tarot.code.validation import celtic_cross_validator
     v = celtic_cross_validator()
     result = v.validate(reading_text, expected=instant, finish_reason="stop")
     result.passed, result.summary()
@@ -25,7 +25,7 @@ RANKS = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
          "Page", "Knight", "Queen", "King"]
 SUITS = ["Wands", "Cups", "Swords", "Pentacles"]
 MINOR_ARCANA = [f"{r} of {s}" for s in SUITS for r in RANKS]
-TAROT_CARDS = MAJOR_ARCANA + MINOR_ARCANA  # names match sandbox/vector_space_config.json
+TAROT_CARDS = MAJOR_ARCANA + MINOR_ARCANA  # names match applications/tarot/vector_space_config.json
 
 REVERSED_SUFFIX = " reversed"
 _REVERSED = re.compile(r"\b(?:reversed|reversal|inverted|upside[- ]down|rx)\b|\(\s*r\s*\)", re.IGNORECASE)

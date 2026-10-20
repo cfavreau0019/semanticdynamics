@@ -9,7 +9,7 @@ set:
   name: tarot_personas
   file: personas/tarot_personas.json
   records: 100
-  sha256: e15577e10ebcc56991fccf977fbee89580b21640e54dc01c6cb02322460eda69   # of the file; every run records the hash of the set it used
+  sha256: b2d45dc7a9d9173d101204193dcd2b9a719d9ab298d148b15433cecc1511e044   # of the file (LF line endings); every run records the hash of the set it used
   population: >-
     100 adults in the United States who use a tarot app on iOS or Android, mostly in cities, spread
     over generations, genders, backgrounds, incomes and levels of tarot experience.

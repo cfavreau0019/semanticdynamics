@@ -19,10 +19,10 @@ import yaml
 from jsonschema import Draft202012Validator
 
 import applications
-from applications.tarot import validation as tarot_validation
-from applications.tarot.celtic_cross_evaluation import CelticCrossEvaluation
-from applications.tarot.persona_expectations import TarotPersonaExpectations
-from applications.tarot.readings import TarotReadings
+from applications.tarot.code import validation as tarot_validation
+from applications.tarot.code.celtic_cross_evaluation import CelticCrossEvaluation
+from applications.tarot.code.persona_expectations import TarotPersonaExpectations
+from applications.tarot.code.readings import TarotReadings
 from evaluation.expectations import EXPECTATION_FIELDS
 from evaluation.rubric import get_rubric
 from evaluation.subjects import load_subjects
@@ -76,8 +76,7 @@ def test_rubric_file_has_the_stored_hash():
 
 # ---- the files refer to each other correctly ------------------------------------------------------------
 def test_every_reference_between_the_files_resolves():
-    assert APPLICATION["tasks"] == list(TASKS)
-    assert all((APP / part).exists() for part in APPLICATION["parts"].values())
+    assert APPLICATION["name"] == APP.name
     for name, task in TASKS.items():
         prompt = task["prompt"]
         templates = [t for t in [prompt["template"], prompt.get("with_personas"), *prompt.get("alternatives", [])] if t]
@@ -138,7 +137,8 @@ def test_tasks_are_the_registered_ones_with_their_stated_settings():
     readings_task = TarotReadings()
     draw = readings_task.sample_inputs(1, random.Random(0))[0]
     assert set(readings_task.template_variables(draw, None)) == set(TASKS["tarot_celtic_cross"]["prompt"]["variables"])
-    assert set(readings_task.options()) == set(TASKS["tarot_celtic_cross"]["options"])
+    if "options" in TASKS["tarot_celtic_cross"]:                    # not listed while the task format is redesigned
+        assert set(readings_task.options()) == set(TASKS["tarot_celtic_cross"]["options"])
     assert readings_task.validator().name == TASKS["tarot_celtic_cross"]["output"]["validation"]["validator"]
 
     expectations = TASKS["persona_expectations"]
@@ -180,3 +180,15 @@ def test_stated_answer_fields_and_persona_set_are_the_code_s():
     assert stated == EXPECTATION_FIELDS
     people = PersonaSet.load(PERSONAS["set"]["name"])
     assert (people.sha256, len(people)) == (PERSONAS["set"]["sha256"], PERSONAS["set"]["records"])
+
+
+def test_draft_task_file_names_what_exists():
+    """tarot_celtic_cross_inference_task.yaml drafts the new task format. Its defaults may differ from
+    today's, but everything it names must exist."""
+    [(name, task)] = load("tarot_celtic_cross_inference_task.yaml").items()
+    module, cls_name = task["implemented_by"].split(":")
+    assert getattr(importlib.import_module(module), cls_name) is applications.get_task(name)
+    templates = [t["template"] for t in task["prompt"]["templates"]] + task["prompt"]["retired_templates"]
+    assert set(templates) <= set(PROMPTS)
+    assert (APP / task["instantiation"]).resolve() == TarotReadings().deck_config
+    assert task["validation"]["custom_validator"] == TarotReadings().validator().name

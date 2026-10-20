@@ -1,7 +1,7 @@
 """Prompt (KV) caching: cached tokens are recorded, and templates keep what varies at the end."""
 from types import SimpleNamespace
 
-from applications.tarot.readings import TarotReadings
+from applications.tarot.code.readings import TarotReadings
 from data_generation.pipeline import GenerationConfig, prepare_run, run_live, summarize
 from evaluation.rubric import get_rubric
 from llm import ChatResponse, Usage

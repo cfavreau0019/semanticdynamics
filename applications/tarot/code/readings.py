@@ -3,10 +3,11 @@ Tarot readings: the task that asks for a Celtic Cross reading of a sampled card 
 samples the draws from the deck config, hands them to the prompt templates
 (prompts/library/tarot/) and checks each reading with the validator in validation.py.
 
-The deck config (sandbox/vector_space_config.json, or $VECTOR_SPACE_CONFIG) supplies the
-positions (step_aliases), the cards (aliases) and whether cards can be reversed
-(negative_polarity). A draw is {position: state}, state = "<card>" or "<card> reversed",
-the same shape as coordinate_systems.state_instantiation.Instantiation produces.
+The deck config (applications/tarot/vector_space_config.json, or $VECTOR_SPACE_CONFIG)
+supplies the positions (step_aliases), the cards (aliases) and whether cards can be
+reversed (negative_polarity). A draw is {position: state}, state = "<card>" or
+"<card> reversed", the same shape as coordinate_systems.state_instantiation.Instantiation
+produces.
 """
 import argparse
 import hashlib
@@ -21,20 +22,31 @@ from data_generation.pipeline import list_runs
 from data_generation.store import REPO_ROOT
 from data_generation.task import InferenceTask
 
-DEFAULT_DECK_CONFIG = REPO_ROOT / "sandbox" / "vector_space_config.json"
+APPLICATION_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_DECK_CONFIG = APPLICATION_DIR / "vector_space_config.json"
 DRAW_MODES = ("replacement", "unique")
 
 
+def deck_sha256(raw: bytes) -> str:
+    """The deck config's identity. Line endings are normalised: a checkout may write the file with CRLF."""
+    return hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
 def resolve_deck_config(path: Optional[str | Path] = None) -> Path:
-    """Explicit path, else $VECTOR_SPACE_CONFIG (absolute, repo-relative or sandbox-relative), else the default."""
-    candidates = []
-    for p in (path, os.getenv("VECTOR_SPACE_CONFIG")):
-        if p:
-            p = Path(p)
-            candidates += [p] if p.is_absolute() else [Path.cwd() / p, REPO_ROOT / p, REPO_ROOT / "sandbox" / p]
-            if path is not None:  # an explicit path must exist
-                break
-    candidates.append(DEFAULT_DECK_CONFIG)
+    """
+    Explicit path, else $VECTOR_SPACE_CONFIG, else the default. A relative path may be relative
+    to the working directory, the repo or this application. An explicit path must exist; a
+    $VECTOR_SPACE_CONFIG that does not falls back to the default.
+    """
+    def places(p) -> list[Path]:
+        p = Path(p)
+        return [p] if p.is_absolute() else [Path.cwd() / p, REPO_ROOT / p, APPLICATION_DIR / p]
+
+    if path is not None:
+        candidates = places(path)
+    else:
+        env = os.getenv("VECTOR_SPACE_CONFIG")
+        candidates = (places(env) if env else []) + [DEFAULT_DECK_CONFIG]
     for c in candidates:
         if c.exists():
             return c.resolve()
@@ -72,7 +84,7 @@ class TarotReadings(InferenceTask):
         self.deck_config = resolve_deck_config(deck_config)
         raw = self.deck_config.read_bytes()
         config = json.loads(raw)
-        self.deck_sha256 = hashlib.sha256(raw).hexdigest()
+        self.deck_sha256 = deck_sha256(raw)
         self.positions: list[str] = list(config["step_aliases"])
         if self.positions != list(CELTIC_CROSS_POSITIONS):
             raise ValueError(f"{self.deck_config} is not a Celtic Cross deck: its positions are {self.positions}, "
@@ -148,7 +160,15 @@ class TarotReadings(InferenceTask):
 
     @classmethod
     def from_options(cls, options: dict) -> "TarotReadings":
-        return cls(options["deck_config"], draw=options["draw"], pins=options["pins"])
+        """
+        A run records the deck config's path and hash. If the file has since moved (runs before
+        2026-10-19 recorded sandbox/vector_space_config.json), the default deck is used in its
+        place, provided it has the recorded hash: the same deck, so the run resumes unchanged.
+        """
+        deck = Path(options["deck_config"])
+        if not deck.exists() and deck_sha256(DEFAULT_DECK_CONFIG.read_bytes()) == options.get("deck_sha256"):
+            deck = DEFAULT_DECK_CONFIG
+        return cls(deck, draw=options["draw"], pins=options["pins"])
 
     def run_warnings(self, config, root) -> list[str]:
         """Same seed + same draw settings in one dataset would add the same card draws again."""

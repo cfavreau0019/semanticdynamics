@@ -35,13 +35,13 @@ tasks:
 
     title: A Celtic Cross reading of a card draw
     engine: inference # CJF : I changed from "generation"
-    implemented_by: applications.tarot.readings:TarotReadings # CJF : Should in general be optional, done if a separate class needed
+    implemented_by: applications.tarot.code.readings:TarotReadings # CJF : Should in general be optional, done if a separate class needed
     input:
       schema: celtic_cross_draw
       input_type: tarot_draw
       source:
         # CJF : this should be streamlined.
-        drawn_from: the deck config, sandbox/vector_space_config.json; it must be a Celtic Cross # CJF does "drawn_from" correspond to anything?
+        drawn_from: the deck config, applications/tarot/vector_space_config.json; it must be a Celtic Cross # CJF does "drawn_from" correspond to anything?
         seed: >-
           one per run, chosen at random unless given, and recorded. Draws are made before personas are
           assigned, so a seed gives the same draws with or without personas.
@@ -90,7 +90,7 @@ tasks:
   persona_expectations:
     title: What a persona expects from a Celtic Cross reading, before seeing one
     engine: evaluation
-    implemented_by: applications.tarot.persona_expectations:TarotPersonaExpectations
+    implemented_by: applications.tarot.code.persona_expectations:TarotPersonaExpectations
     started_by: celtic_cross_evaluation   # stage 1 of it; not started on its own
     input:
       schema: expectation_context
@@ -125,7 +125,7 @@ tasks:
   celtic_cross_evaluation:
     title: A Celtic Cross reading scored with the Celtic Cross Reading Evaluation Form
     engine: evaluation
-    implemented_by: applications.tarot.celtic_cross_evaluation:CelticCrossEvaluation
+    implemented_by: applications.tarot.code.celtic_cross_evaluation:CelticCrossEvaluation
     input:
       schema: evaluation_subject
       input_type: evaluation
@@ -152,7 +152,7 @@ tasks:
       na_rules:                       # N/A exactly when; the facts decide, not the evaluator
         "1.2": facts.n_reversed == 0                     # no card in the draw is reversed
         "7.4": persona_expectations.must_haves is empty  # the evaluator listed no must-haves
-      implemented_by: applications/tarot/celtic_cross_evaluation.py (labels, na_required)
+      implemented_by: applications/tarot/code/celtic_cross_evaluation.py (labels, na_required)
     prompt:
       template: celtic_cross_evaluation_v2
       alternatives: [celtic_cross_evaluation_v1]   # same wording, persona first; scores are not strictly comparable

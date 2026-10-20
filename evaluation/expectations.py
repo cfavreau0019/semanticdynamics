@@ -9,7 +9,7 @@ per persona, as their own small run, and reused for every evaluation by that per
 What is generic here: one request per persona, the fields of the answer, the
 persona_expectations table. What an application supplies, as a subclass of
 PersonaExpectations: the task's name, its prompt template and the context (see
-applications/tarot/persona_expectations.py).
+applications/tarot/code/persona_expectations.py).
 
     store = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="openai", model="...")
     expectations = load_expectations(store)        # {persona_id: {...}}

@@ -220,7 +220,7 @@ What is generic and what a new application supplies:
 | Subject loading, persona pairing, two-stage flow | An evaluation prompt template in the prompts library; it receives `rubric_form` and `response_format` generated from the rubric |
 | Result tables, the command-line script (live/batch/resume) | A subclass of `EvaluationTask` setting `rubric_ref` and `default_template`, and overriding `labels`, `na_required`, `context` as needed; a subclass of `PersonaExpectations` naming its prompt template and context; and the task's command-line defaults (`default_personas`, `default_subject_templates`, `expectations_task`) |
 
-`applications/tarot/celtic_cross_evaluation.py` and `persona_expectations.py` are the whole tarot-specific part: about 60 lines. `evaluate.py` offers a new task as `run <name>` as soon as its file exists under `applications/<application>/`.
+`applications/tarot/code/celtic_cross_evaluation.py` and `persona_expectations.py` are the whole tarot-specific part: about 60 lines. `evaluate.py` offers a new task as `run <name>` as soon as its file exists under `applications/<application>/`.
 
 **Limits of the generic design:**
 - A rubric assumes one numeric scale, weighted section averages, and caps from yes/no flags. A scheme that isn't shaped like that, such as pairwise comparisons or rankings, needs a different scorer.

@@ -12,7 +12,7 @@ data_generation/
   generate.py        command-line script: runs the generation tasks of every application
 ```
 
-The tasks themselves live with their application. `applications/tarot/readings.py` is `TarotReadings`: card draws, prompt variables, validator.
+The tasks themselves live with their application. `applications/tarot/code/readings.py` is `TarotReadings`: card draws, prompt variables, validator.
 
 ## Generating from the command line
 
@@ -59,7 +59,7 @@ python -m data_generation.generate list --dataset tarot-v1      # runs + combine
 | `--pin POSITION=CARD` | – | Fixes a card in every draw; repeatable |
 | `--validation-retries` | `2` | Regenerations per reading that fails validation |
 | `--retry-mode` | `live` | Batch runs only: regenerate invalid readings live (fast) or as follow-up batches (cheaper, slower) |
-| `--deck-config` | `$VECTOR_SPACE_CONFIG`, else `sandbox/vector_space_config.json` | Supplies the positions, the cards, and whether cards can be reversed |
+| `--deck-config` | `$VECTOR_SPACE_CONFIG`, else `applications/tarot/vector_space_config.json` | Supplies the positions, the cards, and whether cards can be reversed |
 | `--template NAME` | `celtic_cross_v4` (`celtic_cross_v2` with `--personas`) | A template from the [prompts library](../prompts/README.md). `name_vN` pins a version; a bare name takes the latest. Repeat the flag to render every draw with each template. |
 | `--personas SET` | – | Assign one persona per draw from a [persona set](../personas/README.md), e.g. `tarot_personas` |
 | `--persona-sampling` | `random` | `random`: seeded, with replacement. `cycle`: in order, every persona equally often. |
@@ -180,4 +180,4 @@ Subclass `task.InferenceTask`, in a file of its own under `applications/<applica
   - `from_options(options)` rebuilds the task of an existing run from the `options()` recorded with it;
   - `run_warnings(config, root)` returns anything to say before a run is prepared.
 
-`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged, and `generate.py` offers the task as `run <name>` without being told about it: every task defined in a module of an application folder is found (see `applications/__init__.py`). `applications/tarot/readings.py` is the reference implementation.
+`prepare_run`, `run_live`, `submit_batch` and `collect_batch` then work unchanged, and `generate.py` offers the task as `run <name>` without being told about it: every task defined in a module of an application's package is found (see `applications/__init__.py`). `applications/tarot/code/readings.py` is the reference implementation.

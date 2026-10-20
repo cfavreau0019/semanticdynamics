@@ -11,14 +11,13 @@ import applications
 import llm.providers as providers
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
-from applications.tarot.readings import TarotReadings
+from applications.tarot.code.readings import TarotReadings
 from data_generation import schema
 from data_generation.generate import main
 from data_generation.pipeline import (
     GenerationConfig, collect_batch, final_responses, list_runs, load_config, prepare_run, rebuild_requests,
     run_live,
-    submit_batch, summarize,
-)
+    submit_batch, )
 from data_generation.store import RunStore
 from data_generation.task import InferenceTask
 from prompts import get_template, parse_id as parse_template_id
@@ -205,6 +204,23 @@ def test_a_deck_that_is_not_a_celtic_cross_is_refused(tmp_path):
     three_cards.write_text(json.dumps({**deck, "step_aliases": ["Past", "Present", "Future"]}), encoding="utf-8")
     with pytest.raises(ValueError, match="not a Celtic Cross deck"):
         TarotReadings(three_cards)
+
+
+def test_the_deck_s_identity_does_not_depend_on_line_endings(tmp_path):
+    raw = TarotReadings().deck_config.read_bytes().replace(b"\r\n", b"\n")
+    lf, crlf = tmp_path / "lf.json", tmp_path / "crlf.json"
+    lf.write_bytes(raw)
+    crlf.write_bytes(raw.replace(b"\n", b"\r\n"))                  # as a Windows checkout may write it
+    assert TarotReadings(lf).deck_sha256 == TarotReadings(crlf).deck_sha256 == TarotReadings().deck_sha256
+
+
+def test_runs_whose_deck_file_has_moved_still_resume(tmp_path):
+    """Runs before 2026-10-19 recorded the deck at sandbox/vector_space_config.json, since moved."""
+    recorded = {**TarotReadings(draw="unique").options(), "deck_config": str(tmp_path / "sandbox" / "vector_space_config.json")}
+    task = TarotReadings.from_options(recorded)                     # the same deck, by its hash
+    assert task.deck_config == TarotReadings().deck_config and task.draw == "unique"
+    with pytest.raises(FileNotFoundError, match="Deck config not found"):    # a different deck is not substituted
+        TarotReadings.from_options({**recorded, "deck_sha256": "0" * 64})
 
 
 def test_input_items_and_template():

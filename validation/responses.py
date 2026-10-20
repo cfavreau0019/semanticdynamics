@@ -5,7 +5,7 @@ package never depends on validation: llm only knows it may call a
 
     from llm import generate_many
     from validation import response_validator
-    from applications.tarot.validation import celtic_cross_validator
+    from applications.tarot.code.validation import celtic_cross_validator
 
     validate = response_validator(celtic_cross_validator(), expected="instant")
     responses = generate_many(reqs, provider="featherless", validate=validate, on_result=checkpoint)

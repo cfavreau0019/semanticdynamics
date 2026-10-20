@@ -15,7 +15,7 @@ tarot_celtic_cross:
 
   # TASK ENGINE AND PYTHON EXTENSION ----------------------------------------
   engine: inference
-  implemented_by: applications.tarot.readings:TarotReadings
+  implemented_by: applications.tarot.code.readings:TarotReadings
   # Currently required for the application's specialized behavior:
   #   * sample 10 card states in canonical Celtic Cross position order;
   #   * optionally draw with/without replacement and honor pinned cards;
@@ -107,7 +107,7 @@ tarot_celtic_cross:
   # POST-INFERENCE VALIDATION -----------------------------------------------
   validation:
     custom_validator: tarot_celtic_cross
-    # applications.tarot.validation.celtic_cross_validator is the current
+    # applications.tarot.code.validation.celtic_cross_validator is the current
     # implementation. It compares the reading with the original card draw:
     # card/position associations, reversals, unexpected cards, and ordering.
     checks:

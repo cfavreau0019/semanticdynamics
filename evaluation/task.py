@@ -14,7 +14,7 @@ variables, validating and scoring answers, writing result rows. What a subclass 
 the rubric, the prompt template, the labels for per-label items, which items' N/A status is
 decided by facts, the context shown to the evaluator, and its defaults on the command line
 (persona set, subjects' prompt template, the stage-1 task). See
-applications/tarot/celtic_cross_evaluation.py.
+applications/tarot/code/celtic_cross_evaluation.py.
 """
 import random
 from pathlib import Path

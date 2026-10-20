@@ -1,7 +1,7 @@
 """evaluation.dashboard: the data joined from evaluation and generation runs, and the page built from it."""
 import json
 
-from applications.tarot.persona_expectations import TarotPersonaExpectations
+from applications.tarot.code.persona_expectations import TarotPersonaExpectations
 from data_generation.pipeline import prepare_run, run_live
 from evaluation.dashboard import DATA_MARKER, build_data, main, render
 from evaluation.expectations import generate_expectations

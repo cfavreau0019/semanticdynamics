@@ -4,15 +4,16 @@ data_generation, evaluation). One folder per application, holding everything tha
 specific to it; the general packages never import from here, only their command-line
 scripts do, to look tasks up by name.
 
-  tarot   Celtic Cross readings and their evaluation by personas
+  tarot      Celtic Cross readings and their evaluation by personas
+  template   files to copy when starting an application; not an application itself
 
 An application is a set of inference tasks (data_generation.task.InferenceTask), one file
 per task, plus whatever only that application needs, such as its validators.
 
-Adding an application: create applications/<name>/ with an __init__.py and a module per
-task. Nothing else has to be registered. Every InferenceTask subclass with a `name` that is
-defined in a module directly inside an application folder is found by tasks(), and the
-general scripts then offer it:
+Adding an application: create applications/<name>/ with an __init__.py, and its Python
+(e.g. in a code/ package) with a module per task. Nothing else has to be registered. Every
+InferenceTask subclass with a `name`, defined in any module of an application's package, is
+found by tasks(), and the general scripts then offer it:
 
     python -m data_generation.generate run <task> ...       # tasks with cli = "generate"
     python -m evaluation.evaluate run <task> ...            # tasks with cli = "evaluate"
@@ -26,17 +27,20 @@ import pkgutil
 from functools import lru_cache
 
 
+NOT_APPLICATIONS = {"template"}        # folders here that are not applications, so are never searched for tasks
+
+
 @lru_cache(maxsize=None)
 def tasks() -> dict:
-    """{name: class} of every task of every application. Imports each application's modules."""
+    """{name: class} of every task of every application. Imports every module of each application."""
     from data_generation.task import InferenceTask  # here, so that importing one module of an application stays light
 
     found: dict[str, type] = {}
     for application in pkgutil.iter_modules(__path__, prefix=f"{__name__}."):
-        if not application.ispkg:
+        if not application.ispkg or application.name.rpartition(".")[2] in NOT_APPLICATIONS:
             continue
         package = importlib.import_module(application.name)
-        for info in pkgutil.iter_modules(package.__path__, prefix=f"{application.name}."):
+        for info in pkgutil.walk_packages(package.__path__, prefix=f"{application.name}."):
             module = importlib.import_module(info.name)
             for cls in vars(module).values():
                 if not (inspect.isclass(cls) and issubclass(cls, InferenceTask) and cls.__module__ == module.__name__

@@ -1,4 +1,4 @@
-"""Generic, LLM-free checks. Configure them for a task (see applications/tarot/validation.py for an example)."""
+"""Generic, LLM-free checks. Configure them for a task (see applications/tarot/code/validation.py for an example)."""
 import re
 from typing import Callable, Mapping, Optional
 

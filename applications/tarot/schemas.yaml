@@ -36,7 +36,7 @@ vocabulary: # CJF : should this correspond to specific data inputs (prompt or ot
       # Tying a card to its position accepts all of these. Spotting cards that were not drawn
       # accepts only names of more than one word, and a one-word name only when capitalised,
       # so "inner strength" or "the world" in prose is not a card.
-      implemented_by: applications/tarot/validation.py (card_aliases, TarotCardMatcher)
+      implemented_by: applications/tarot/code/validation.py (card_aliases, TarotCardMatcher)
 
   orientations:
     values: [upright, reversed]
@@ -46,7 +46,7 @@ vocabulary: # CJF : should this correspond to specific data inputs (prompt or ot
       reversed: '\b(?:reversed|reversal|inverted|upside[- ]down|rx)\b|\(\s*r\s*\)'
       not_reversed: '\bnot\s+(?:reversed|inverted)\b'
       reversed_before_name: '\b(?:reversed|inverted)\s+(?:the\s+)?$'      # "the reversed Sun"
-      implemented_by: applications/tarot/validation.py (TarotCardMatcher)
+      implemented_by: applications/tarot/code/validation.py (TarotCardMatcher)
 
   # The Celtic Cross, in reading order (the deck config's step_aliases).
   #   also     other names a reading may use for the position
@@ -124,7 +124,7 @@ schemas:
          Your Attitude: Strength reversed, External Influences: Six of Pentacles,
          Hopes and Fears: The Moon, Outcome: Ten of Cups}
     x-order: vocabulary.positions     # prompts list the cards in this order
-    x-drawn:                          # how tarot_celtic_cross samples one; implemented_by: applications/tarot/readings.py
+    x-drawn:                          # how tarot_celtic_cross samples one; implemented_by: applications/tarot/code/readings.py
       replacement: >-
         each position independently takes any of the 156 states, so a card may repeat, even upright
         and reversed (as Instantiation does)
@@ -222,7 +222,7 @@ schemas:
     required: [question_asked, deck, reversals_used, n_reversed]
     additionalProperties: false
     x-derived-from: the subject's draw (celtic_cross_draw x-facts)
-    x-implemented-by: applications/tarot/celtic_cross_evaluation.py (CelticCrossEvaluation.context)
+    x-implemented-by: applications/tarot/code/celtic_cross_evaluation.py (CelticCrossEvaluation.context)
 
   evaluation_answer:
     description: >-
