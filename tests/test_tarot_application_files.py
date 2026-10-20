@@ -38,7 +38,7 @@ def load(name: str):
 
 
 SCHEMAS, TASKS, WORKFLOWS, PERSONAS, APPLICATION = (
-    load("schemas.yaml"), load("tasks.yaml")["tasks"], load("workflows.yaml")["workflows"], load("personas.yaml"),
+    load("schemas.yaml"), load("tasks_draft.yaml")["tasks"], load("workflows.yaml")["workflows"], load("personas.yaml"),
     load("application.yaml"))
 PROMPTS = {p.stem: yaml.safe_load(p.read_text(encoding="utf-8")) for p in sorted((APP / "prompts").glob("*.yaml"))}
 RUBRICS = {p.stem: p for p in sorted((APP / "rubrics").glob("*.yaml"))}
@@ -182,10 +182,10 @@ def test_stated_answer_fields_and_persona_set_are_the_code_s():
     assert (people.sha256, len(people)) == (PERSONAS["set"]["sha256"], PERSONAS["set"]["records"])
 
 
-def test_draft_task_file_names_what_exists():
-    """tarot_celtic_cross_inference_task.yaml drafts the new task format. Its defaults may differ from
-    today's, but everything it names must exist."""
-    [(name, task)] = load("tarot_celtic_cross_inference_task.yaml").items()
+def test_task_file_names_what_exists():
+    """tasks.yaml holds the tasks in the new format (inference_task_reference.yaml); the code does not read
+    it yet. Its defaults may differ from today's, but everything it names must exist."""
+    [(name, task)] = load("tasks.yaml").items()
     module, cls_name = task["implemented_by"].split(":")
     assert getattr(importlib.import_module(module), cls_name) is applications.get_task(name)
     templates = [t["template"] for t in task["prompt"]["templates"]] + task["prompt"]["retired_templates"]

@@ -28,10 +28,10 @@ workflows:
                mode: $params.mode}
         produces: {run_id: a generation run, dataset: the label}
         command: >-
-          python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v4
+          python -m inference.generate run tarot_celtic_cross --n 500 --dataset tarot-v4
           --provider openai --model <model> [--mode batch]
     then: >-
-      `python -m data_generation.generate list --dataset tarot-v4` shows the dataset's runs and totals;
+      `python -m inference.generate list --dataset tarot-v4` shows the dataset's runs and totals;
       `status <run_id>` the valid and first-try valid rates per template.
 
   compare_reading_prompts:
@@ -47,7 +47,7 @@ workflows:
         task: tarot_celtic_cross
         with: {templates: $params.templates, n: $params.n, dataset: $params.dataset}
         command: >-
-          python -m data_generation.generate run tarot_celtic_cross --n 50 --template celtic_cross_v3
+          python -m inference.generate run tarot_celtic_cross --n 50 --template celtic_cross_v3
           --template celtic_cross_v4 --dataset tarot-v3-vs-v4
       - id: evaluate
         workflow: evaluate_readings

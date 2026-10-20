@@ -1,6 +1,10 @@
 """
-Generating datasets with LLMs and storing them as relational tables (JSONL per table per
-run, Postgres-ready; see README.md).
+Running inference tasks as recorded runs: sampling a task's inputs, rendering its prompts,
+calling the model live or in batches, validating and retrying, and storing every step as
+relational tables (JSONL per table per run, Postgres-ready; see README.md).
+
+Talking to a model is the `llm` package's job; this package runs a task, many requests at a
+time, through it and keeps the record.
 
   schema     table definitions -> JSONL row checks and Postgres DDL (schema.sql)
   store      RunStore: data/generations/<run_id>/<table>.jsonl

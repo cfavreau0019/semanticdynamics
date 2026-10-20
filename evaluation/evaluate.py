@@ -44,10 +44,10 @@ if __package__ in (None, ""):  # allow `python evaluation/evaluate.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from applications import get_task, task_of, tasks  # noqa: E402
-from data_generation.pipeline import (  # noqa: E402
+from inference.pipeline import (  # noqa: E402
     GenerationConfig, collect_batch, list_runs, load_config, prepare_run, run_live, submit_batch, summarize,
 )
-from data_generation.store import REPO_ROOT, RunStore  # noqa: E402
+from inference.store import REPO_ROOT, RunStore  # noqa: E402
 from evaluation.dashboard import write_dashboard  # noqa: E402
 from evaluation.expectations import generate_expectations, load_expectations  # noqa: E402
 from evaluation.subjects import load_subjects  # noqa: E402

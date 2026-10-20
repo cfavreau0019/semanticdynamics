@@ -32,7 +32,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 if __package__ in (None, ""):  # allow `python evaluation/summarize.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_generation.store import utc_now  # noqa: E402
+from inference.store import utc_now  # noqa: E402
 from evaluation.dashboard import EVALUATIONS_ROOT, build_data  # noqa: E402
 from llm import ChatRequest, chat  # noqa: E402
 from prompts import get_template  # noqa: E402

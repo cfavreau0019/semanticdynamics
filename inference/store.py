@@ -3,7 +3,7 @@ File-backed store for one generation run: data/generations/<run_id>/<table>.json
 
 Append-only tables are appended to (crash-safe: a partially written run keeps every row
 written so far); mutable tables (runs, batches) are small and rewritten atomically.
-Every row is checked against data_generation.schema before it is written.
+Every row is checked against inference.schema before it is written.
 """
 import json
 import os
@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from data_generation.schema import TABLES, check_row
+from inference.schema import TABLES, check_row
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = REPO_ROOT / "data" / "generations"

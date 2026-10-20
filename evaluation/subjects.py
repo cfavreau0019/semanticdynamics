@@ -1,5 +1,5 @@
 """
-Subjects: the generated outputs an evaluation scores, read from data_generation runs.
+Subjects: the generated outputs an evaluation scores, read from inference runs.
 
 A subject is the final response of a request, together with the structured input it was
 generated from (e.g. the card draw), so the evaluator can be told what the output was
@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
-from data_generation.pipeline import final_responses, list_runs
-from data_generation.store import DEFAULT_ROOT, RunStore
+from inference.pipeline import final_responses, list_runs
+from inference.store import DEFAULT_ROOT, RunStore
 
 
 @dataclass(frozen=True)

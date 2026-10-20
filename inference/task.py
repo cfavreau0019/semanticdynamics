@@ -73,7 +73,7 @@ class InferenceTask(ABC):
         return {}
 
     # ---- command line ------------------------------------------------------------------
-    # What the general scripts (data_generation.generate, evaluation.evaluate) ask of a task,
+    # What the general scripts (inference.generate, evaluation.evaluate) ask of a task,
     # so that they need no code of their own for it.
     cli: Optional[str] = "generate"         # the script whose `run` starts this task: "generate" or "evaluate";
                                             # None = it is only started as part of another task

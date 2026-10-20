@@ -1,13 +1,13 @@
 """
 Applications: what is built on the general packages (llm, prompts, personas, validation,
-data_generation, evaluation). One folder per application, holding everything that is
+inference, evaluation). One folder per application, holding everything that is
 specific to it; the general packages never import from here, only their command-line
 scripts do, to look tasks up by name.
 
   tarot      Celtic Cross readings and their evaluation by personas
   template   files to copy when starting an application; not an application itself
 
-An application is a set of inference tasks (data_generation.task.InferenceTask), one file
+An application is a set of inference tasks (inference.task.InferenceTask), one file
 per task, plus whatever only that application needs, such as its validators.
 
 Adding an application: create applications/<name>/ with an __init__.py, and its Python
@@ -15,10 +15,10 @@ Adding an application: create applications/<name>/ with an __init__.py, and its 
 InferenceTask subclass with a `name`, defined in any module of an application's package, is
 found by tasks(), and the general scripts then offer it:
 
-    python -m data_generation.generate run <task> ...       # tasks with cli = "generate"
+    python -m inference.generate run <task> ...       # tasks with cli = "generate"
     python -m evaluation.evaluate run <task> ...            # tasks with cli = "evaluate"
 
-What a task has to supply is described in data_generation/task.py; evaluation tasks start
+What a task has to supply is described in inference/task.py; evaluation tasks start
 from evaluation.task.EvaluationTask and evaluation.expectations.PersonaExpectations.
 """
 import importlib
@@ -33,7 +33,7 @@ NOT_APPLICATIONS = {"template"}        # folders here that are not applications,
 @lru_cache(maxsize=None)
 def tasks() -> dict:
     """{name: class} of every task of every application. Imports every module of each application."""
-    from data_generation.task import InferenceTask  # here, so that importing one module of an application stays light
+    from inference.task import InferenceTask  # here, so that importing one module of an application stays light
 
     found: dict[str, type] = {}
     for application in pkgutil.iter_modules(__path__, prefix=f"{__name__}."):

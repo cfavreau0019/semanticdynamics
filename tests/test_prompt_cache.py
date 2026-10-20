@@ -2,14 +2,14 @@
 from types import SimpleNamespace
 
 from applications.tarot.code.readings import TarotReadings
-from data_generation.pipeline import GenerationConfig, prepare_run, run_live, summarize
+from inference.pipeline import GenerationConfig, prepare_run, run_live, summarize
 from evaluation.rubric import get_rubric
 from llm import ChatResponse, Usage
 from llm.providers import register_provider
 from llm.providers.openai_compatible import _usage
 from personas import PersonaSet
 from prompts import get_template
-from test_data_generation import TarotScripted, isolated_registry, reading_from_prompt  # noqa: F401
+from test_inference import TarotScripted, isolated_registry, reading_from_prompt  # noqa: F401
 
 
 def shared_prefix(a: str, b: str) -> int:

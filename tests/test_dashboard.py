@@ -2,10 +2,10 @@
 import json
 
 from applications.tarot.code.persona_expectations import TarotPersonaExpectations
-from data_generation.pipeline import prepare_run, run_live
+from inference.pipeline import prepare_run, run_live
 from evaluation.dashboard import DATA_MARKER, build_data, main, render
 from evaluation.expectations import generate_expectations
-from test_data_generation import as_schema_version_4
+from test_inference import as_schema_version_4
 from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_task, readings, registry  # noqa: F401
 
 

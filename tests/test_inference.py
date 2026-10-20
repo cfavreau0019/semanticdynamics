@@ -1,4 +1,4 @@
-"""data_generation: schema, store, the tarot readings task, live/batch pipeline, resume, CLI."""
+"""inference: schema, store, the tarot readings task, live/batch pipeline, resume, CLI."""
 import json
 import random
 import re
@@ -12,14 +12,14 @@ import llm.providers as providers
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
 from applications.tarot.code.readings import TarotReadings
-from data_generation import schema
-from data_generation.generate import main
-from data_generation.pipeline import (
+from inference import schema
+from inference.generate import main
+from inference.pipeline import (
     GenerationConfig, collect_batch, final_responses, list_runs, load_config, prepare_run, rebuild_requests,
     run_live,
     submit_batch, )
-from data_generation.store import RunStore
-from data_generation.task import InferenceTask
+from inference.store import RunStore
+from inference.task import InferenceTask
 from prompts import get_template, parse_id as parse_template_id
 from conftest import FakeOpenAIClient, batch_body
 from llm.providers.openai_compatible import OpenAICompatibleProvider
@@ -105,7 +105,7 @@ def check_primary_keys(store: RunStore):
 def test_committed_schema_sql_is_up_to_date():
     committed = (Path(schema.__file__).parent / "schema.sql").read_text(encoding="utf-8")
     assert committed.replace("\r\n", "\n").strip() == schema.ddl().strip(), \
-        "regenerate: python -m data_generation.schema > data_generation/schema.sql"
+        "regenerate: python -m inference.schema > inference/schema.sql"
 
 
 def test_ddl_tables_in_dependency_order():
@@ -129,7 +129,7 @@ def test_check_row():
 
 # ---- store ------------------------------------------------------------------------------
 def test_run_ids_name_the_task_then_the_time(tmp_path, scripted):
-    from data_generation.store import new_run_id
+    from inference.store import new_run_id
     assert re.fullmatch(r"run_tarot_celtic_cross_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id("tarot_celtic_cross"))
     assert re.fullmatch(r"run_my_task_2_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id("My Task/2"))     # made folder-safe
     assert re.fullmatch(r"run_\d{8}_\d{6}_[0-9a-f]{6}", new_run_id())                          # the old form

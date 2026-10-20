@@ -10,9 +10,9 @@ from applications import task_of
 from applications.tarot.code.celtic_cross_evaluation import CelticCrossEvaluation
 from applications.tarot.code.persona_expectations import EXPECTATION_CONTEXT, TarotPersonaExpectations
 from applications.tarot.code.readings import TarotReadings
-from data_generation import schema
-from data_generation.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
-from data_generation.store import RunStore
+from inference import schema
+from inference.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
+from inference.store import RunStore
 from evaluation.checks import JsonFieldsCheck, RubricAnswerCheck, extract_json, quote_in_text
 from evaluation.evaluate import main
 from evaluation.expectations import EXPECTATION_FIELDS, generate_expectations, load_expectations
@@ -20,7 +20,7 @@ from evaluation.rubric import RubricError, get_rubric, load_rubric
 from evaluation.subjects import load_subjects
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
-from test_data_generation import TarotScripted, check_primary_keys
+from test_inference import TarotScripted, check_primary_keys
 from validation import Validator
 
 EVALUATE = ["run", "celtic_cross_evaluation"]                    # command lines of the two stages

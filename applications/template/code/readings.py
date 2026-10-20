@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Mapping, Optional
 
 from applications.tarot.code.validation import CELTIC_CROSS_POSITIONS, REVERSED_SUFFIX, celtic_cross_validator, parse_state
-from data_generation.pipeline import list_runs
-from data_generation.store import REPO_ROOT
-from data_generation.task import InferenceTask
+from inference.pipeline import list_runs
+from inference.store import REPO_ROOT
+from inference.task import InferenceTask
 
 DEFAULT_DECK_CONFIG = REPO_ROOT / "sandbox" / "vector_space_config.json"
 DRAW_MODES = ("replacement", "unique")
@@ -132,7 +132,7 @@ class TarotReadings(InferenceTask):
     def validator(self):
         return celtic_cross_validator(cards=self.cards, name=self.name)
 
-    # ---- command line: python -m data_generation.generate run tarot_celtic_cross ... --------
+    # ---- command line: python -m inference.generate run tarot_celtic_cross ... --------
     @classmethod
     def add_arguments(cls, parser) -> None:
         parser.add_argument("--draw", choices=DRAW_MODES, default="replacement",

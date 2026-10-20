@@ -2,10 +2,12 @@
 The tarot application: Celtic Cross readings of sampled card draws, and their evaluation
 by personas with the Celtic Cross Reading Evaluation Form.
 
-The application's files: application.yaml (what it is), schemas.yaml, personas.yaml, tasks.yaml
-(with tarot_celtic_cross_inference_task.yaml, a draft of one task in the new format),
-workflows.yaml, prompts/, rubrics/, and vector_space_config.json (the deck). The code does not
-read most of them yet; tests/test_tarot_application_files.py keeps them in step with it.
+The application's files: application.yaml (what it is), tasks.yaml (the tasks in the new
+format, so far tarot_celtic_cross; see applications/template/inference_task_reference.yaml),
+tasks_draft.yaml (all three tasks in the earlier, descriptive format), schemas.yaml,
+personas.yaml, workflows.yaml, prompts/, rubrics/, and vector_space_config.json (the deck). The
+code does not read most of them yet; tests/test_tarot_application_files.py keeps them in step
+with it.
 
 The Python is in code/, one module per task:
   readings                  TarotReadings: a card draw -> a reading
@@ -18,7 +20,7 @@ The Python is in code/, one module per task:
                             validator for readings
 
 The tasks are run by the general scripts, under the names their runs are stored with:
-    python -m data_generation.generate run tarot_celtic_cross --n 20 ...
+    python -m inference.generate run tarot_celtic_cross --n 20 ...
     python -m evaluation.evaluate expectations celtic_cross_evaluation ...
     python -m evaluation.evaluate run celtic_cross_evaluation --subject-dataset tarot-v1 ...
 

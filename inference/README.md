@@ -1,9 +1,9 @@
-# data_generation
+# inference
 
-Generates datasets with LLMs and stores each run as a set of relational tables: one JSONL file per table. The files are designed to load directly into Postgres (or DuckDB).
+Runs inference tasks: it samples a task's inputs, renders its prompts, calls the model (through the `llm` package), validates and retries, and stores each run as a set of relational tables, one JSONL file per table. The files are designed to load directly into Postgres (or DuckDB). Runs are kept under `data/generations/`.
 
 ```
-data_generation/
+inference/
   schema.py          table definitions: validate JSONL rows and generate schema.sql
   schema.sql         Postgres DDL (generated; don't edit by hand)
   store.py           RunStore: data/generations/<run_id>/<table>.jsonl
@@ -20,20 +20,20 @@ The tasks themselves live with their application. `applications/tarot/code/readi
 
 ```bash
 # live: concurrent calls, validated and retried, written as they finish
-python -m data_generation.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
+python -m inference.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
 
 # options
-python -m data_generation.generate run tarot_celtic_cross --n 50 --provider featherless --temperature 0.9 \
+python -m inference.generate run tarot_celtic_cross --n 50 --provider featherless --temperature 0.9 \
     --extra-body '{"top_k": 40, "min_p": 0.02}' --seed 42 --draw unique --pin "Outcome=Death reversed" --name death-outcome
 
 # batch (OpenAI): submit now, collect later (--wait blocks until done)
-python -m data_generation.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
-python -m data_generation.generate collect <run_id> [--wait]
+python -m inference.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
+python -m inference.generate collect <run_id> [--wait]
 
-python -m data_generation.generate resume <run_id>    # live: finish interrupted / API-errored requests
-python -m data_generation.generate status <run_id>
-python -m data_generation.generate list
-python -m data_generation.generate run tarot_celtic_cross --n 5 --dry-run   # write inputs/prompts/requests only
+python -m inference.generate resume <run_id>    # live: finish interrupted / API-errored requests
+python -m inference.generate status <run_id>
+python -m inference.generate list
+python -m inference.generate run tarot_celtic_cross --n 5 --dry-run   # write inputs/prompts/requests only
 ```
 
 ### Growing a dataset over several sessions
@@ -41,17 +41,17 @@ python -m data_generation.generate run tarot_celtic_cross --n 5 --dry-run   # wr
 Each `run` call is its own run, in its own folder, with its own recorded settings, seed and git commit. To build one dataset across sessions, give every run the same `--dataset` label:
 
 ```bash
-python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
+python -m inference.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
 # ... days later ...
-python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
-python -m data_generation.generate list --dataset tarot-v1      # runs + combined totals
+python -m inference.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
+python -m inference.generate list --dataset tarot-v1      # runs + combined totals
 ```
 
 - The label is stored once, in `runs.dataset`. Every other table reaches it through `run_id`.
 - Without `--seed`, each run gets a fresh seed (recorded in `runs.config`), so sessions draw different cards. Passing a `--seed` already used in the same dataset with the same draw settings would repeat those draws, so the script warns.
 - A run stopped partway is finished with `resume <run_id>`; that adds to the same run's files.
 
-`python -m data_generation.generate run tarot_celtic_cross --help` lists every option: the general ones, and those the task adds (for tarot readings `--draw`, `--pin` and `--deck-config`). `collect`, `resume` and `status` take only a run id, because a run records which task it belongs to. The main options:
+`python -m inference.generate run tarot_celtic_cross --help` lists every option: the general ones, and those the task adds (for tarot readings `--draw`, `--pin` and `--deck-config`). `collect`, `resume` and `status` take only a run id, because a run records which task it belongs to. The main options:
 
 | Option | Default | Notes |
 |---|---|---|
@@ -71,8 +71,8 @@ Prompt text lives in the `prompts` package as versioned template files; the taro
 
 ```bash
 python -m prompts list                                                     # available templates and their status
-python -m data_generation.generate run tarot_celtic_cross --n 200 --personas tarot_personas
-python -m data_generation.generate run tarot_celtic_cross --n 50 --template celtic_cross_v1 --template celtic_cross_v2
+python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas
+python -m inference.generate run tarot_celtic_cross --n 50 --template celtic_cross_v1 --template celtic_cross_v2
 ```
 
 With several templates, `--n` is the number of card draws and each draw is sent once per template, so the comparison is paired. The summary and `status` then report, for each template, the valid rate and the first-try valid rate.
@@ -116,7 +116,7 @@ runs ─┬─< inputs ─┬─< input_items
   - Earlier runs keep their files as they are. `RunStore.run()` returns every run's row in the current shape, so read rows through it; a run's row is rewritten in that shape the next time the run is resumed or collected. `schema_version` stays the version the run was created with.
   - When querying files of several versions together in DuckDB, pass `union_by_name=true` to `read_json`, and read the task as `coalesce(task, application)`.
   - A Postgres database created from an earlier `schema.sql` needs `ALTER TABLE runs RENAME COLUMN application TO task;`.
-- **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m data_generation.schema > data_generation/schema.sql`.
+- **`schema.py` is the single source of truth.** Every row is checked against it before writing, and `schema.sql` is generated from it; a test fails if the two drift apart. After changing a table, bump `SCHEMA_VERSION` and regenerate: `python -m inference.schema > inference/schema.sql`.
 - **Run ids name the task.** A run id is `run_<task>_<YYYYMMDD>_<HHMMSS>_<6 hex>` (UTC), e.g. `run_tarot_celtic_cross_20261005_142210_3fa9c1`, so run folders group by task and sort by start time within it. Runs created before this naming have no task part (`run_20261001_…`). `list` always sorts by each run's recorded start time.
 - **Ids are prefixed text** (`run_…`, `inp_…`, `prm_…`, `req_…`, `<request_id>-a<attempt>`), and every table except the reference tables carries `run_id`, so runs can be combined, deleted or partitioned as units.
 - **JSON columns (JSONB)** hold nested JSON, not strings. Timestamps are ISO-8601 UTC.
@@ -152,7 +152,7 @@ A table's file only exists once that table has rows. If *no* run has, say, `batc
 - enforced keys;
 - pgvector, so embeddings can later sit next to the texts.
 
-To set it up, `psql -f data_generation/schema.sql` creates the tables and the `final_responses` view. The simplest loader is DuckDB's Postgres extension:
+To set it up, `psql -f inference/schema.sql` creates the tables and the `final_responses` view. The simplest loader is DuckDB's Postgres extension:
 
 ```sql
 ATTACH 'dbname=semanticdynamics' AS pg (TYPE postgres);

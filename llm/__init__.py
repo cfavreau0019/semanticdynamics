@@ -7,6 +7,9 @@ LLM access for the project:
   whitebox         WhiteBoxModel                NNsight hidden states (imported lazily: pulls in torch)
 
 Providers are chosen per call with provider="openai" | "featherless" | <LLMProvider>.
+
+This package talks to models. Running a task as a recorded run (inputs, prompts, validation,
+storage) is the `inference` package's job, built on this one.
 """
 from llm.types import (
     BatchJob, ChatRequest, ChatResponse, EmbeddingResponse, Message, Usage,

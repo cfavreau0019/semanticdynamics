@@ -27,8 +27,8 @@ from typing import Any, Optional, Sequence
 if __package__ in (None, ""):  # allow `python evaluation/dashboard.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_generation.pipeline import list_runs  # noqa: E402
-from data_generation.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore, utc_now  # noqa: E402
+from inference.pipeline import list_runs  # noqa: E402
+from inference.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore, utc_now  # noqa: E402
 
 EVALUATIONS_ROOT = REPO_ROOT / "data" / "evaluations"
 TEMPLATE = Path(__file__).resolve().parent / "dashboard.html"

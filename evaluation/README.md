@@ -1,6 +1,6 @@
 # evaluation
 
-Scores generated outputs against a rubric, using an LLM as the evaluator, optionally in the role of a persona. An evaluation run is an ordinary `data_generation` run whose requests are evaluations. It uses the same tables, live or batch execution, resume, validation and validation retries.
+Scores generated outputs against a rubric, using an LLM as the evaluator, optionally in the role of a persona. An evaluation run is an ordinary `inference` run whose requests are evaluations. It uses the same tables, live or batch execution, resume, validation and validation retries.
 
 ```
 evaluation/
@@ -124,7 +124,7 @@ To compare evaluator models, record expectations once and pass the same `--expec
 
 ## Tables
 
-An evaluation run has the standard run tables (`runs`, `inputs`, `prompts`, `requests`, `responses`, …; see `data_generation/README.md`) plus:
+An evaluation run has the standard run tables (`runs`, `inputs`, `prompts`, `requests`, `responses`, …; see `inference/README.md`) plus:
 
 | Table | One row per | Key columns |
 |---|---|---|

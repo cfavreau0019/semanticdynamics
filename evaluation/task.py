@@ -20,8 +20,8 @@ import random
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
-from data_generation.store import DEFAULT_ROOT, RunStore, new_id, utc_now
-from data_generation.task import INPUT_KEY, InferenceTask
+from inference.store import DEFAULT_ROOT, RunStore, new_id, utc_now
+from inference.task import INPUT_KEY, InferenceTask
 from evaluation.checks import RubricAnswerCheck, extract_json
 from evaluation.expectations import PersonaExpectations, load_expectations
 from evaluation.rubric import Labels, Rubric, get_rubric

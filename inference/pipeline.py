@@ -23,9 +23,9 @@ from typing import Any, Optional
 
 from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider, retry_invalid, run_batch_results
 from llm.batch import wait_for_batch
-from data_generation.schema import SCHEMA_VERSION, TABLES
-from data_generation.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
-from data_generation.task import INPUT_KEY, InferenceTask
+from inference.schema import SCHEMA_VERSION, TABLES
+from inference.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
+from inference.task import INPUT_KEY, InferenceTask
 from personas import SAMPLING_MODES, PersonaSet
 from prompts import PromptLibrary, PromptTemplate, default_library
 

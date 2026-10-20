@@ -18,9 +18,9 @@ import random
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
-from data_generation.pipeline import GenerationConfig, final_responses, prepare_run, run_live
-from data_generation.store import RunStore
-from data_generation.task import InferenceTask
+from inference.pipeline import GenerationConfig, final_responses, prepare_run, run_live
+from inference.store import RunStore
+from inference.task import InferenceTask
 from evaluation.checks import JsonFieldsCheck
 from llm import ChatResponse
 from personas import PersonaSet

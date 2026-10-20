@@ -1,6 +1,6 @@
 """
 Evaluating generated outputs against rubrics, with an LLM (optionally as a persona) as the
-evaluator. An evaluation run is a data_generation run whose requests are evaluations.
+evaluator. An evaluation run is an inference run whose requests are evaluations.
 
   rubric         Rubric (scale, weighted sections of O/S items, red flags, grades), scoring
   checks         extract_json, RubricAnswerCheck, JsonFieldsCheck

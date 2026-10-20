@@ -158,7 +158,7 @@ class PersonaSet:
 
     # ---- tabular views ------------------------------------------------------------
     def row(self, persona: Persona) -> dict[str, Any]:
-        """The record stored in data_generation's `personas` table."""
+        """The record stored in inference's `personas` table."""
         return {"persona_id": persona["id"], "persona_set": self.name,
                 "persona_number": persona.get("persona_number"), "name": display_name(persona),
                 "payload": persona, "content_sha256": content_sha256(persona)}

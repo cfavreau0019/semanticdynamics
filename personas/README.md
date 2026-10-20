@@ -37,9 +37,9 @@ A persona is a plain dict, exactly the JSON record. Prompt templates read fields
 ## Generating readings with personas
 
 ```bash
-python -m data_generation.generate run tarot_celtic_cross --n 200 --personas tarot_personas
-python -m data_generation.generate run tarot_celtic_cross --n 200 --personas tarot_personas --persona-sampling cycle
-python -m data_generation.generate run tarot_celtic_cross --n 20 --personas tarot_personas --persona 7 --persona "Maya Delgado"
+python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas
+python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas --persona-sampling cycle
+python -m inference.generate run tarot_celtic_cross --n 20 --personas tarot_personas --persona 7 --persona "Maya Delgado"
 ```
 
 - **One persona per draw.** Each card draw is assigned one persona. With `--personas`, the default template becomes `celtic_cross_v2`.

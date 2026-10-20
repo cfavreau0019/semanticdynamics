@@ -1,14 +1,14 @@
 """
 Generate a dataset with an LLM from the command line: start, collect, resume and inspect
 runs of any generation task of any application (applications/<application>/). Results are
-written as tables under data/generations/<run_id>/ (see data_generation/README.md).
+written as tables under data/generations/<run_id>/ (see inference/README.md).
 
-    python -m data_generation.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
-    python -m data_generation.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
-    python -m data_generation.generate collect run_tarot_celtic_cross_20261001_101500_ab12cd --wait
-    python -m data_generation.generate resume run_tarot_celtic_cross_20261001_101500_ab12cd
-    python -m data_generation.generate status run_tarot_celtic_cross_20261001_101500_ab12cd
-    python -m data_generation.generate list [--dataset tarot-v1]
+    python -m inference.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
+    python -m inference.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
+    python -m inference.generate collect run_tarot_celtic_cross_20261001_101500_ab12cd --wait
+    python -m inference.generate resume run_tarot_celtic_cross_20261001_101500_ab12cd
+    python -m inference.generate status run_tarot_celtic_cross_20261001_101500_ab12cd
+    python -m inference.generate list [--dataset tarot-v1]
 
 `run --help` lists the tasks; `run <task> --help` lists the general options and the task's
 own (for tarot_celtic_cross: --draw, --pin, --deck-config). collect, resume and status take
@@ -16,10 +16,10 @@ only a run id: the run recorded which task it belongs to.
 
 Grow one dataset over several sessions by giving each run the same --dataset label:
 
-    python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
-    python -m data_generation.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless   # later
+    python -m inference.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless
+    python -m inference.generate run tarot_celtic_cross --n 500 --dataset tarot-v1 --provider featherless   # later
 
-`python data_generation/generate.py ...` works too.
+`python inference/generate.py ...` works too.
 """
 import argparse
 import inspect
@@ -28,14 +28,14 @@ import sys
 import warnings
 from pathlib import Path
 
-if __package__ in (None, ""):  # allow `python data_generation/generate.py`
+if __package__ in (None, ""):  # allow `python inference/generate.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from applications import get_task, task_of, tasks  # noqa: E402
-from data_generation.pipeline import (  # noqa: E402
+from inference.pipeline import (  # noqa: E402
     GenerationConfig, collect_batch, list_runs, load_config, prepare_run, run_live, submit_batch, summarize,
 )
-from data_generation.store import DEFAULT_ROOT, RunStore  # noqa: E402
+from inference.store import DEFAULT_ROOT, RunStore  # noqa: E402
 from personas import SAMPLING_MODES  # noqa: E402
 
 
@@ -175,7 +175,7 @@ def cmd_run(args) -> int:
         print_summary(store, run_live(store, task, requests))
         return 0
     job = submit_batch(store, requests)
-    print(f"Submitted batch {job.id}. Collect with:\n  python -m data_generation.generate collect {store.run_id}")
+    print(f"Submitted batch {job.id}. Collect with:\n  python -m inference.generate collect {store.run_id}")
     if args.wait:
         print_summary(store, collect_batch(store, task, wait=True))
     return 0
