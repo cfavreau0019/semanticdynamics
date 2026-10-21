@@ -65,9 +65,9 @@ task_name:
   #                          #               EQUAL the number of combinations, and a run
   #                          #               with any other n is refused before it starts.
   #                          #               Never the default: combinations multiply.
-  #   state:                 # REQUIRED in an instantiation: its entries, by name. Entries
-  #                          # are sampled in the order written, from the run's seed
-  #                          # (execution.seed), so a seed reproduces a run's states.
+  #   state:                 # REQUIRED unless `instants` are given: its entries, by name.
+  #                          # Entries are sampled in the order written, from the run's
+  #                          # seed (execution.seed), so a seed reproduces a run's states.
   #
   #     # A plain value is a LITERAL, the same for every instant, lists included:
   #     tone: whimsical
@@ -86,13 +86,29 @@ task_name:
   #                                           # fixed: steps given, not drawn {step: state}.
   #     persona:
   #       personas: tarot_personas            # a persona set (personas/), stored by id
-  #       sample: cycle                       # with a snapshot; `select: [ids]` restricts it
+  #       sample: cycle                       # with a snapshot; `select: [ids]` restricts it.
+  #                                           # A path (people.json) is relative to the
+  #                                           # application folder, like every path here.
   #     spread:
   #       generate:                           # anything else: a Python callable returns
   #         using: package.module:function    # the value; called with the run's random
   #         options: {}                       # generator and these keyword arguments
   #     settings:
   #       value: {strict: true}               # a literal MAPPING must be wrapped in `value`
+  #
+  # GIVEN INSTANTS, instead of sampling: values already chosen, e.g. hand-picked cases or
+  # the inputs of an earlier run under a new template.
+  #
+  # instantiation:
+  #   instants: draws.jsonl  # A list written here, or the path of a YAML/JSON file holding
+  #                          # one, or of a JSONL file with one instant per line. They are
+  #                          # used in order; execution.n may be left out, and if given must
+  #                          # EQUAL their number. Not combined with `sample`.
+  #   state:                 # Optional with `instants`: each instant is checked against it
+  #     cards:               # before the run, so a typo is an error, not a prompt. A persona
+  #       steps: {from: vector_space_config.json, negative_suffix: " reversed"}
+  #     persona:             # may then be given by id, number or full name (persona: 7),
+  #       personas: tarot_personas            # and a literal entry may be left out.
   #
   # The format is checked by instantiation/instantiation.schema.yaml.
 

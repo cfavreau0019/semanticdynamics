@@ -1,5 +1,6 @@
 """instantiation: sampling a run's instants from an InstantiationSpec, and the original Instantiation."""
 import random
+import re
 import shutil
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from inference.store import DEFAULT_ROOT, RunStore
 from inference.task_file import load_task_file
 from instantiation import (
     Generate, Instantiation, InstantiationError, InstantiationSpec, Literal, OneOf, Personas, Steps, draw_steps,
-    probes, read_instantiation,
+    fixed_size, probes, read_instantiation,
 )
 from personas import PersonaSet
 
@@ -157,6 +158,78 @@ def test_probes_try_every_candidate_and_persona():
     base = tried[0][1]
     assert (base["size"], base["persona"]["persona_number"]) == ("S", 1)
     assert all(instant["cards"] == base["cards"] for _, instant in tried)
+
+
+# ---- values already chosen ---------------------------------------------------------------------
+STORY = InstantiationSpec({
+    "tone": Literal("whimsical"),
+    "character": OneOf(("fox", "owl")),
+    "arc": Steps(("start", "end"), ("hope", "loss"), True, " averted", False, {"end": "loss"}),
+    "narrator": Personas("tarot_personas", select=(1, 2)),
+    "twist": Generate(f"{__name__}:pick"),
+})
+
+
+def test_values_already_chosen_are_checked_and_filled_in():
+    given = {"character": "owl", "arc": {"end": "loss", "start": "hope averted"}, "narrator": "Maya Delgado",
+             "twist": ["anything"]}
+    one = Instantiation.of(given, STORY, index=3)
+    assert list(one.instant) == ["tone", "character", "arc", "narrator", "twist"]   # the state's order
+    assert one.instant["tone"] == "whimsical"                                         # a literal, filled in
+    assert list(one.instant["arc"]) == ["start", "end"]                               # the steps' order
+    assert one.instant["narrator"] == PersonaSet.load("tarot_personas").get(1)        # by name, to its record
+    assert (one.spec, one.index) == (STORY, 3) and STORY.problems(given) == []
+    assert Instantiation.of(one.instant, STORY).instant == one.instant                 # a record is fine as it is
+    assert Instantiation.of({"anything": [1]}).instant == {"anything": [1]}           # no spec: nothing to check
+
+
+@pytest.mark.parametrize("given, problem", [
+    ({"tone": "grim"}, "instant.tone: must be 'whimsical', the entry's only value"),
+    ({"character": "cat"}, "instant.character: 'cat' is not one of the candidates"),
+    ({"arc": {"start": "joy", "end": "loss"}}, "instant.arc.start: 'joy' is not one of the states"),
+    ({"arc": {"start": "hope", "end": "hope"}}, "instant.arc.end: the step is fixed to 'loss', not 'hope'"),
+    ({"arc": {"start": "loss averted", "end": "loss"}}, "replacement is false, but ['loss'] appear more than once"),
+    ({"arc": {"start": "hope"}}, "instant.arc: no state for ['end']"),
+    ({"arc": {"start": "hope", "end": "loss", "middle": "hope"}}, "['middle'] are not steps (start, end)"),
+    ({"narrator": 3}, "instant.narrator: persona 3 (Javier Ruiz) is not among those selected ([1, 2])"),
+    ({"narrator": {**PersonaSet.load("tarot_personas").get(1), "description": "edited"}},
+     "persona 1 (Maya Delgado) differs from its record in tarot_personas"),
+    ({"narrator": True}, "a persona is given by id, number or full name, or as its record"),
+    ({"villain": "wolf"}, "instant.villain: not an entry of the state"),
+])
+def test_values_that_could_not_have_come_from_the_spec(given, problem):
+    instant = {"character": "fox", "arc": {"start": "hope", "end": "loss"}, "narrator": 1, "twist": None, **given}
+    assert any(problem in p for p in STORY.problems(instant)), STORY.problems(instant)
+    with pytest.raises(InstantiationError, match=re.escape(problem)):
+        Instantiation.of(instant, STORY)
+    assert "instant.character: missing" in STORY.problems({})
+
+
+def test_a_run_of_given_instants():
+    given = ({"character": "fox", "arc": {"start": "hope", "end": "loss"}, "narrator": 2, "twist": 1},
+             {"character": "owl", "arc": {"start": "hope averted", "end": "loss"}, "narrator": 1, "twist": 2})
+    spec = InstantiationSpec(STORY.state, instants=given)
+    assert fixed_size(spec) == 2
+    run = Instantiation.sample(spec)                                     # n is theirs
+    assert [i.instant["twist"] for i in run] == [1, 2] and [i.index for i in run] == [0, 1]
+    assert [i.instant["narrator"]["persona_number"] for i in run] == [2, 1]
+    assert Instantiation.sample(spec, 2, seed=1)[1].instant == run[1].instant           # nothing is drawn
+    with pytest.raises(InstantiationError, match="the instantiation gives 2 instants: n must be 2, not 3"):
+        Instantiation.sample(spec, 3)
+    with pytest.raises(InstantiationError, match=re.escape("instants[1].character: 'cat'")):
+        Instantiation.sample(InstantiationSpec(STORY.state, instants=(given[0], {**given[1], "character": "cat"})))
+    assert [label for label, _ in probes(spec)] == ["instants[0]", "instants[1]"]
+
+    bare = InstantiationSpec({}, instants=({"a": 1, "b": 2}, {"a": 3}))             # no state: taken as given
+    assert [i.instant for i in Instantiation.sample(bare)] == [{"a": 1, "b": 2}, {"a": 3}] and bare.entries == ("a",)
+
+
+def test_n_can_be_left_out_only_when_the_spec_fixes_it():
+    exhaustive = InstantiationSpec({"a": OneOf((1, 2), "exhaustive"), "b": OneOf((3, 4, 5), "exhaustive")})
+    assert fixed_size(exhaustive) == 6 and len(Instantiation.sample(exhaustive)) == 6
+    assert fixed_size(STORY) is None
+    with pytest.raises(InstantiationError, match="n is needed"):
+        Instantiation.sample(STORY)
 
 
 # ---- the original use --------------------------------------------------------------------------

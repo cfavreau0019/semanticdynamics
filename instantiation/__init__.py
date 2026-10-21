@@ -9,22 +9,22 @@ engine samples a run's instants from them.
 
   spec                  InstantiationSpec and its entries (Literal, OneOf, Steps, Personas, Generate),
                         read and checked from a task file's `instantiation` or an instantiation file
-  core                  Instantiation: one realized state; Instantiation.sample(spec, n, seed) for a run
-  files                 reading YAML strictly, file hashes, schema errors in plain words
+  core                  Instantiation: one realized state; Instantiation.sample(spec, n, seed) for a run,
+                        Instantiation.of(values, spec) for values already chosen
   instantiation.schema.yaml   the format, as JSON Schema
 
     from instantiation import Instantiation, read_instantiation
     run = Instantiation.sample(read_instantiation("instantiation.yaml"), n=20, seed=42)
     [i.instant for i in run]
 """
-from instantiation.core import Instantiation, candidates, draw_steps, probes
+from instantiation.core import Instantiation, candidates, draw_steps, fixed_size, probes, resolve
 from instantiation.spec import (
     Entry, Generate, InstantiationError, InstantiationSpec, Literal, OneOf, Personas, Steps, load_instantiation,
     read_instantiation,
 )
 
 __all__ = [
-    "Instantiation", "candidates", "draw_steps", "probes",
+    "Instantiation", "candidates", "draw_steps", "fixed_size", "probes", "resolve",
     "Entry", "Generate", "InstantiationError", "InstantiationSpec", "Literal", "OneOf", "Personas", "Steps",
     "load_instantiation", "read_instantiation",
 ]

@@ -1,6 +1,7 @@
 """
-Reading the YAML files instantiations and tasks are written in, and reporting what is wrong
-with them in plain words.
+Reading the declarative files of an application (task files, instantiation files, and the files
+they name), and reporting what is wrong with them in plain words. Shared by the `instantiation`
+package and the task-file loader (inference.task_file); it depends on neither.
 
   read_yaml       strict: a duplicate key is an error, and dates stay as written
   file_sha256     a file's identity, independent of line endings
@@ -81,20 +82,25 @@ def _deepest(error):
     leaves = []
 
     def walk(e):
-        if e.context:
+        if e.context and not _needs_one_of(e):
             for c in e.context:
                 walk(c)
         else:
             leaves.append(e)
 
     walk(error)
-    telling = {"additionalProperties": 3, "not": 2, "required": 0, "type": 0}   # a stray key says most
+    telling = {"additionalProperties": 3, "not": 2, "anyOf": 2, "required": 0, "type": 0}   # a stray key says most
 
     def stray(e) -> int:                       # the closest alternative finds the fewest stray keys
         allowed = e.schema.get("properties", {}) if isinstance(e.schema, dict) else {}
         return len(set(e.instance) - set(allowed)) if isinstance(e.instance, dict) else 0
 
     return max(leaves, key=lambda e: (len(e.absolute_path), telling.get(e.validator, 1), -stray(e)))
+
+
+def _needs_one_of(error) -> bool:
+    """An anyOf of alternatives that each require keys: "needs 'a' or 'b'" says it best."""
+    return error.validator == "anyOf" and all(c.validator == "required" for c in error.context)
 
 
 def _required_keys(schema: Any) -> set:
@@ -117,8 +123,11 @@ def schema_problems(validator: Draft202012Validator, instance: Any, where: str) 
         if shown.validator == "pattern" and "description" in shown.schema:   # say what is wanted, not the regex
             message = f"{shown.instance!r} is not {shown.schema['description']}"
         elif shown.validator == "not" and isinstance(shown.instance, dict):   # keys that exclude each other
-            given = set(shown.schema.get("required", ())) & set(shown.instance)
             banned = _required_keys(shown.validator_value) & set(shown.instance)
-            message = f"{', '.join(map(repr, sorted(given)))} cannot be combined with {', '.join(map(repr, sorted(banned)))}"
+            given = set(shown.schema.get("required", ())) & set(shown.instance) - banned
+            message = (f"{', '.join(map(repr, sorted(given)))} cannot be combined with {', '.join(map(repr, sorted(banned)))}"
+                       if given else f"{' and '.join(map(repr, sorted(banned)))} cannot be combined")
+        elif _needs_one_of(shown):
+            message = "needs " + " or ".join(" and ".join(map(repr, c.validator_value)) for c in shown.context)
         problems.append(f"{_where(where, shown.absolute_path)}: {message}")
     return problems

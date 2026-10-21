@@ -13,7 +13,7 @@ import applications
 from applications.tarot.code.readings import TarotReadings
 from inference.task_file import TaskFileError, load_task_file, main
 from instantiation import Literal, OneOf, Personas, Steps
-from instantiation.files import read_yaml
+from spec_files import read_yaml
 from prompts import get_template
 
 ROOT = Path(__file__).parents[1]
@@ -204,13 +204,83 @@ def test_every_persona_of_a_set_is_rendered(tmp_path):
     people = json.loads((ROOT / "personas" / "tarot_personas.json").read_text(encoding="utf-8"))[:3]
     del people[1]["tarot_profile"]                                       # a field celtic_cross_v2 reads
     (tmp_path / "people.json").write_text(json.dumps(people), encoding="utf-8")
-    [found] = problems(tmp_path, with_personas(str(tmp_path / "people.json")))
+    [found] = problems(tmp_path, with_personas("people.json"))          # relative to the task file
     assert found.startswith("tarot_celtic_cross.prompt.templates[0]: celtic_cross_v2 does not render in 1 of 3 "
                             "sample instants, e.g. with persona = persona 2 (")
     assert "tarot_profile" in found
 
     # a template that does not read personas is not affected by what they hold
-    load_task_file(write(tmp_path, with_personas(str(tmp_path / "people.json"), "celtic_cross_v4")))
+    load_task_file(write(tmp_path, with_personas("people.json", "celtic_cross_v4")))
+
+
+def test_a_persona_set_path_is_relative_to_the_task_file(tmp_path, monkeypatch):
+    shutil.copy(ROOT / "personas" / "tarot_personas.json", tmp_path / "people.json")
+    (tmp_path / "elsewhere").mkdir()
+    monkeypatch.chdir(tmp_path / "elsewhere")                            # not where the task file is
+    [spec] = load_task_file(write(tmp_path, with_personas("people.json"))).values()
+    assert spec.instantiation.state["persona"].file == tmp_path / "people.json"
+    assert spec.references["persona_sets"] == {"people.json": spec.references["persona_sets"]["people.json"]}
+    assert "persona.personas: no file 'missing.json'" in problems(tmp_path, with_personas("missing.json"))[0]
+
+
+# ---- given instants -------------------------------------------------------------------------------------
+def draw(**changes) -> dict:
+    """A Celtic Cross draw: Death everywhere, but for `changes` ({position: card}, spaces as underscores)."""
+    return {**{p: "Death" for p in TarotReadings().positions}, **{k.replace("_", " "): v for k, v in changes.items()}}
+
+
+def with_instants(instants, state: bool = True) -> str:
+    task = yaml.safe_load(with_personas("tarot_personas"))
+    if not state:
+        del task["tarot_celtic_cross"]["instantiation"]["state"]
+    if instants is not None:
+        task["tarot_celtic_cross"]["instantiation"]["instants"] = instants
+    return yaml.safe_dump(task, sort_keys=False)
+
+
+def test_given_instants_are_checked_and_filled_in(tmp_path):
+    given = [{"cards": draw(), "persona": 2}, {"cards": draw(Present="The Sun reversed"), "persona": "Maya Delgado"}]
+    [spec] = load_task_file(write(tmp_path, with_instants(given))).values()
+    assert spec.instantiation.instants == tuple(given)
+    out = io.StringIO()
+    sys.stdout, saved = out, sys.stdout
+    try:
+        main(["check", str(tmp_path / "tasks.yaml")])
+    finally:
+        sys.stdout = saved
+    assert "instants        2 given (inline), checked against the state" in out.getvalue()
+
+    found = problems(tmp_path, with_instants([{"cards": draw(Present="Deth"), "persona": 900},
+                                              {"cards": draw(), "mood": "calm"}]))
+    assert found == [
+        "tarot_celtic_cross.instantiation.instants[0].cards.Present: 'Deth' is not one of the states",
+        "tarot_celtic_cross.instantiation.instants[0].persona: No persona 900 in set 'tarot_personas'",
+        "tarot_celtic_cross.instantiation.instants[1].mood: not an entry of the state (cards, persona)",
+        "tarot_celtic_cross.instantiation.instants[1].persona: missing"]
+
+
+def test_given_instants_from_a_jsonl_file(tmp_path):
+    lines = [json.dumps({"cards": draw(Outcome=card), "persona": 1}) for card in ("The Sun", "The Moon", "Death")]
+    (tmp_path / "draws.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    [spec] = load_task_file(write(tmp_path, with_instants("draws.jsonl"))).values()
+    assert [i["cards"]["Outcome"] for i in spec.instantiation.instants] == ["The Sun", "The Moon", "Death"]
+    assert "draws.jsonl" in spec.references["files"]
+    before = spec.sha256
+    (tmp_path / "draws.jsonl").write_text("\n".join(lines[:2]), encoding="utf-8")
+    assert load_task_file(tmp_path / "tasks.yaml")["tarot_celtic_cross"].sha256 != before   # the file is part of it
+
+    wrong = [json.dumps({"cards": draw(Outcome="Deth"), "persona": 1})] * 12
+    (tmp_path / "draws.jsonl").write_text("\n".join(wrong), encoding="utf-8")
+    found = problems(tmp_path, with_instants("draws.jsonl"))
+    assert found[0] == ("tarot_celtic_cross.instantiation.instants (draws.jsonl)[0].cards.Outcome: "
+                        "'Deth' is not one of the states")
+    assert len(found) == 11 and found[-1].endswith("and 2 more instants that are not possible states")
+
+
+def test_given_instants_without_a_state(tmp_path):
+    [spec] = load_task_file(write(tmp_path, with_instants([{"cards": draw()}], state=False))).values()
+    assert spec.instantiation.state == {} and spec.instantiation.entries == ("cards",)   # expected: cards, still
+    assert "instantiation: needs 'state' or 'instants'" in problems(tmp_path, with_instants(None, state=False))[0]
 
 
 def test_every_problem_is_reported_at_once(tmp_path):

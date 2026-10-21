@@ -6,7 +6,9 @@
 # An instantiation is optional. It is
 #   null (or left out)  no state: the prompt is used as it is, or with fixed `variables`
 #   a string            the path of an instantiation file, relative to the application folder
-#   a mapping           the instantiation itself, written inline in the task file
+#   a mapping           the instantiation itself, written inline in the task file: a `state` to
+#                       sample from, or `instants` given as they are (checked against a `state`
+#                       when there is one)
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Instantiation
@@ -20,8 +22,11 @@ $defs:
 
   instantiation:
     type: object
-    required: [state]
     additionalProperties: false
+    anyOf:                                     # sampled from a state, or given (and checked against one)
+      - required: [state]
+      - required: [instants]
+    not: {required: [instants, sample]}        # given instants are not sampled
     properties:
       version:
         const: 1
@@ -32,8 +37,17 @@ $defs:
       state:
         type: object
         minProperties: 1
-        description: the state's entries, by name; sampled in this order
+        description: the state's entries, by name; sampled in this order, or what given instants are checked against
         additionalProperties: {$ref: "#/$defs/entry"}
+      instants:
+        description: >-
+          instants given rather than sampled, used in order: a list, or the path of a YAML or JSON
+          file holding one, or of a JSONL file with one instant per line. The run's n must equal
+          their number. With `state`, each is checked against it; a persona may then be given by
+          id, number or full name, and a literal entry may be left out.
+        oneOf:
+          - {type: string, minLength: 1}
+          - {type: array, minItems: 1, items: {type: object, minProperties: 1}}
 
   method:
     enum: [random, cycle, exhaustive]

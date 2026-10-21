@@ -10,7 +10,7 @@ Task files: an application's tasks.yaml read into checked, typed TaskSpec object
 
 A file maps task names to tasks; the format is described in
 applications/template/inference_task_reference.yaml. Loading
-  1. reads the YAML strictly (instantiation.files.read_yaml): a duplicate key is an error, and
+  1. reads the YAML strictly (spec_files.read_yaml): a duplicate key is an error, and
      dates stay as written;
   2. checks each task against inference/schemas/task.schema.yaml (its `instantiation` against
      instantiation/instantiation.schema.yaml): unknown keys and wrong types are errors;
@@ -39,9 +39,9 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
-from instantiation import Generate, InstantiationSpec, Literal, OneOf, Personas, Steps, load_instantiation, probes
+from instantiation import Generate, InstantiationSpec, OneOf, Personas, Steps, load_instantiation, probes
 from instantiation import spec as instantiation_spec
-from instantiation.files import file_sha256, import_reference, read_yaml, relative_key, schema_problems
+from spec_files import file_sha256, import_reference, read_yaml, relative_key, schema_problems
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TASK_NAME = "^[a-z][a-z0-9_]*$"
@@ -211,7 +211,7 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
     from prompts import PromptError, PromptTemplate, default_library
 
     name = spec.name
-    state = dict(spec.instantiation.state) if spec.instantiation else {}
+    state = set(spec.instantiation.entries) if spec.instantiation else set()   # what every instant has
     instantiation_read = not problems           # so far: problems reading the instantiation or variables files
 
     # templates, and the variables they need
@@ -238,7 +238,7 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
                 problems.append(f"{where}.bind.{variable}: {ref.id} takes no variable {variable!r}")
             if entry_name not in state:
                 problems.append(f"{where}.bind.{variable}: no state entry {entry_name!r}")
-        supplied = set(ref.variables) | set(ref.bind) | set(state)
+        supplied = set(ref.variables) | set(ref.bind) | state
         for variable in template.required:
             if variable not in supplied:
                 problems.append(f"{where}: {ref.id} needs {variable!r}, which neither the instantiation nor "
@@ -332,6 +332,10 @@ def describe(spec: TaskSpec) -> list[str]:
         lines.append(f"    template        {ref.id}  {where}")
     if spec.prompt.retired_templates:
         lines.append(f"    retired         {', '.join(spec.prompt.retired_templates)}")
+    if spec.instantiation and spec.instantiation.instants is not None:
+        source = _shown(spec.instantiation.instants_file) if spec.instantiation.instants_file else "inline"
+        lines.append(f"    instants        {len(spec.instantiation.instants)} given ({source})"
+                     f"{', checked against the state' if spec.instantiation.state else ''}")
     if spec.instantiation:
         for entry_name, e in spec.instantiation.state.items():
             if isinstance(e, Steps):
@@ -342,7 +346,7 @@ def describe(spec: TaskSpec) -> list[str]:
             elif isinstance(e, OneOf):
                 what = f"one_of {len(e.candidates)} candidates, {spec.instantiation.method(entry_name)}"
             elif isinstance(e, Personas):
-                what = f"personas from {e.set}, {spec.instantiation.method(entry_name)}"
+                what = f"personas from {_shown(e.file) if e.file else e.set}, {spec.instantiation.method(entry_name)}"
             elif isinstance(e, Generate):
                 what = f"generate with {e.using}"
             else:

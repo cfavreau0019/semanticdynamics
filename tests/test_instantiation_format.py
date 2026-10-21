@@ -43,6 +43,8 @@ def test_the_reference_the_template_example_and_the_tarot_task_are_valid():
     {"state": {"narrator": {"personas": "tarot_personas", "sample": "exhaustive", "select": [1, "Maya Delgado"]}}},
     {"state": {"twist": {"generate": {"using": "applications.tarot.code.readings:sample_spread", "options": {"k": 3}}}}},
     {"state": {"settings": {"value": {"strict": True}}}},
+    {"instants": [{"cards": {"Present": "Death"}}, {"cards": {"Present": "The Sun"}}]},   # given, not sampled
+    {"instants": "draws.jsonl", "state": {"cards": {"steps": {"from": "vector_space_config.json"}}}},
 ])
 def test_valid_instantiations(instantiation):
     assert valid(instantiation), list(VALIDATOR.iter_errors(instantiation))
@@ -61,6 +63,10 @@ def test_valid_instantiations(instantiation):
     ({"state": {"twist": {"generate": {"using": "no_function_named"}}}}, "using is module:function"),
     ({"state": {}}, "an instantiation with no entries"),
     ({"version": 1}, "no state"),
+    ({"instants": []}, "no given instants"),
+    ({"instants": [{}]}, "an empty given instant"),
+    ({"instants": [["Death"]]}, "a given instant maps entry names to values"),
+    ({"instants": "draws.jsonl", "sample": "cycle"}, "given instants are not sampled"),
     ({"state": {"tone": "calm"}, "sampling": {"method": "random"}}, "unknown top-level key"),
     ({"state": {"tone": "calm"}, "version": 2}, "unknown format version"),
 ])

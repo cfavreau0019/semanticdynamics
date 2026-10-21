@@ -9,6 +9,7 @@ applications/template/inference_task_reference.yaml and checked by instantiation
 An InstantiationSpec only describes; instantiation.core.Instantiation realizes it.
 """
 import copy
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional
@@ -16,7 +17,7 @@ from typing import Any, Mapping, Optional
 import yaml
 from jsonschema import Draft202012Validator
 
-from instantiation.files import file_sha256, import_reference, read_yaml, relative_key, schema_problems
+from spec_files import file_sha256, import_reference, read_yaml, relative_key, schema_problems
 
 SCHEMA = yaml.safe_load((Path(__file__).resolve().parent / "instantiation.schema.yaml").read_text(encoding="utf-8"))
 VALIDATOR = Draft202012Validator(SCHEMA)
@@ -60,10 +61,14 @@ class Steps:
 
 @dataclass(frozen=True)
 class Personas:
-    """A person from a persona set (personas/); stored with a run by id, with a snapshot."""
+    """
+    A person from a persona set; stored with a run by id, with a snapshot. `set` is as written: a
+    set name (personas/<name>.json), or a path, relative to the task's folder, which `file` resolves.
+    """
     set: str
     sample: Optional[str] = None               # None: the instantiation's default
     select: tuple = ()
+    file: Optional[Path] = None
 
 
 @dataclass(frozen=True)
@@ -82,11 +87,25 @@ class InstantiationSpec:
     sample: str = "random"                     # the default for one_of and personas entries
     version: int = 1
     file: Optional[Path] = None                # the instantiation file, when not written inline
+    instants: Optional[tuple] = None           # instants given rather than sampled, as written
+    instants_file: Optional[Path] = None       # where they came from, when from a file
 
     def method(self, name: str) -> Optional[str]:
         """How an entry chooses its value: its own `sample`, else the default; None for entries that do not choose."""
         entry = self.state[name]
         return (entry.sample or self.sample) if isinstance(entry, (OneOf, Personas)) else None
+
+    @property
+    def entries(self) -> tuple[str, ...]:
+        """The names every instant has: the state's entries, or, with given instants only, the names they all share."""
+        if self.state or not self.instants:
+            return tuple(self.state)
+        return tuple(k for k in self.instants[0] if all(k in i for i in self.instants))
+
+    def problems(self, instant: Mapping[str, Any]) -> list[str]:
+        """Why `instant` could not have come from this state (see instantiation.core.resolve); [] if it could."""
+        from instantiation.core import resolve
+        return resolve(self, instant)[1]
 
 
 # ---- reading -----------------------------------------------------------------------------------
@@ -138,7 +157,7 @@ def read_instantiation(path: str | Path, here: Optional[Path] = None, check: boo
 
 def _parse(raw: dict, here: Path, where: str, problems: list, references: dict, file) -> InstantiationSpec:
     state = {}
-    for name, e in raw["state"].items():
+    for name, e in (raw.get("state") or {}).items():
         at = f"{where}.state.{name}"
         if not isinstance(e, dict):
             state[name] = Literal(e)
@@ -161,10 +180,45 @@ def _parse(raw: dict, here: Path, where: str, problems: list, references: dict, 
         elif "steps" in e:
             state[name] = _steps(e["steps"], at, here, problems, references)
         elif "personas" in e:
-            state[name] = Personas(e["personas"], e.get("sample"), tuple(e.get("select") or ()))
+            people = (here / e["personas"]).resolve()
+            if not people.is_file() and _is_path(e["personas"]):
+                problems.append(f"{at}.personas: no file {e['personas']!r} (relative to {here})")
+            state[name] = Personas(e["personas"], e.get("sample"), tuple(e.get("select") or ()),
+                                   people if people.is_file() else None)
         else:
             state[name] = Generate(e["generate"]["using"], e["generate"].get("options") or {})
-    return InstantiationSpec(state, raw.get("sample", "random"), raw.get("version", 1), file)
+    instants, instants_file = raw.get("instants"), None
+    if isinstance(instants, str):
+        instants_file = (here / instants).resolve()
+        instants = _read_instants(instants_file, f"{where}.instants", here, problems, references)
+    return InstantiationSpec(state, raw.get("sample", "random"), raw.get("version", 1), file,
+                             None if instants is None else tuple(instants), instants_file)
+
+
+def _is_path(value: str) -> bool:
+    """A persona set written as a path (a.json, people/a), rather than as a set name."""
+    return bool(Path(value).suffix) or "/" in value or "\\" in value
+
+
+def _read_instants(file: Path, where: str, here: Path, problems: list, references: dict) -> tuple:
+    """Given instants from a YAML or JSON file holding a list, or a JSONL file with one per line."""
+    if not file.is_file():
+        problems.append(f"{where}: no file {relative_key(file, here)!r} (relative to {here})")
+        return ()
+    try:
+        if file.suffix == ".jsonl":
+            rows = [json.loads(line) for line in file.read_text(encoding="utf-8").splitlines() if line.strip()]
+        else:
+            rows = read_yaml(file)
+    except (yaml.YAMLError, json.JSONDecodeError) as e:
+        problems.append(f"{where}: {file.name} could not be read: {e}")
+        return ()
+    references.setdefault("files", {})[relative_key(file, here)] = file_sha256(file)
+    if not isinstance(rows, list) or not rows or not all(isinstance(r, dict) and r for r in rows):
+        problems.append(f"{where}: {file.name} must hold a non-empty list of instants, each mapping entry names "
+                        f"to values")
+        return ()
+    return tuple(rows)
 
 
 def _steps(s: dict, where: str, here: Path, problems: list, references: dict) -> Steps:
@@ -207,14 +261,20 @@ def base_state(steps: Steps, state: str) -> str:
 
 
 def _check(spec: InstantiationSpec, where: str, problems: list[str], references: dict) -> None:
-    """What the entries name must exist: persona sets (and the personas selected), generate functions."""
+    """
+    What the entries name must exist: persona sets (and the personas selected), generate functions.
+    Given instants must be possible states, when there is a state to check them against.
+    """
     from personas import PersonaSet
 
+    before = len(problems)
     for name, e in spec.state.items():
         at = f"{where}.state.{name}"
         if isinstance(e, Personas):
+            if e.file is None and _is_path(e.set):
+                continue                       # no such file: said when it was read
             try:
-                people = PersonaSet.load(e.set)
+                people = PersonaSet.load(e.file or e.set)
                 references.setdefault("persona_sets", {})[e.set] = people.sha256
                 if e.select:
                     people.select(e.select)
@@ -226,3 +286,16 @@ def _check(spec: InstantiationSpec, where: str, problems: list[str], references:
                     problems.append(f"{at}.generate.using: {e.using} is not callable")
             except (ImportError, AttributeError) as err:
                 problems.append(f"{at}.generate.using: cannot import {e.using}: {err}")
+
+    if spec.instants and spec.state and len(problems) == before:
+        from instantiation.core import resolve
+        at = f"{where}.instants" + (f" ({spec.instants_file.name})" if spec.instants_file else "")
+        cache: dict = {}
+        wrong = [found for k, given in enumerate(spec.instants) if (found := resolve(spec, given, f"{at}[{k}]", cache)[1])]
+        for found in wrong[:SHOWN]:
+            problems += found
+        if len(wrong) > SHOWN:
+            problems.append(f"{at}: and {len(wrong) - SHOWN} more instants that are not possible states")
+
+
+SHOWN = 10                                     # given instants whose problems are listed; the rest are counted
