@@ -1,17 +1,51 @@
-
-# instantiations/celtic_cross.yaml
+# An instantiation file: the possible underlying states of a task, kept in a file of its own.
+# A task refers to it with `instantiation: instantiation.yaml` (relative to the application
+# folder); the same content can also be written inline under the task's `instantiation:`.
+# Every kind of entry is shown here. The format is described in inference_task_reference.yaml
+# and checked by inference/schemas/instantiation.schema.yaml.
+#
+# This example describes the state behind a short story prompt. One instant could be:
+#   {character: owl, setting: forest, tone: whimsical, themes: [friendship, curiosity],
+#    arc: {beginning: hope, middle: rivalry, end: discovery},
+#    narrator: <persona record>, constraints: {max_words: 300, rhyme: false}}
 
 version: 1
+sample: random                 # entries that sample choose at random unless they say otherwise
 
-state:
-  cards:
-    generate:
-      using: applications.tarot.readings:sample_spread
-      options:
-        deck_config: sandbox/vector_space_config.json
-        draw: unique
+state:                         # sampled in this order, from the run's seed
 
-  deck: rider_waite_smith
+  # literals: the same in every instant
+  tone: whimsical
+  themes: [friendship, curiosity]          # a list is a literal too: it is never sampled
 
-sampling:
-  method: random
+  # one candidate per instant
+  character:
+    one_of: [fox, owl, rabbit]
+  setting:
+    one_of: [forest, village, mountain]
+    sample: cycle                          # in order across the run, each equally often
+
+  # one state per step (coordinate_systems' Instantiation)
+  arc:
+    steps:
+      names: [beginning, middle, end]
+      states: [hope, loss, rivalry, discovery]
+      replacement: false                   # no state twice in one arc
+      fixed: {end: discovery}              # every story ends in discovery
+
+  # a person from a persona set, stored by id with a snapshot of the record
+  narrator:
+    personas: tarot_personas
+    sample: random
+    # select: [1, 2, Maya Delgado]         # only these personas (id, number or full name)
+
+  # a literal mapping is wrapped in `value`, so that a mistyped key above is an error, not a literal
+  constraints:
+    value: {max_words: 300, rhyme: false}
+
+  # anything else: a Python callable returns the value. It is called with the run's random
+  # generator and the options as keyword arguments.
+  # twist:
+  #   generate:
+  #     using: applications.<name>.code.instantiation:choose_twist
+  #     options: {probability: 0.3}

@@ -24,22 +24,30 @@ tarot_celtic_cross:
   # As the generic instantiator develops, some of this may become declarative.
 
   # BROADER UNDERLYING STATE ------------------------------------------------
-  instantiation: vector_space_config.json
-  # Existing JSON specifies `step_aliases` (10 positions), `aliases` (78
-  # cards), and `negative_polarity` (whether reversed states are possible).
-  # It is a STATE-SPACE SPECIFICATION, not a fully resolved card draw.
-  # The task implementation currently generates one concrete draw per input
-  # from this specification; its initial default is replacement sampling.
-  # Unique draws, pinned cards, and the optional VECTOR_SPACE_CONFIG override
-  # are currently options of TarotReadings, not keys in this JSON file.
-  #
-  # NOTE: The existing raw instant/draw is {position: card_state}, whereas
-  # the TOML templates expect `cards: {position: card_state}`. Today the
-  # TarotReadings.template_variables() adapter provides this mapping.
-  # A future registry must retain that adapter or formalize the mapping;
-  # the JSON file alone does not supply a top-level `cards` variable.
-  # Sample the draw ONCE per base input and preserve it across every prompt
-  # variant and validation retry.
+  instantiation:
+    state:
+      cards:                  # The draw: one card state per Celtic Cross position.
+        steps:
+          from: vector_space_config.json   # `step_aliases` (the 10 positions),
+                              # `aliases` (the 78 cards) and `negative_polarity`
+                              # (whether a card may be reversed). A STATE-SPACE
+                              # SPECIFICATION, not a resolved draw.
+          negative_suffix: " reversed"   # A reversed card is "<card> reversed".
+          replacement: true   # Today's default (--draw replacement): any card for
+                              # any position, repeats allowed. false = --draw unique:
+                              # no card twice, each reversed with probability 1/2.
+          fixed: {}           # Today's --pin: positions given rather than drawn,
+                              # e.g. {Outcome: Death reversed}.
+      # OPTIONAL reader persona, for persona-aware templates (celtic_cross_v2):
+      # persona:
+      #   personas: tarot_personas
+      #   sample: random      # Drawn after the cards, so a seed gives the same
+      #                       # draws with or without personas.
+  # The instant is {cards: {position: card_state}}. Templates take `cards` from
+  # it by name, replacing the TarotReadings.template_variables() adapter, and
+  # validation checks the reading against it (validation.expected below).
+  # Sampled ONCE per base input and reused across every prompt variant and
+  # validation retry.
 
   # VERSIONED PROMPTS -------------------------------------------------------
   prompt:
@@ -54,11 +62,10 @@ tarot_celtic_cross:
 
       # OPTIONAL PERSONA-ENABLED VARIANT (not activated by default):
       # - template: celtic_cross_v2
-      #   personas: personas/tarot_personas.json
       #   # This template declares required = ["cards"], optional = ["persona"].
-      #   # Persona assignment happens after drawing cards; enabling it should
-      #   # not change the sampled draws for a fixed run seed.
-      #   # If v2 is enabled alongside v4, render both on the same base draw.
+      #   # It takes `persona` from the instant: add the persona entry under
+      #   # instantiation.state above. Without it, v2 renders with no persona.
+      #   # If v2 is enabled alongside v4, both render from the same instant.
 
     retired_templates:
       - celtic_cross_v1
@@ -107,6 +114,7 @@ tarot_celtic_cross:
   # POST-INFERENCE VALIDATION -----------------------------------------------
   validation:
     custom_validator: tarot_celtic_cross
+    expected: cards           # The reading is checked against the draw.
     # applications.tarot.code.validation.celtic_cross_validator is the current
     # implementation. It compares the reading with the original card draw:
     # card/position associations, reversals, unexpected cards, and ordering.
@@ -122,8 +130,9 @@ tarot_celtic_cross:
     # Reuse the SAME resolved draw across retries; do not resample cards.
 
 # IMPLEMENTATION NOTES (not additional YAML config fields):
-# - Current CLI-specific draw options remain in TarotReadings for now:
-#     draw='replacement' (or 'unique'); pins={}; deck_config=...
+# - The command line's --draw, --pin and --deck-config correspond to
+#   instantiation.state.cards.steps: replacement, fixed and from. Until the task
+#   file is wired in, TarotReadings still takes them from the command line.
 # - The existing generator provides prompt variables:
 #     cards = {position: card_state}, positions = list(cards), persona = ...
 # - The custom validator also reports mismatched/missing labeled positions,

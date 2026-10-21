@@ -32,14 +32,65 @@ task_name:
                             # omit when declarative configuration is sufficient.
 
   # INSTANTIATION -----------------------------------------------------------
-  instantiation: null       # Optional: path to state specification (JSON for now).
-                            # Initially use vector_space_config.json conventions:
-                            # possible states/aliases, step aliases, polarity, etc.
-                            # An instantiation resolves to one immutable-in-practice
-                            # `instant` per input, shared across prompt versions and
-                            # preserved for output validation and retries.
-                            # Example: instantiations/vector_space_config.json
-                            # This describes broader state, not merely Jinja inputs.
+  instantiation: null       # OPTIONAL. Describes the task's possible underlying states.
+                            # Each input of a run gets one resolved state, its `instant`:
+                            # every prompt template renders from it (paired comparison),
+                            # validation checks the response against it, and retries
+                            # reuse it rather than resampling. It is stored with the run.
+  #
+  # Three levels, each optional beyond the one before:
+  #   1. Direct prompt       leave `instantiation` out; the template takes no variables.
+  #   2. Templated prompt    leave it out; give fixed values in the template's `variables`.
+  #   3. State-based         give an instantiation, inline (a mapping, below) or as the path
+  #                          of an instantiation file relative to the application folder,
+  #                          e.g. `instantiation: instantiation.yaml` (same content as inline).
+  #
+  # A template variable takes the state entry of the same name; `bind` (under a template,
+  # below) renames. The instant can hold more than any template uses: validation and
+  # later analysis may use the rest.
+  #
+  # instantiation:
+  #   version: 1             # Optional: version of this format.
+  #   sample: random         # Optional: how entries that sample choose a value, unless
+  #                          # they say otherwise: random (default) | cycle | exhaustive.
+  #                          #   random      independently for each instant
+  #                          #   cycle       candidates in order across the run's instants,
+  #                          #               so each is used equally often
+  #                          #   exhaustive  every combination of the run's exhaustive
+  #                          #               entries, each exactly once: execution.n must
+  #                          #               EQUAL the number of combinations, and a run
+  #                          #               with any other n is refused before it starts.
+  #                          #               Never the default: combinations multiply.
+  #   state:                 # REQUIRED in an instantiation: its entries, by name. Entries
+  #                          # are sampled in the order written, from the run's seed
+  #                          # (execution.seed), so a seed reproduces a run's states.
+  #
+  #     # A plain value is a LITERAL, the same for every instant, lists included:
+  #     tone: whimsical
+  #     themes: [friendship, curiosity]       # a literal list, never sampled
+  #
+  #     # A mapping says how the value is obtained. One of these keys:
+  #     character:
+  #       one_of: [fox, owl, rabbit]          # sample one candidate; or the path of a
+  #       # sample: cycle                     # JSON/YAML file listing them
+  #     cards:
+  #       steps:                              # one state per step, as coordinate_systems'
+  #         from: vector_space_config.json    # Instantiation: steps, states and polarity
+  #         negative_suffix: " reversed"      # from a file, or `names` + `states` (+
+  #         replacement: true                 # `negative_polarity`) listed here.
+  #         fixed: {}                         # replacement: false = each state at most once.
+  #                                           # fixed: steps given, not drawn {step: state}.
+  #     persona:
+  #       personas: tarot_personas            # a persona set (personas/), stored by id
+  #       sample: cycle                       # with a snapshot; `select: [ids]` restricts it
+  #     spread:
+  #       generate:                           # anything else: a Python callable returns
+  #         using: package.module:function    # the value; called with the run's random
+  #         options: {}                       # generator and these keyword arguments
+  #     settings:
+  #       value: {strict: true}               # a literal MAPPING must be wrapped in `value`
+  #
+  # The format is checked by inference/schemas/instantiation.schema.yaml.
 
   # PROMPTS -----------------------------------------------------------------
   prompt:
@@ -51,6 +102,9 @@ task_name:
         # inline: "Summarize the following article: {{ article }}"
         # `variables` is OPTIONAL when instantiation supplies the required
         # names declared by the prompt TOML. Do not duplicate those names.
+        # `bind` is OPTIONAL: take a template variable from a state entry of
+        # another name, {template_variable: state_entry}, e.g.
+        # bind: {cards: spread}
         # With NO instantiation, variables can be inline assignments:
         # variables:
         #   article: "Example text"
@@ -69,6 +123,11 @@ task_name:
       # - template: prompts/example_v2.toml
       # - inline: "Write one sentence explaining {{ concept }}."
       #   variables: {concept: probability}
+
+    # sample: crossed        # OPTIONAL: how instants meet templates. crossed (default):
+                             # every instant is rendered with every template, a paired
+                             # comparison (n instants x T templates requests).
+                             # random | cycle: each instant gets one template.
 
     retired_templates: []    # Historical prompt IDs/paths kept for discovery.
                              # Not selected for new runs; old dataset records
@@ -131,6 +190,8 @@ task_name:
     custom_validator: null   # Optional application-specific validator ID/name.
                              # Its code may use both the model response and
                              # the ORIGINAL resolved instantiation (`instant`).
+    # expected: null         # OPTIONAL: the state entry the response is checked
+                             # against, e.g. cards; null = the whole instant.
     checks:                  # Reusable generic checks; omit any not wanted.
       non_empty:
         min_chars: 1         # Minimum output text length.

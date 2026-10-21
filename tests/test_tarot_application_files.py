@@ -190,5 +190,9 @@ def test_task_file_names_what_exists():
     assert getattr(importlib.import_module(module), cls_name) is applications.get_task(name)
     templates = [t["template"] for t in task["prompt"]["templates"]] + task["prompt"]["retired_templates"]
     assert set(templates) <= set(PROMPTS)
-    assert (APP / task["instantiation"]).resolve() == TarotReadings().deck_config
+    steps = task["instantiation"]["state"]["cards"]["steps"]
+    readings = TarotReadings()
+    assert (APP / steps["from"]).resolve() == readings.deck_config
+    assert steps["replacement"] == (readings.draw == "replacement") and steps["fixed"] == readings.pins
+    assert readings.states[1] == readings.cards[0] + steps["negative_suffix"]      # how a reversed card is written
     assert task["validation"]["custom_validator"] == TarotReadings().validator().name

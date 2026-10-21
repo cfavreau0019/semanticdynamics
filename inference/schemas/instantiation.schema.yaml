@@ -1,0 +1,148 @@
+# JSON Schema (draft 2020-12, written in YAML) for the `instantiation` of an inference task:
+# the description of a task's possible underlying states. See the INSTANTIATION section of
+# applications/template/inference_task_reference.yaml for what each part means, and
+# applications/template/instantiation.yaml for a complete example.
+#
+# An instantiation is optional. It is
+#   null (or left out)  no state: the prompt is used as it is, or with fixed `variables`
+#   a string            the path of an instantiation file, relative to the application folder
+#   a mapping           the instantiation itself, written inline in the task file
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Instantiation
+oneOf:
+  - type: "null"
+  - type: string
+    minLength: 1
+  - $ref: "#/$defs/instantiation"
+
+$defs:
+
+  instantiation:
+    type: object
+    required: [state]
+    additionalProperties: false
+    properties:
+      version:
+        const: 1
+        description: version of this format
+      sample:
+        $ref: "#/$defs/method"
+        description: how entries that sample choose a value, unless they say otherwise (default random)
+      state:
+        type: object
+        minProperties: 1
+        description: the state's entries, by name; sampled in this order
+        additionalProperties: {$ref: "#/$defs/entry"}
+
+  method:
+    enum: [random, cycle, exhaustive]
+    description: >-
+      random: independently for each instant. cycle: the candidates in order across the run's
+      instants. exhaustive: every combination of the run's exhaustive entries, each exactly once;
+      the run's n must equal the number of combinations, or the run is refused (checked when the
+      run is prepared, since the count depends on the candidates).
+
+  # An entry is a literal value, or a mapping that says how the value is obtained. A mapping is
+  # always read as the latter, so a mistyped key is an error rather than a literal; to give a
+  # literal mapping, wrap it in `value`.
+  entry:
+    oneOf:
+      - type: [string, number, boolean, "null"]          # a literal
+      - type: array                                       # a literal list (never sampled)
+      - $ref: "#/$defs/value"
+      - $ref: "#/$defs/one_of"
+      - $ref: "#/$defs/steps"
+      - $ref: "#/$defs/personas"
+      - $ref: "#/$defs/generate"
+
+  value:
+    type: object
+    required: [value]
+    additionalProperties: false
+    properties:
+      value: {description: "a literal of any kind, kept as it is"}
+
+  one_of:
+    type: object
+    required: [one_of]
+    additionalProperties: false
+    properties:
+      one_of:
+        description: the candidates, or the path of a JSON or YAML file holding a list of them
+        oneOf:
+          - {type: array, minItems: 1}
+          - {type: string, minLength: 1}
+      sample: {$ref: "#/$defs/method"}
+
+  steps:
+    type: object
+    required: [steps]
+    additionalProperties: false
+    properties:
+      steps:
+        description: >-
+          One state for each of a fixed list of steps (the original coordinate_systems.Instantiation).
+          The steps and states come from a file (`from`), or are listed (`names` and `states`).
+        type: object
+        additionalProperties: false
+        oneOf:
+          - required: [from]
+            not: {anyOf: [{required: [names]}, {required: [states]}]}
+          - required: [names, states]
+            not: {required: [from]}
+        properties:
+          from:
+            type: string
+            minLength: 1
+            description: >-
+              a file with `step_aliases` (the steps), `aliases` (the states) and `negative_polarity`
+              (whether a state may be negative), such as vector_space_config.json
+          names: {type: array, minItems: 1, items: {type: string}, uniqueItems: true}
+          states: {type: array, minItems: 1, items: {type: string}, uniqueItems: true}
+          negative_polarity: {type: boolean}
+          negative_suffix:
+            type: string
+            minLength: 1
+            description: how a negative state is written after the state's name, e.g. " reversed"
+          replacement:
+            type: boolean
+            description: true (the default) lets a state be drawn for several steps; false draws each at most once
+          fixed:
+            type: object
+            additionalProperties: {type: string}
+            description: "steps whose state is given rather than drawn, {step: state}"
+
+  personas:
+    type: object
+    required: [personas]
+    additionalProperties: false
+    properties:
+      personas:
+        type: string
+        minLength: 1
+        description: a persona set, by name (personas/<name>.json) or path; stored by id, with a snapshot
+      sample: {$ref: "#/$defs/method"}
+      select:
+        type: array
+        minItems: 1
+        items: {type: [string, integer]}
+        description: only these personas, by id, number or full name
+
+  generate:
+    type: object
+    required: [generate]
+    additionalProperties: false
+    properties:
+      generate:
+        type: object
+        required: [using]
+        additionalProperties: false
+        properties:
+          using:
+            type: string
+            pattern: "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+            description: the Python callable that produces the value, as module:function
+          options:
+            type: object
+            description: keyword arguments for it
