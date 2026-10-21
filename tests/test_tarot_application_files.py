@@ -182,17 +182,20 @@ def test_stated_answer_fields_and_persona_set_are_the_code_s():
     assert (people.sha256, len(people)) == (PERSONAS["set"]["sha256"], PERSONAS["set"]["records"])
 
 
-def test_task_file_names_what_exists():
-    """tasks.yaml holds the tasks in the new format (inference_task_reference.yaml); the code does not read
-    it yet. Its defaults may differ from today's, but everything it names must exist."""
-    [(name, task)] = load("tasks.yaml").items()
-    module, cls_name = task["implemented_by"].split(":")
-    assert getattr(importlib.import_module(module), cls_name) is applications.get_task(name)
-    templates = [t["template"] for t in task["prompt"]["templates"]] + task["prompt"]["retired_templates"]
-    assert set(templates) <= set(PROMPTS)
-    steps = task["instantiation"]["state"]["cards"]["steps"]
-    readings = TarotReadings()
-    assert (APP / steps["from"]).resolve() == readings.deck_config
-    assert steps["replacement"] == (readings.draw == "replacement") and steps["fixed"] == readings.pins
-    assert readings.states[1] == readings.cards[0] + steps["negative_suffix"]      # how a reversed card is written
-    assert task["validation"]["custom_validator"] == TarotReadings().validator().name
+def test_task_file_agrees_with_the_code():
+    """tasks.yaml (the new format) is checked by inference.task_file; here, that what it says matches what
+    TarotReadings, which still runs the task, does today."""
+    from applications.tarot.code.validation import celtic_cross_validator
+    from inference.task_file import load_task_file
+
+    [spec] = load_task_file(APP / "tasks.yaml").values()
+    assert applications.get_task(spec.name) is TarotReadings and spec.implemented_by.endswith(":TarotReadings")
+    templates = {t.id for t in spec.prompt.templates} | set(spec.prompt.retired_templates)
+    assert templates <= set(PROMPTS)                                                # each has its copy here
+    readings, cards = TarotReadings(), spec.instantiation.state["cards"]
+    assert cards.file == readings.deck_config
+    assert (cards.names, cards.states) == (tuple(readings.positions), tuple(readings.cards))
+    assert cards.replacement == (readings.draw == "replacement") and dict(cards.fixed) == readings.pins
+    assert readings.states[1] == readings.cards[0] + cards.negative_suffix          # how a reversed card is written
+    module, function = spec.validation.custom_validator.split(":")
+    assert getattr(importlib.import_module(module), function) is celtic_cross_validator

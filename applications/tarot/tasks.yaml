@@ -10,7 +10,7 @@ tarot_celtic_cross:
     validation and research analysis.
   version: 1
   created_by: cfavreau0019
-  created_ts: 10-19-2026
+  created_ts: 2026-10-19
   permissions: null
 
   # TASK ENGINE AND PYTHON EXTENSION ----------------------------------------
@@ -113,7 +113,7 @@ tarot_celtic_cross:
 
   # POST-INFERENCE VALIDATION -----------------------------------------------
   validation:
-    custom_validator: tarot_celtic_cross
+    custom_validator: applications.tarot.code.validation:celtic_cross_validator
     expected: cards           # The reading is checked against the draw.
     # applications.tarot.code.validation.celtic_cross_validator is the current
     # implementation. It compares the reading with the original card draw:

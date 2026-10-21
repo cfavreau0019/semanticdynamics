@@ -1,17 +1,21 @@
 # SemanticDynamics — researcher reference for an inference-task definition
 # --------------------------------------------------------------------------
 # This file is a DOCUMENTED DESIGN TEMPLATE, not a claim that every field
-# is currently supported by the runtime or YAML task registry.
+# is currently supported by the runtime or YAML task registry. Its structure
+# is checked by inference/schemas/task.schema.yaml; inference/task_file.py
+# reads task files, and `python -m inference.task_file check` checks one.
 #
 # Convention:
 #   - Uncomment optional keys only when needed.
-#   - Paths are illustrative, resolved relative to the application directory.
+#   - Paths are illustrative, resolved relative to the task file's folder
+#     (for an application's tasks.yaml, the application directory).
 #   - A value of null means "not specified", not necessarily a runtime default.
 #   - Prompt TOML files declare their own required/optional Jinja variables.
 #   - Provider-specific model parameters must be checked against the chosen API.
 #
-# Put this entry under `tasks:` if the application's tasks.yaml uses a
-# top-level tasks mapping. Replace `task_name` with a stable identifier.
+# An application's tasks.yaml maps task names to entries like this one, with
+# no `tasks:` key above them. Replace `task_name` with a stable identifier
+# (lowercase letters, digits and underscores): every run stores it.
 
 task_name:
   # PURPOSE AND PROVENANCE --------------------------------------------------
@@ -95,11 +99,16 @@ task_name:
   # PROMPTS -----------------------------------------------------------------
   prompt:
     templates:              # REQUIRED nonempty list, even for one template.
-      - template: prompts/example_v1.toml
-        # `template`: prompt-library ID/path, as supported by the loader.
-        # Prefer explicit `inline:` for direct Jinja text; otherwise a string
-        # might be ambiguous with a filename or template ID.
+      - template: example_v1
+        # `template`: a prompt template's id, name_vN. Pinned to a version,
+        # so a new version never changes a task silently; ids, not paths, so
+        # a task survives templates moving. `python -m prompts show <id>`
+        # prints the template's file and text.
+        # Or give the Jinja text here instead of `template`, with an optional
+        # `name` (default <task>_inline_<k>; its id is <name>_v1). Every
+        # variable it uses is required:
         # inline: "Summarize the following article: {{ article }}"
+        # name: article_summary
         # `variables` is OPTIONAL when instantiation supplies the required
         # names declared by the prompt TOML. Do not duplicate those names.
         # `bind` is OPTIONAL: take a template variable from a state entry of
@@ -111,16 +120,14 @@ task_name:
         #   style: concise
         # OR a reference to a YAML file supplying the mappings:
         # variables: prompts/variables/example.yaml
-        # `personas` is OPTIONAL and scoped to this template variant:
-        # personas:
-        #   - name: Example Persona
-        #     occupation: researcher
-        # OR: personas: personas/persona_set.json
+        # Personas are not given per template: a persona is part of the
+        # instant (a `personas` entry under instantiation.state), and a
+        # template that takes a `persona` variable receives it.
         # Template requirements, optional values, system/user messages, and
         # Jinja body belong in the versioned prompt TOML wherever possible.
         # Additional template entries run against the same resolved base
         # instantiation (paired comparison), not newly sampled states.
-      # - template: prompts/example_v2.toml
+      # - template: example_v2
       # - inline: "Write one sentence explaining {{ concept }}."
       #   variables: {concept: probability}
 
@@ -129,7 +136,7 @@ task_name:
                              # comparison (n instants x T templates requests).
                              # random | cycle: each instant gets one template.
 
-    retired_templates: []    # Historical prompt IDs/paths kept for discovery.
+    retired_templates: []    # Historical prompt IDs kept for discovery.
                              # Not selected for new runs; old dataset records
                              # should retain hashes/versions independently.
 
@@ -187,7 +194,8 @@ task_name:
 
   # RESPONSE VALIDATION -----------------------------------------------------
   validation:
-    custom_validator: null   # Optional application-specific validator ID/name.
+    custom_validator: null   # Optional: package.module:function returning the
+                             # application's validator (a validation.Validator).
                              # Its code may use both the model response and
                              # the ORIGINAL resolved instantiation (`instant`).
     # expected: null         # OPTIONAL: the state entry the response is checked

@@ -88,6 +88,9 @@ def main(argv=None) -> int:
     lk.add_argument("templates", nargs="*", help="template ids (default: every draft)")
     lk.add_argument("--force", action="store_true", help="also re-lock locked templates whose text changed")
     args = parser.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):      # templates hold any character; a legacy console doesn't
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     try:
         return {"list": cmd_list, "show": cmd_show, "diff": cmd_diff, "render": cmd_render,
                 "verify": cmd_verify, "lock": cmd_lock}[args.command](default_library(reload=True), args)

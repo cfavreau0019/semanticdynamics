@@ -1,0 +1,134 @@
+# JSON Schema (draft 2020-12, written in YAML) for one inference task: an entry of an
+# application's tasks.yaml, which maps task names to tasks. What each key means is in
+# applications/template/inference_task_reference.yaml. Unknown keys are errors, so a
+# mistyped key fails instead of being ignored.
+#
+# This checks the structure. inference/task_file.py then checks what a schema cannot:
+# that the templates, files, classes and functions named exist, and that every variable a
+# template needs is supplied.
+
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Inference task
+type: object
+additionalProperties: false
+required: [description, engine, prompt, model]
+properties:
+
+  # purpose and provenance
+  description: {type: string, minLength: 1}
+  version: {type: integer, minimum: 1, description: version of this task definition (not of its prompts)}
+  created_by: {type: ["string", "null"]}
+  created_ts:
+    type: ["string", "null"]
+    pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:?[0-9]{2})?)?$"
+    description: ISO 8601, a date (2026-10-19) or a date and time (2026-10-19T22:00:00Z)
+  tags: {type: array, items: {type: string}}
+  permissions: {description: "an access policy; nothing reads it yet"}
+
+  # implementation
+  engine: {enum: [inference]}
+  implemented_by:
+    type: ["string", "null"]
+    pattern: "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+    description: package.module:Class, an InferenceTask subclass, when the task needs Python of its own
+
+  instantiation: {$ref: instantiation.schema.yaml}
+
+  prompt:
+    type: object
+    additionalProperties: false
+    required: [templates]
+    properties:
+      templates: {type: array, minItems: 1, items: {$ref: "#/$defs/template"}}
+      sample:
+        enum: [crossed, random, cycle]
+        description: crossed (default) renders every instant with every template; random or cycle gives each one
+      retired_templates: {type: array, items: {$ref: "#/$defs/template_id"}}
+
+  model:
+    type: object
+    additionalProperties: false
+    required: [provider]
+    properties:
+      provider: {type: string, minLength: 1, description: "a registered provider, e.g. openai, featherless"}
+      name: {type: ["string", "null"], description: the model id; null = the provider's default}
+      parameters: {type: object, description: "request parameters, e.g. max_tokens, temperature"}
+      extra_body: {type: object, description: provider-specific request fields}
+
+  execution:
+    type: object
+    additionalProperties: false
+    properties:
+      mode: {enum: [live, batch, dry_run]}
+      workers: {type: integer, minimum: 1}
+      n: {type: integer, minimum: 1, description: number of instants (base inputs) in a run}
+      seed: {type: ["integer", "null"], description: seed for the instantiation; null = chosen and recorded}
+      retry_mode: {enum: [live, batch]}
+      poll_interval: {type: number, exclusiveMinimum: 0}
+      dataset: {type: ["string", "null"]}
+      name: {type: ["string", "null"]}
+
+  output:
+    type: object
+    additionalProperties: false
+    properties:
+      format: {enum: [text, json]}
+      schema: {type: ["string", "null"]}
+
+  validation:
+    type: object
+    additionalProperties: false
+    properties:
+      custom_validator:
+        type: ["string", "null"]
+        pattern: "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+        description: package.module:function returning the application's validator
+      expected: {type: ["string", "null"], description: the state entry responses are checked against; null = the whole instant}
+      checks:
+        type: object
+        additionalProperties: false
+        properties:
+          non_empty:
+            type: object
+            additionalProperties: false
+            properties: {min_chars: {type: integer, minimum: 1}}
+          not_truncated: {type: object, additionalProperties: false}
+          no_refusal: {type: object, additionalProperties: false}
+          json_fields:
+            type: object
+            additionalProperties: false
+            required: [schema]
+            properties: {schema: {type: string, minLength: 1}}
+      retries: {type: integer, minimum: 0}
+
+$defs:
+
+  template_id:
+    type: string
+    pattern: "^[a-z][a-z0-9_]*_v[0-9]+$"
+    description: a prompt template's id, name_vN; pinned, so a later version never changes a task silently
+
+  template:
+    type: object
+    additionalProperties: false
+    oneOf:
+      - required: [template]
+        not: {anyOf: [{required: [inline]}, {required: [name]}]}
+      - required: [inline]
+        not: {required: [template]}
+    properties:
+      template: {$ref: "#/$defs/template_id"}
+      inline: {type: string, minLength: 1, description: "the template's Jinja text, written here"}
+      name:
+        type: string
+        pattern: "^[a-z][a-z0-9_]*$"
+        description: an inline template's name (default <task>_inline_<k>); its id is <name>_v1
+      variables:
+        description: fixed values for the template's variables, or the path of a YAML file holding them
+        oneOf:
+          - type: object
+          - {type: string, minLength: 1}
+      bind:
+        type: object
+        additionalProperties: {type: string}
+        description: "take a template variable from a state entry of another name, {variable: entry}"

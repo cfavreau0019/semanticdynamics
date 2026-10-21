@@ -20,11 +20,16 @@ found by tasks(), and the general scripts then offer it:
 
 What a task has to supply is described in inference/task.py; evaluation tasks start
 from evaluation.task.EvaluationTask and evaluation.expectations.PersonaExpectations.
+
+An application's tasks.yaml describes its tasks in the task file format
+(template/inference_task_reference.yaml); task_specs() reads every one. The scripts do not
+run tasks from these files yet.
 """
 import importlib
 import inspect
 import pkgutil
 from functools import lru_cache
+from pathlib import Path
 
 
 NOT_APPLICATIONS = {"template"}        # folders here that are not applications, so are never searched for tasks
@@ -64,3 +69,24 @@ def get_task(name: str) -> type:
 def task_of(run: dict):
     """The task of an existing run, rebuilt from what its runs row recorded (to resume or collect the run)."""
     return get_task(run["task"]).from_options(run["config"]["task_options"])
+
+
+def task_files() -> list[Path]:
+    """Every application's tasks.yaml."""
+    here = Path(__file__).resolve().parent
+    return sorted(p / "tasks.yaml" for p in here.iterdir()
+                  if p.is_dir() and p.name not in NOT_APPLICATIONS and (p / "tasks.yaml").is_file())
+
+
+@lru_cache(maxsize=None)
+def task_specs() -> dict:
+    """{name: TaskSpec} of every task in every application's tasks.yaml, checked (inference.task_file)."""
+    from inference.task_file import load_task_file
+
+    found: dict = {}
+    for path in task_files():
+        for name, spec in load_task_file(path).items():
+            if name in found:
+                raise ValueError(f"Two task files define {name!r}: {found[name].source} and {path}")
+            found[name] = spec
+    return found
