@@ -1,5 +1,6 @@
 """inference.task_file: task files read into checked TaskSpecs, and the problems they report."""
 import io
+import json
 import shutil
 import sys
 import textwrap
@@ -10,9 +11,9 @@ import yaml
 
 import applications
 from applications.tarot.code.readings import TarotReadings
-from inference.task_file import (
-    Literal, OneOf, Personas, Steps, TaskFileError, load_task_file, main, read_yaml,
-)
+from inference.task_file import TaskFileError, load_task_file, main
+from instantiation import Literal, OneOf, Personas, Steps
+from instantiation.files import read_yaml
 from prompts import get_template
 
 ROOT = Path(__file__).parents[1]
@@ -180,11 +181,36 @@ def tarot_task(**changes) -> str:
     ({"instantiation.state.cards.steps.names": ["a"]}, "cards.steps: 'from' cannot be combined with 'names'"),
     ({"prompt.templates": [{"template": "celtic_cross_v4", "inline": "x"}]}, "'template' cannot be combined with 'inline'"),
     ({"execution.mode": "nightly"}, "'nightly' is not one of ['live', 'batch', 'dry_run']"),
+    ({"output": {"format": "text"}}, "Additional properties are not allowed ('output' was unexpected)"),
+    ({"instantiation": None, "prompt.templates": [{"template": "celtic_cross_v4", "variables": {"cards": None}}]},
+     "celtic_cross_v4 does not render with its fixed variables: missing required variables ['cards']"),
 ])
 def test_problems_are_found_and_located(tmp_path, changes, expected):
     found = problems(tmp_path, tarot_task(**changes))
     assert any(expected in p for p in found), found
     assert all(p.startswith("tarot_celtic_cross") for p in found)
+
+
+# ---- every template renders, with every persona ------------------------------------------------------
+def with_personas(people: str, template: str = "celtic_cross_v2") -> str:
+    return tarot_task(**{"prompt.templates": [{"template": template}],
+                         "instantiation.state.persona": {"personas": people}})
+
+
+def test_every_persona_of_a_set_is_rendered(tmp_path):
+    [spec] = load_task_file(write(tmp_path, with_personas("tarot_personas"))).values()
+    assert isinstance(spec.instantiation.state["persona"], Personas)
+
+    people = json.loads((ROOT / "personas" / "tarot_personas.json").read_text(encoding="utf-8"))[:3]
+    del people[1]["tarot_profile"]                                       # a field celtic_cross_v2 reads
+    (tmp_path / "people.json").write_text(json.dumps(people), encoding="utf-8")
+    [found] = problems(tmp_path, with_personas(str(tmp_path / "people.json")))
+    assert found.startswith("tarot_celtic_cross.prompt.templates[0]: celtic_cross_v2 does not render in 1 of 3 "
+                            "sample instants, e.g. with persona = persona 2 (")
+    assert "tarot_profile" in found
+
+    # a template that does not read personas is not affected by what they hold
+    load_task_file(write(tmp_path, with_personas(str(tmp_path / "people.json"), "celtic_cross_v4")))
 
 
 def test_every_problem_is_reported_at_once(tmp_path):

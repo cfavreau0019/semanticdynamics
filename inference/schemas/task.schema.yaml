@@ -3,9 +3,10 @@
 # applications/template/inference_task_reference.yaml. Unknown keys are errors, so a
 # mistyped key fails instead of being ignored.
 #
-# This checks the structure. inference/task_file.py then checks what a schema cannot:
-# that the templates, files, classes and functions named exist, and that every variable a
-# template needs is supplied.
+# This checks the structure (`instantiation` against instantiation/instantiation.schema.yaml).
+# inference/task_file.py then checks what a schema cannot: that the templates, files, classes
+# and functions named exist, that every variable a template needs is supplied, and that every
+# template renders, e.g. with every persona of a personas entry.
 
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Inference task
@@ -67,13 +68,6 @@ properties:
       poll_interval: {type: number, exclusiveMinimum: 0}
       dataset: {type: ["string", "null"]}
       name: {type: ["string", "null"]}
-
-  output:
-    type: object
-    additionalProperties: false
-    properties:
-      format: {enum: [text, json]}
-      schema: {type: ["string", "null"]}
 
   validation:
     type: object

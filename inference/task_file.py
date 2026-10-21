@@ -10,14 +10,15 @@ Task files: an application's tasks.yaml read into checked, typed TaskSpec object
 
 A file maps task names to tasks; the format is described in
 applications/template/inference_task_reference.yaml. Loading
-  1. reads the YAML strictly: a duplicate key is an error (plain YAML keeps the last one
-     silently), and dates stay as written rather than becoming date objects;
-  2. checks each task against inference/schemas/task.schema.yaml (and the instantiation
-     against instantiation.schema.yaml): unknown keys and wrong types are errors;
-  3. builds the TaskSpec;
+  1. reads the YAML strictly (instantiation.files.read_yaml): a duplicate key is an error, and
+     dates stay as written;
+  2. checks each task against inference/schemas/task.schema.yaml (its `instantiation` against
+     instantiation/instantiation.schema.yaml): unknown keys and wrong types are errors;
+  3. builds the TaskSpec; the instantiation is read by the `instantiation` package;
   4. checks what a schema cannot: the prompt templates, files, persona sets, classes and
-     functions named exist, every variable a template needs is supplied, and the state
-     entries named exist.
+     functions named exist, every variable a template needs is supplied, the state entries named
+     exist, and every template renders: against a sample instant, and with every persona of a
+     personas entry, so a persona field a template reads but a persona lacks is found here.
 Every problem is reported at once, with where it is (task.key.path).
 
 A TaskSpec says what the file says. Settings the file leaves out are None, so that whoever
@@ -26,7 +27,6 @@ runs the task can tell "not given" from a given value. Nothing runs from a TaskS
 import argparse
 import copy
 import hashlib
-import importlib
 import json
 import re
 import sys
@@ -39,9 +39,15 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
-SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
+from instantiation import Generate, InstantiationSpec, Literal, OneOf, Personas, Steps, load_instantiation, probes
+from instantiation import spec as instantiation_spec
+from instantiation.files import file_sha256, import_reference, read_yaml, relative_key, schema_problems
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TASK_NAME = "^[a-z][a-z0-9_]*$"
+TASK_SCHEMA = yaml.safe_load((Path(__file__).resolve().parent / "schemas" / "task.schema.yaml").read_text(encoding="utf-8"))
+TASK_VALIDATOR = Draft202012Validator(TASK_SCHEMA, registry=Registry().with_resource(
+    "instantiation.schema.yaml", Resource(instantiation_spec.SCHEMA, specification=DRAFT202012)))
 
 
 class TaskFileError(ValueError):
@@ -52,171 +58,7 @@ class TaskFileError(ValueError):
         super().__init__(f"{path}:\n" + "\n".join(f"  {p}" for p in problems))
 
 
-# ---- reading YAML strictly --------------------------------------------------------------
-class _StrictLoader(yaml.SafeLoader):
-    """SafeLoader that refuses duplicate keys and keeps timestamps as the strings written."""
-
-    def construct_mapping(self, node, deep=False):
-        if isinstance(node, yaml.MappingNode):
-            self.flatten_mapping(node)
-            seen = []
-            for key_node, _ in node.value:
-                key = self.construct_object(key_node, deep=True)
-                if key in seen:
-                    raise yaml.constructor.ConstructorError(
-                        "while reading a mapping", node.start_mark, f"found duplicate key {key!r}", key_node.start_mark)
-                seen.append(key)
-        return super().construct_mapping(node, deep=deep)
-
-
-_StrictLoader.yaml_implicit_resolvers = {
-    first: [(tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:timestamp"]
-    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()}
-
-
-def read_yaml(path: str | Path) -> Any:
-    """A YAML (or JSON) file read strictly: see _StrictLoader."""
-    with open(path, encoding="utf-8") as f:
-        return yaml.load(f, Loader=_StrictLoader)
-
-
-def _file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
-
-
-def _key(path: Path, here: Path) -> str:
-    """How a referenced file is named in a task's hash: relative to the task file, so that the same
-    task hashes the same wherever the repository is."""
-    try:
-        return path.relative_to(here).as_posix()
-    except ValueError:
-        return path.as_posix()
-
-
-# ---- schemas ----------------------------------------------------------------------------
-def _schema(name: str) -> dict:
-    return yaml.safe_load((SCHEMAS_DIR / name).read_text(encoding="utf-8"))
-
-
-INSTANTIATION_SCHEMA = _schema("instantiation.schema.yaml")
-TASK_SCHEMA = _schema("task.schema.yaml")
-_REGISTRY = Registry().with_resource("instantiation.schema.yaml",
-                                     Resource(INSTANTIATION_SCHEMA, specification=DRAFT202012))
-TASK_VALIDATOR = Draft202012Validator(TASK_SCHEMA, registry=_REGISTRY)
-INSTANTIATION_VALIDATOR = Draft202012Validator(INSTANTIATION_SCHEMA)
-
-
-def _where(task: str, path) -> str:
-    out = task
-    for part in path:
-        out += f"[{part}]" if isinstance(part, int) else f".{part}"
-    return out
-
-
-def _deepest(error):
-    """
-    The most specific error under one that has alternatives (oneOf). The alternative that went
-    deepest into the value is the one meant: an entry with a stray key is reported at that key,
-    not as "not of type null".
-    """
-    leaves = []
-
-    def walk(e):
-        if e.context:
-            for c in e.context:
-                walk(c)
-        else:
-            leaves.append(e)
-
-    walk(error)
-    telling = {"additionalProperties": 3, "not": 2, "required": 0, "type": 0}   # a stray key says most
-
-    def stray(e) -> int:                       # the closest alternative finds the fewest stray keys
-        allowed = e.schema.get("properties", {}) if isinstance(e.schema, dict) else {}
-        return len(set(e.instance) - set(allowed)) if isinstance(e.instance, dict) else 0
-
-    return max(leaves, key=lambda e: (len(e.absolute_path), telling.get(e.validator, 1), -stray(e)))
-
-
-def _required_keys(schema: Any) -> set:
-    """Every key a schema fragment requires, through anyOf/oneOf/allOf."""
-    if not isinstance(schema, dict):
-        return set()
-    keys = set(schema.get("required", ()))
-    for combinator in ("anyOf", "oneOf", "allOf"):
-        for sub in schema.get(combinator, ()):
-            keys |= _required_keys(sub)
-    return keys
-
-
-def _schema_problems(validator: Draft202012Validator, instance: Any, where: str) -> list[str]:
-    problems = []
-    for error in sorted(validator.iter_errors(instance), key=lambda e: list(e.absolute_path)):
-        shown = _deepest(error)
-        message = shown.message
-        if shown.validator == "pattern" and "description" in shown.schema:   # say what is wanted, not the regex
-            message = f"{shown.instance!r} is not {shown.schema['description']}"
-        elif shown.validator == "not" and isinstance(shown.instance, dict):   # keys that exclude each other
-            given = set(shown.schema.get("required", ())) & set(shown.instance)
-            banned = _required_keys(shown.validator_value) & set(shown.instance)
-            message = f"{', '.join(map(repr, sorted(given)))} cannot be combined with {', '.join(map(repr, sorted(banned)))}"
-        problems.append(f"{_where(where, shown.absolute_path)}: {message}")
-    return problems
-
-
 # ---- what a task file holds -------------------------------------------------------------
-@dataclass(frozen=True)
-class Literal:
-    """A state entry with the same value in every instant."""
-    value: Any
-
-
-@dataclass(frozen=True)
-class OneOf:
-    """One candidate per instant. `file` is where the candidates came from, if they are in a file."""
-    candidates: tuple
-    sample: Optional[str] = None
-    file: Optional[Path] = None
-
-
-@dataclass(frozen=True)
-class Steps:
-    """One state per step (coordinate_systems' Instantiation). `file` is the `from` file, if any."""
-    names: tuple[str, ...]
-    states: tuple[str, ...]
-    negative_polarity: bool = False
-    negative_suffix: Optional[str] = None
-    replacement: bool = True
-    fixed: Mapping[str, str] = field(default_factory=dict)
-    file: Optional[Path] = None
-
-
-@dataclass(frozen=True)
-class Personas:
-    """A persona from a persona set, stored by id."""
-    set: str
-    sample: Optional[str] = None
-    select: tuple = ()
-
-
-@dataclass(frozen=True)
-class Generate:
-    """A value returned by a Python callable, `module:function`."""
-    using: str
-    options: Mapping[str, Any] = field(default_factory=dict)
-
-
-Entry = Literal | OneOf | Steps | Personas | Generate
-
-
-@dataclass(frozen=True)
-class InstantiationSpec:
-    state: Mapping[str, Entry]
-    sample: str = "random"
-    version: int = 1
-    file: Optional[Path] = None               # the instantiation file, when not written inline
-
-
 @dataclass(frozen=True)
 class TemplateRef:
     """A prompt template of the task: from the library (`id`), or written inline (`inline`, id <name>_v1)."""
@@ -278,7 +120,6 @@ class TaskSpec:
     created_ts: Optional[str] = None
     tags: tuple[str, ...] = ()
     permissions: Any = None
-    output: Mapping[str, Any] = field(default_factory=dict)
     source: Optional[Path] = None             # the task file
     content: Mapping[str, Any] = field(default_factory=dict, repr=False)   # the task as written, instantiation file inlined
     references: Mapping[str, Any] = field(default_factory=dict, repr=False)  # hashes of what it names
@@ -304,7 +145,7 @@ def load_task_file(path: str | Path, check: bool = True) -> dict[str, TaskSpec]:
         if not isinstance(name, str) or not re.match(TASK_NAME, name):
             problems.append(f"{name!r}: a task name is lowercase letters, digits and underscores")
             continue
-        found = _schema_problems(TASK_VALIDATOR, entry, name)
+        found = schema_problems(TASK_VALIDATOR, entry, name)
         if found:
             problems += found
             continue
@@ -322,27 +163,10 @@ def _build(name: str, entry: dict, path: Path, check: bool) -> tuple[TaskSpec, l
     content = copy.deepcopy(entry)
     references: dict[str, dict[str, str]] = {"templates": {}, "files": {}, "persona_sets": {}}
 
-    instantiation = None
-    raw = entry.get("instantiation")
-    if isinstance(raw, str):                   # an instantiation file
-        file, raw = (here / raw).resolve(), None
-        if not file.is_file():
-            problems.append(f"{name}.instantiation: no file {entry['instantiation']!r} (relative to {here})")
-        else:
-            try:
-                raw = read_yaml(file)
-            except yaml.YAMLError as e:
-                problems.append(f"{name}.instantiation: {file.name} is not valid YAML: {e}")
-            else:
-                found = _schema_problems(INSTANTIATION_VALIDATOR, raw, f"{name}.instantiation ({file.name})")
-                problems += found
-                content["instantiation"] = raw
-                references["files"][_key(file, here)] = _file_sha256(file)
-                raw = None if found else raw
-        if raw is not None:
-            instantiation = _instantiation(name, raw, here, problems, references, file)
-    elif isinstance(raw, dict):
-        instantiation = _instantiation(name, raw, here, problems, references, None)
+    instantiation, written = load_instantiation(entry.get("instantiation"), here, f"{name}.instantiation", problems,
+                                                references, check)
+    if written is not None:
+        content["instantiation"] = written     # an instantiation file's content, read in
 
     p = entry["prompt"]
     templates = []
@@ -355,7 +179,7 @@ def _build(name: str, entry: dict, path: Path, check: bool) -> tuple[TaskSpec, l
                 variables = {}
             else:
                 variables = read_yaml(file) or {}
-                references["files"][_key(file, here)] = _file_sha256(file)
+                references["files"][relative_key(file, here)] = file_sha256(file)
                 if not isinstance(variables, dict):
                     problems.append(f"{name}.prompt.templates[{k - 1}].variables: {file.name} must map names to values")
                     variables = {}
@@ -371,7 +195,7 @@ def _build(name: str, entry: dict, path: Path, check: bool) -> tuple[TaskSpec, l
         validation=ValidationSpec(v.get("custom_validator"), v.get("expected"), v.get("checks") or {}, v.get("retries")),
         instantiation=instantiation, implemented_by=entry.get("implemented_by"), version=entry.get("version"),
         created_by=entry.get("created_by"), created_ts=entry.get("created_ts"), tags=tuple(entry.get("tags") or ()),
-        permissions=entry.get("permissions"), output=entry.get("output") or {}, source=path)
+        permissions=entry.get("permissions"), source=path)
 
     if check:
         spec = _check(spec, here, problems, references)
@@ -381,107 +205,17 @@ def _build(name: str, entry: dict, path: Path, check: bool) -> tuple[TaskSpec, l
     return TaskSpec(**{**spec.__dict__, "content": content, "references": references, "sha256": sha}), problems
 
 
-def _instantiation(task, raw, here, problems, references, file) -> InstantiationSpec:
-    state = {}
-    for entry_name, e in raw["state"].items():
-        where = f"{task}.instantiation.state.{entry_name}"
-        if not isinstance(e, dict):
-            state[entry_name] = Literal(e)
-        elif "value" in e:
-            state[entry_name] = Literal(e["value"])
-        elif "one_of" in e:
-            candidates, source = e["one_of"], None
-            if isinstance(candidates, str):
-                source = (here / candidates).resolve()
-                if not source.is_file():
-                    problems.append(f"{where}.one_of: no file {candidates!r}")
-                    candidates = []
-                else:
-                    candidates = read_yaml(source)
-                    references["files"][_key(source, here)] = _file_sha256(source)
-                    if not isinstance(candidates, list) or not candidates:
-                        problems.append(f"{where}.one_of: {source.name} must hold a non-empty list")
-                        candidates = []
-            state[entry_name] = OneOf(tuple(candidates), e.get("sample"), source)
-        elif "steps" in e:
-            state[entry_name] = _steps(e["steps"], where, here, problems, references)
-        elif "personas" in e:
-            state[entry_name] = Personas(e["personas"], e.get("sample"), tuple(e.get("select") or ()))
-        else:
-            state[entry_name] = Generate(e["generate"]["using"], e["generate"].get("options") or {})
-    return InstantiationSpec(state, raw.get("sample", "random"), raw.get("version", 1), file)
-
-
-def _steps(s: dict, where: str, here: Path, problems: list, references: dict) -> Steps:
-    names, states, polarity, source = s.get("names"), s.get("states"), s.get("negative_polarity", False), None
-    if "from" in s:
-        source = (here / s["from"]).resolve()
-        if not source.is_file():
-            problems.append(f"{where}.steps.from: no file {s['from']!r}")
-            return Steps((), (), file=source)
-        config = read_yaml(source)
-        references["files"][_key(source, here)] = _file_sha256(source)
-        missing = [k for k in ("step_aliases", "aliases") if k not in (config or {})]
-        if missing:
-            problems.append(f"{where}.steps.from: {source.name} has no {' or '.join(missing)}")
-            return Steps((), (), file=source)
-        names, states = config["step_aliases"], config["aliases"]
-        polarity = bool(config.get("negative_polarity", False))
-    steps = Steps(tuple(names), tuple(states), polarity, s.get("negative_suffix"), s.get("replacement", True),
-                  s.get("fixed") or {}, source)
-    if polarity and not steps.negative_suffix:
-        problems.append(f"{where}.steps: states may be negative, so negative_suffix must say how one is written")
-    for step, state in steps.fixed.items():
-        base = state[:-len(steps.negative_suffix)] if polarity and steps.negative_suffix and \
-            state.endswith(steps.negative_suffix) else state
-        if step not in steps.names:
-            problems.append(f"{where}.steps.fixed: {step!r} is not one of the steps {list(steps.names)}")
-        elif base not in steps.states:
-            problems.append(f"{where}.steps.fixed.{step}: {state!r} is not one of the states")
-    if not steps.replacement:
-        fixed = [s[:-len(steps.negative_suffix)] if steps.negative_suffix and s.endswith(steps.negative_suffix) else s
-                 for s in steps.fixed.values()]
-        if len(set(fixed)) != len(fixed):
-            problems.append(f"{where}.steps.fixed: replacement is false, but a state is fixed for two steps")
-        if len(steps.names) > len(steps.states):
-            problems.append(f"{where}.steps: replacement is false, but there are more steps than states")
-    return steps
-
-
-def _import(reference: str):
-    module, _, attribute = reference.partition(":")
-    return getattr(importlib.import_module(module), attribute)
-
-
 def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) -> TaskSpec:
     """The checks a schema cannot make. Returns the spec with each template's PromptTemplate attached."""
     from llm.providers import available_providers
-    from personas import PersonaSet
     from prompts import PromptError, PromptTemplate, default_library
 
     name = spec.name
     state = dict(spec.instantiation.state) if spec.instantiation else {}
-
-    # state entries that name things
-    for entry_name, e in state.items():
-        where = f"{name}.instantiation.state.{entry_name}"
-        if isinstance(e, Personas):
-            try:
-                people = PersonaSet.load(e.set)
-                references["persona_sets"][e.set] = people.sha256
-                if e.select:
-                    people.select(e.select)
-            except (FileNotFoundError, KeyError, ValueError) as err:
-                problems.append(f"{where}: {err}")
-        elif isinstance(e, Generate):
-            try:
-                if not callable(_import(e.using)):
-                    problems.append(f"{where}.generate.using: {e.using} is not callable")
-            except (ImportError, AttributeError) as err:
-                problems.append(f"{where}.generate.using: cannot import {e.using}: {err}")
+    instantiation_read = not problems           # so far: problems reading the instantiation or variables files
 
     # templates, and the variables they need
-    library, templates, seen = default_library(), [], set()
+    library, templates, seen, ready = default_library(), [], set(), []
     for k, ref in enumerate(spec.prompt.templates):
         where = f"{name}.prompt.templates[{k}]"
         if ref.id in seen:
@@ -495,6 +229,7 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
             templates.append(ref)
             continue
         references["templates"][ref.id] = template.sha256
+        before = len(problems)
         declared = set(template.variables)
         for variable in sorted(set(ref.variables) - declared):
             problems.append(f"{where}.variables.{variable}: {ref.id} takes no variable {variable!r}")
@@ -509,11 +244,16 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
                 problems.append(f"{where}: {ref.id} needs {variable!r}, which neither the instantiation nor "
                                 f"`variables` supplies")
         templates.append(TemplateRef(**{**ref.__dict__, "template": template}))
+        if len(problems) == before:
+            ready.append((where, templates[-1]))
     for retired in spec.prompt.retired_templates:
         try:
             library.resolve(retired)
         except KeyError:
             problems.append(f"{name}.prompt.retired_templates: no prompt template {retired!r}")
+
+    if instantiation_read:                      # every template renders, e.g. with every persona of a set
+        _check_rendering(spec, ready, problems)
 
     # model, validation, implementation
     if spec.model.provider not in available_providers():
@@ -526,7 +266,7 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
         if reference is None:
             continue
         try:
-            target = _import(reference)
+            target = import_reference(reference)
         except (ImportError, AttributeError) as err:
             problems.append(f"{name}.{kind}: cannot import {reference}: {err}")
             continue
@@ -547,6 +287,30 @@ def _check(spec: TaskSpec, here: Path, problems: list[str], references: dict) ->
                             f"{json_fields['schema']!r} in {schemas.name}")
     return TaskSpec(**{**spec.__dict__, "prompt": PromptSpec(tuple(templates), spec.prompt.sample,
                                                              spec.prompt.retired_templates)})
+
+
+def _check_rendering(spec: TaskSpec, ready: list, problems: list[str]) -> None:
+    """Render each template against sample instants: once, and once per other candidate and persona."""
+    from prompts import PromptError
+
+    try:
+        instants = list(probes(spec.instantiation)) if spec.instantiation else [("its fixed variables", {})]
+    except Exception as err:                    # e.g. a generate function that fails: report it, don't crash
+        problems.append(f"{spec.name}.instantiation: could not make a sample instant: {type(err).__name__}: {err}")
+        return
+    for where, ref in ready:
+        template = ref.template
+        failures = []
+        for label, instant in instants:
+            values = {v: instant[ref.bind.get(v, v)] for v in template.variables if ref.bind.get(v, v) in instant}
+            try:
+                template.render({**values, **ref.variables})
+            except PromptError as err:
+                failures.append((label, str(err).removeprefix(f"{template.id}: ")))
+        if failures:
+            label, error = failures[0]
+            share = "" if len(instants) == 1 else f" in {len(failures)} of {len(instants)} sample instants, e.g."
+            problems.append(f"{where}: {ref.id} does not render{share} with {label}: {error}")
 
 
 # ---- command line ------------------------------------------------------------------------
@@ -576,9 +340,9 @@ def describe(spec: TaskSpec) -> list[str]:
                         f"{'with' if e.replacement else 'without'} replacement, {len(e.fixed)} fixed"
                         f"{'; from ' + _shown(e.file) if e.file else ''}")
             elif isinstance(e, OneOf):
-                what = f"one_of {len(e.candidates)} candidates, {e.sample or spec.instantiation.sample}"
+                what = f"one_of {len(e.candidates)} candidates, {spec.instantiation.method(entry_name)}"
             elif isinstance(e, Personas):
-                what = f"personas from {e.set}, {e.sample or spec.instantiation.sample}"
+                what = f"personas from {e.set}, {spec.instantiation.method(entry_name)}"
             elif isinstance(e, Generate):
                 what = f"generate with {e.using}"
             else:

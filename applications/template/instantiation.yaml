@@ -2,7 +2,7 @@
 # A task refers to it with `instantiation: instantiation.yaml` (relative to the application
 # folder); the same content can also be written inline under the task's `instantiation:`.
 # Every kind of entry is shown here. The format is described in inference_task_reference.yaml
-# and checked by inference/schemas/instantiation.schema.yaml.
+# and checked by instantiation/instantiation.schema.yaml.
 #
 # This example describes the state behind a short story prompt. One instant could be:
 #   {character: owl, setting: forest, tone: whimsical, themes: [friendship, curiosity],

@@ -94,7 +94,7 @@ task_name:
   #     settings:
   #       value: {strict: true}               # a literal MAPPING must be wrapped in `value`
   #
-  # The format is checked by inference/schemas/instantiation.schema.yaml.
+  # The format is checked by instantiation/instantiation.schema.yaml.
 
   # PROMPTS -----------------------------------------------------------------
   prompt:
@@ -122,7 +122,9 @@ task_name:
         # variables: prompts/variables/example.yaml
         # Personas are not given per template: a persona is part of the
         # instant (a `personas` entry under instantiation.state), and a
-        # template that takes a `persona` variable receives it.
+        # template that takes a `persona` variable receives it. Checking the
+        # task renders each template with every persona of the set, so a
+        # field a template reads but a persona lacks is found before a run.
         # Template requirements, optional values, system/user messages, and
         # Jinja body belong in the versioned prompt TOML wherever possible.
         # Additional template entries run against the same resolved base
@@ -186,11 +188,6 @@ task_name:
     # name: null             # Optional human-readable run name (proposed location).
     # API transport retry/timeout settings belong to provider configuration
     # unless you deliberately expose task-level overrides later.
-
-  # OUTPUT CONTRACT (OPTIONAL / PROPOSED) ----------------------------------
-  # output:                 # Desired representation before semantic checks.
-  #   format: text          # e.g. text | json (must match model/decoder support).
-  #   schema: null          # Optional structured-output schema identifier.
 
   # RESPONSE VALIDATION -----------------------------------------------------
   validation:

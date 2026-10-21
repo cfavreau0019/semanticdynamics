@@ -104,13 +104,6 @@ tarot_celtic_cross:
     # With N base draws and T active prompt templates, expect N x T requests
     # (before any validation retries).
 
-  # MODEL OUTPUT ------------------------------------------------------------
-  #output:
-  #  format: text             # A prose reading, not a JSON object.
-  #  schema: reading          # Existing application schema in schemas.yaml.
-    # This output block is from the proposed reference and is not yet a
-    # separate declarative contract in the existing generation pipeline.
-
   # POST-INFERENCE VALIDATION -----------------------------------------------
   validation:
     custom_validator: applications.tarot.code.validation:celtic_cross_validator
