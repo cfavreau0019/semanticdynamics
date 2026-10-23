@@ -9,7 +9,6 @@ import llm.providers as providers
 from applications import task_of
 from applications.tarot.code.celtic_cross_evaluation import CelticCrossEvaluation
 from applications.tarot.code.persona_expectations import EXPECTATION_CONTEXT, TarotPersonaExpectations
-from applications.tarot.code.readings import TarotReadings
 from inference import schema
 from inference.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
 from inference.store import RunStore
@@ -20,7 +19,7 @@ from evaluation.rubric import RubricError, get_rubric, load_rubric
 from evaluation.subjects import load_subjects
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
-from test_inference import TarotScripted, check_primary_keys
+from test_inference import PERSONA, TarotScripted, check_primary_keys, prepare
 from validation import Validator
 
 EVALUATE = ["run", "celtic_cross_evaluation"]                    # command lines of the two stages
@@ -334,9 +333,7 @@ def registry(monkeypatch):
 def readings(tmp_path, registry):
     """A generation run of 4 readings (dataset 'demo'); returns (root, store)."""
     root = tmp_path / "generations"
-    task = TarotReadings()
-    store, requests = prepare_run(task, GenerationConfig(n=4, provider="tarot-scripted", seed=3, dataset="demo"),
-                                  root=root)
+    task, store, requests = prepare(root, n=4, seed=3, dataset="demo")
     run_live(store, task, requests, progress=False)
     return root, store
 
@@ -381,11 +378,10 @@ def test_load_subjects(readings):
 
 def test_subjects_skip_invalid_and_failed_readings(tmp_path, registry):
     reader = providers.get_provider("tarot-scripted")
-    root, task = tmp_path / "g", TarotReadings()
+    root = tmp_path / "g"
     # seeded: in about 6% of draws the Outcome card also sits in another position, and then the "invalid" reading
     # (its Outcome line dropped) still names that card and passes
-    config = GenerationConfig(n=3, provider="tarot-scripted", seed=1, validation_retries=0)
-    store, requests = prepare_run(task, config, root=root)
+    task, store, requests = prepare(root, {"validation.retries": 0}, n=3, seed=1)
     reader.plan = {requests[0].metadata["input_id"]: ["invalid"], requests[1].metadata["input_id"]: ["error"]}
     run_live(store, task, requests, progress=False)
     assert len(load_subjects(root, runs=[store.run_id])) == 1
@@ -480,7 +476,7 @@ def test_na_follows_the_facts(tmp_path, registry, readings):
     evaluations = store.read("evaluations")
     assert len(evaluations) == 12
     scores = {(r["evaluation_id"], r["item_key"]): r for r in store.read("evaluation_item_scores")}
-    drawn = {r["response_id"]: i["payload"] for i in readings[1].read("inputs")
+    drawn = {r["response_id"]: i["payload"]["cards"] for i in readings[1].read("inputs")
              for p in readings[1].read("prompts") if p["input_id"] == i["input_id"]
              for q in readings[1].read("requests") if q["prompt_id"] == p["prompt_id"]
              for r in readings[1].read("responses") if r["request_id"] == q["request_id"]}
@@ -524,9 +520,8 @@ def test_sampling_and_pairing(tmp_path, registry, readings):
 
 
 def test_the_reading_persona_can_evaluate_its_own_reading(tmp_path, registry):
-    root, eval_root, gen = tmp_path / "g", tmp_path / "e", TarotReadings()
-    store, requests = prepare_run(gen, GenerationConfig(n=3, provider="tarot-scripted", persona_set="tarot_personas",
-                                                        seed=2), root=root)
+    root, eval_root = tmp_path / "g", tmp_path / "e"
+    gen, store, requests = prepare(root, {**PERSONA, "prompt.templates": [{"template": "celtic_cross_v2"}]}, n=3, seed=2)
     run_live(store, gen, requests, progress=False)
     task = CelticCrossEvaluation(subjects_root=root, subject_runs=[store.run_id], pairing="subject",
                                 subject_templates=["celtic_cross_v2"], expectations_root=eval_root)

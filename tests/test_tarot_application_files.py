@@ -10,7 +10,6 @@ one the code uses.
 import hashlib
 import importlib
 import json
-import random
 import re
 from pathlib import Path
 
@@ -26,6 +25,8 @@ from applications.tarot.code.readings import TarotReadings
 from evaluation.expectations import EXPECTATION_FIELDS
 from evaluation.rubric import get_rubric
 from evaluation.subjects import load_subjects
+from inference.task_config import InferenceTaskConfig, load_task_file
+from instantiation import Instantiation
 from personas import PersonaSet
 from prompts import PromptTemplate, get_template
 from test_evaluation import readings, registry  # noqa: F401
@@ -37,6 +38,7 @@ def load(name: str):
     return yaml.safe_load((APP / name).read_text(encoding="utf-8"))
 
 
+DECK = json.loads((APP / "vector_space_config.json").read_text(encoding="utf-8"))
 SCHEMAS, TASKS, WORKFLOWS, PERSONAS, APPLICATION = (
     load("schemas.yaml"), load("tasks_draft.yaml")["tasks"], load("workflows.yaml")["workflows"], load("personas.yaml"),
     load("application.yaml"))
@@ -102,8 +104,11 @@ def test_every_reference_between_the_files_resolves():
 # ---- the schemas accept what the code produces -----------------------------------------------------------
 def test_draws_and_personas_fit_their_schemas():
     draws = schema("celtic_cross_draw")
-    for mode in ("replacement", "unique"):
-        for draw in TarotReadings(draw=mode).sample_inputs(100, random.Random(1)):
+    for replacement in (True, False):
+        spec = InferenceTaskConfig.from_file(APP / "tasks.yaml", "tarot_celtic_cross",
+                                             {"instantiation.state.cards.steps.replacement": replacement})
+        for one in Instantiation.sample(spec.instantiation, 100, seed=1):
+            draw = one.instant["cards"]
             draws.validate(draw)
     assert not draws.is_valid({**draw, "Elsewhere": "Death"}) and not draws.is_valid({"Present": "Death"})
     people = schema("persona")
@@ -131,15 +136,12 @@ def test_tasks_are_the_registered_ones_with_their_stated_settings():
         module, cls_name = spec["implemented_by"].split(":")
         cls = getattr(importlib.import_module(module), cls_name)
         assert cls is applications.get_task(name)
+        if name == "tarot_celtic_cross":            # tasks.yaml says how it runs now: test_task_file_agrees_with_the_code
+            continue
         assert cls.default_template == spec["prompt"]["template"]
         assert cls.persona_template == spec["prompt"].get("with_personas", spec["prompt"]["template"])
         assert cls.input_type == spec["input"]["input_type"]
-    readings_task = TarotReadings()
-    draw = readings_task.sample_inputs(1, random.Random(0))[0]
-    assert set(readings_task.template_variables(draw, None)) == set(TASKS["tarot_celtic_cross"]["prompt"]["variables"])
-    if "options" in TASKS["tarot_celtic_cross"]:                    # not listed while the task format is redesigned
-        assert set(readings_task.options()) == set(TASKS["tarot_celtic_cross"]["options"])
-    assert readings_task.validator().name == TASKS["tarot_celtic_cross"]["output"]["validation"]["validator"]
+    assert TarotReadings.from_options({}).validator().name == TASKS["tarot_celtic_cross"]["output"]["validation"]["validator"]
 
     expectations = TASKS["persona_expectations"]
     assert TarotPersonaExpectations.default_context == expectations["input"]["source"]["value"] == \
@@ -160,12 +162,12 @@ def test_tasks_are_the_registered_ones_with_their_stated_settings():
 def test_vocabulary_is_the_one_the_code_uses():
     vocabulary = SCHEMAS["vocabulary"]
     positions = {p["name"]: [p["name"], *p["also"]] for p in vocabulary["positions"]}
-    assert positions == tarot_validation.CELTIC_CROSS_POSITIONS and list(positions) == TarotReadings().positions
+    assert positions == tarot_validation.CELTIC_CROSS_POSITIONS and list(positions) == DECK["step_aliases"]
     cards = vocabulary["cards"]
     minor = [cards["minor_arcana"]["name"].format(rank=r, suit=s)
              for s in cards["minor_arcana"]["suits"] for r in cards["minor_arcana"]["ranks"]]
     assert cards["major_arcana"] + minor == tarot_validation.TAROT_CARDS
-    assert cards["order"] == "alphabetical" and TarotReadings().cards == sorted(tarot_validation.TAROT_CARDS)
+    assert cards["order"] == "alphabetical" and DECK["aliases"] == sorted(tarot_validation.TAROT_CARDS)
     in_text = vocabulary["orientations"]["in_text"]
     assert in_text["reversed"] == tarot_validation._REVERSED.pattern
     assert in_text["not_reversed"] == tarot_validation._NEGATED_REVERSED.pattern
@@ -183,19 +185,19 @@ def test_stated_answer_fields_and_persona_set_are_the_code_s():
 
 
 def test_task_file_agrees_with_the_code():
-    """tasks.yaml (the new format) is checked by inference.task_file; here, that what it says matches what
-    TarotReadings, which still runs the task, does today."""
+    """tasks.yaml (the new format) is checked by inference.task_config; here, that what it says matches the
+    deck, what runs before the task file did (any card, repeats allowed, none pinned), and the draft's template."""
     from applications.tarot.code.validation import celtic_cross_validator
-    from inference.task_file import load_task_file
 
     [spec] = load_task_file(APP / "tasks.yaml").values()
+    assert [t.id for t in spec.prompt.templates] == [TASKS["tarot_celtic_cross"]["prompt"]["template"]]
     assert applications.get_task(spec.name) is TarotReadings and spec.implemented_by.endswith(":TarotReadings")
     templates = {t.id for t in spec.prompt.templates} | set(spec.prompt.retired_templates)
     assert templates <= set(PROMPTS)                                                # each has its copy here
-    readings, cards = TarotReadings(), spec.instantiation.state["cards"]
-    assert cards.file == readings.deck_config
-    assert (cards.names, cards.states) == (tuple(readings.positions), tuple(readings.cards))
-    assert cards.replacement == (readings.draw == "replacement") and dict(cards.fixed) == readings.pins
-    assert readings.states[1] == readings.cards[0] + cards.negative_suffix          # how a reversed card is written
+    cards = spec.instantiation.state["cards"]
+    assert cards.file == APP / "vector_space_config.json"
+    assert (cards.names, cards.states) == (tuple(DECK["step_aliases"]), tuple(DECK["aliases"]))
+    assert cards.replacement and dict(cards.fixed) == {} and DECK["negative_polarity"]
+    assert cards.negative_suffix == tarot_validation.REVERSED_SUFFIX                 # how a reversed card is written
     module, function = spec.validation.custom_validator.split(":")
     assert getattr(importlib.import_module(module), function) is celtic_cross_validator

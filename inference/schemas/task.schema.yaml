@@ -4,7 +4,7 @@
 # mistyped key fails instead of being ignored.
 #
 # This checks the structure (`instantiation` against instantiation/instantiation.schema.yaml).
-# inference/task_file.py then checks what a schema cannot: that the templates, files, classes
+# inference/task_config.py then checks what a schema cannot: that the templates, files, classes
 # and functions named exist, that every variable a template needs is supplied, and that every
 # template renders, e.g. with every persona of a personas entry.
 
@@ -45,6 +45,9 @@ properties:
         enum: [crossed, random, cycle]
         description: crossed (default) renders every instant with every template; random or cycle gives each one
       retired_templates: {type: array, items: {$ref: "#/$defs/template_id"}}
+      system:
+        type: ["string", "null"]
+        description: "a system prompt that replaces every template's own; null or left out: the templates'"
 
   model:
     type: object
@@ -62,7 +65,7 @@ properties:
     properties:
       mode: {enum: [live, batch, dry_run]}
       workers: {type: integer, minimum: 1}
-      n: {type: integer, minimum: 1, description: number of instants (base inputs) in a run}
+      n: {type: ["integer", "null"], minimum: 1, description: "number of instants (base inputs) in a run; null: the instantiation's own number (given instants, exhaustive sampling)"}
       seed: {type: ["integer", "null"], description: seed for the instantiation; null = chosen and recorded}
       retry_mode: {enum: [live, batch]}
       poll_interval: {type: number, exclusiveMinimum: 0}
@@ -70,7 +73,8 @@ properties:
       name: {type: ["string", "null"]}
 
   validation:
-    type: object
+    type: ["object", "null"]
+    description: "how responses are checked; null: they are not validated"
     additionalProperties: false
     properties:
       custom_validator:
@@ -88,11 +92,6 @@ properties:
             properties: {min_chars: {type: integer, minimum: 1}}
           not_truncated: {type: object, additionalProperties: false}
           no_refusal: {type: object, additionalProperties: false}
-          json_fields:
-            type: object
-            additionalProperties: false
-            required: [schema]
-            properties: {schema: {type: string, minLength: 1}}
       retries: {type: integer, minimum: 0}
 
 $defs:

@@ -225,3 +225,19 @@ class ForeignValuesCheck(Check):
         issues = [self.issue("foreign_value", f"mentions {v!r}, which was not in the input", self.severity, value=v)
                   for v in foreign]
         return self.result(issues, foreign=foreign)
+
+
+# ---- checks a task file names (its validation.checks) ---------------------------------------
+GENERIC_CHECKS: dict[str, Callable[..., Check]] = {
+    "non_empty": NonEmpty,
+    "not_truncated": NotTruncated,
+    "no_refusal": NoRefusal,
+}
+
+
+def generic_checks(settings: Mapping[str, Optional[Mapping]]) -> list[Check]:
+    """The checks a task file's `validation.checks` names, {name: options}, in the order given."""
+    unknown = sorted(set(settings) - set(GENERIC_CHECKS))
+    if unknown:
+        raise KeyError(f"No generic check {unknown}; there are {', '.join(GENERIC_CHECKS)}")
+    return [GENERIC_CHECKS[name](**(options or {})) for name, options in settings.items()]

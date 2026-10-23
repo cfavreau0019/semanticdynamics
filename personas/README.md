@@ -37,17 +37,20 @@ A persona is a plain dict, exactly the JSON record. Prompt templates read fields
 ## Generating readings with personas
 
 ```bash
-python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas
-python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas --persona-sampling cycle
-python -m inference.generate run tarot_celtic_cross --n 20 --personas tarot_personas --persona 7 --persona "Maya Delgado"
+python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas --template celtic_cross_v2
+python -m inference.generate run tarot_celtic_cross --n 200 --personas tarot_personas --template celtic_cross_v2 \
+    --set instantiation.state.persona.sample=cycle
+python -m inference.generate run tarot_celtic_cross --n 20 --personas tarot_personas --template celtic_cross_v2 \
+    --set "instantiation.state.persona.select=[7, Maya Delgado]"
 ```
 
-- **One persona per draw.** Each card draw is assigned one persona. With `--personas`, the default template becomes `celtic_cross_v2`.
-- **Draws don't depend on personas.** Personas are sampled after the draws, so a given `--seed` produces the same draws with or without them.
+- **One persona per draw.** `--personas SET` adds a `persona` entry to the task's instantiation, so each instant (card draw) gets one persona, at random (`sample: cycle` takes them in order; `select` restricts them). In a task file, write the entry under `instantiation.state` yourself.
+- **Only a template that takes `persona` mentions it**, such as `celtic_cross_v2`; give it with `--template`. With one that doesn't, the run notes that its prompts won't mention the persona.
+- **Draws don't depend on personas.** Entries are sampled in the order written, and the persona comes after the cards, so a given `--seed` produces the same draws with or without them.
 - **What gets stored:**
   - the persona on each input (`inputs.persona_id`);
   - a snapshot of every persona used, with a content hash (the `personas` table);
-  - the set's name and file hash (`runs.config`).
+  - the set's name and file hash (`runs.config.task_config.references.persona_sets`).
 
 ## File format
 

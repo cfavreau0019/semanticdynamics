@@ -24,11 +24,15 @@ Schema versions
   4  responses.cached_tokens (nullable; earlier runs load unchanged and count as 0 cached)
   5  runs.application renamed to runs.task, and config.application_options to config.task_options
      (earlier runs keep their files; RunStore.run() reads their row in the new shape)
+  6  runs record their config: config.task_config (the task's InferenceTaskConfig, as run) and
+     config.seed; inputs.payload is the instant ({entry: value}, a persona by its id) with
+     input_type "instant" (no column changes; InferenceTaskConfig.from_run also reads the flat
+     settings earlier runs and evaluation runs store, and evaluation.subjects both input shapes)
 """
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 @dataclass(frozen=True)
@@ -72,7 +76,8 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("provider", "TEXT"),
        Column("model", "TEXT"),
        Column("config", "JSONB", False,
-              doc="all generation settings (templates, params, seed, retries, ...); task_options holds the task's own"),
+              doc="the run's settings: task_config (the task's config as run) and seed; or, flat, templates, "
+                  "params, seed, retries, ... and task_options (a task giving its settings in Python)"),
        Column("code_version", "TEXT", doc="git commit of the code that produced the run"),
        Column("code_dirty", "BOOLEAN", doc="uncommitted changes present when the run started"),
        Column("schema_version", "INTEGER", False, doc="schema version the run was created with"),
@@ -92,8 +97,8 @@ TABLES: dict[str, Table] = {t.name: t for t in [
        Column("input_id", "TEXT", False),
        RUN,
        Column("input_index", "INTEGER", False, doc="position within the run"),
-       Column("input_type", "TEXT", False, doc="e.g. celtic_cross_draw"),
-       Column("payload", "JSONB", False, doc="the input itself, e.g. {position: card state}"),
+       Column("input_type", "TEXT", False, doc="instant (a task file's run), or the task's own, e.g. tarot_draw"),
+       Column("payload", "JSONB", False, doc="the input itself: an instant, e.g. {cards: {position: card state}}"),
        Column("persona_id", "TEXT", True, "personas(persona_id)", "who the prompt is written for; NULL = none"),
        Column("created_at", "TIMESTAMPTZ", False)),
     _t("input_items", ["input_id", "item_index"], "Long form of inputs: one row per labelled element.",

@@ -16,12 +16,10 @@ tarot_celtic_cross:
   # TASK ENGINE AND PYTHON EXTENSION ----------------------------------------
   engine: inference
   implemented_by: applications.tarot.code.readings:TarotReadings
-  # Currently required for the application's specialized behavior:
-  #   * sample 10 card states in canonical Celtic Cross position order;
-  #   * optionally draw with/without replacement and honor pinned cards;
-  #   * expose the sampled draw as Jinja variable `cards`;
-  #   * carry the original draw forward as expected validation state.
-  # As the generic instantiator develops, some of this may become declarative.
+  # Only what this file cannot say: the draw's long form (input_items, a row
+  # per position). Sampling the draw, handing it to the template as `cards`
+  # and checking the reading against it are declared below. TarotReadings
+  # also rebuilds the task of runs made before this file, to resume them.
 
   # BROADER UNDERLYING STATE ------------------------------------------------
   instantiation:
@@ -33,19 +31,20 @@ tarot_celtic_cross:
                               # (whether a card may be reversed). A STATE-SPACE
                               # SPECIFICATION, not a resolved draw.
           negative_suffix: " reversed"   # A reversed card is "<card> reversed".
-          replacement: true   # Today's default (--draw replacement): any card for
-                              # any position, repeats allowed. false = --draw unique:
-                              # no card twice, each reversed with probability 1/2.
-          fixed: {}           # Today's --pin: positions given rather than drawn,
-                              # e.g. {Outcome: Death reversed}.
+          replacement: true   # Any card for any position, repeats allowed (what
+                              # --draw replacement did). false: no card twice, each
+                              # reversed with probability 1/2 (--draw unique).
+          fixed: {}           # Positions given rather than drawn (what --pin did),
+                              # e.g. {Outcome: Death reversed}. For one run:
+                              # --set "instantiation.state.cards.steps.fixed={Outcome: Death}"
       # OPTIONAL reader persona, for persona-aware templates (celtic_cross_v2):
       # persona:
       #   personas: tarot_personas
       #   sample: random      # Drawn after the cards, so a seed gives the same
       #                       # draws with or without personas.
   # The instant is {cards: {position: card_state}}. Templates take `cards` from
-  # it by name, replacing the TarotReadings.template_variables() adapter, and
-  # validation checks the reading against it (validation.expected below).
+  # it by name, and validation checks the reading against it (validation.expected
+  # below). A run stores the instant as each input's payload.
   # Sampled ONCE per base input and reused across every prompt variant and
   # validation retry.
 
@@ -56,8 +55,7 @@ tarot_celtic_cross:
         # Registered prompt ID, currently stored in
         # prompts/library/tarot/celtic_cross_v4.toml.
         # TOML declares required = ["cards"] and contains the Jinja body.
-        # No `variables` mapping is duplicated here: TarotReadings currently
-        # supplies `cards` from the instantiated draw (see note above).
+        # No `variables` mapping is needed: it takes `cards` from the instant.
         # No personas: this is the current default non-persona prompt.
 
       # OPTIONAL PERSONA-ENABLED VARIANT (not activated by default):
@@ -117,21 +115,22 @@ tarot_celtic_cross:
       not_truncated: {}      # Reject responses cut short at the token ceiling.
       no_refusal: {}         # Heuristic rejection of refusal-style responses.
     retries: 2               # Additional generations after failed validation.
-    # IMPORTANT: current `celtic_cross_validator()` ALREADY contains these
-    # generic checks plus domain-specific `positions` and `foreign_cards`.
-    # The future declarative loader must NOT apply the generic checks twice.
-    # Reuse the SAME resolved draw across retries; do not resample cards.
+    # `celtic_cross_validator()` has these generic checks too, plus the
+    # domain-specific `positions` and `foreign_cards`. A check named here takes
+    # the place of its check of the same name, so each applies once, as tuned
+    # here. Retries reuse the SAME draw; cards are never resampled.
 
 # IMPLEMENTATION NOTES (not additional YAML config fields):
-# - The command line's --draw, --pin and --deck-config correspond to
-#   instantiation.state.cards.steps: replacement, fixed and from. Until the task
-#   file is wired in, TarotReadings still takes them from the command line.
-# - The existing generator provides prompt variables:
-#     cards = {position: card_state}, positions = list(cards), persona = ...
+# - `python -m inference.generate run tarot_celtic_cross` runs this task. Its
+#   options edit it for one run (--n is execution.n; --set edits any setting),
+#   and the run records its config as edited (runs.config.task_config).
+# - The command line's former --draw, --pin and --deck-config are
+#   instantiation.state.cards.steps: replacement, fixed and from.
 # - The custom validator also reports mismatched/missing labeled positions,
 #   reversal mistakes, out-of-order positions (warnings), and foreign cards
 #   (warnings). These rules are delegated to the Python validator.
 # - Record original draw/instant, deck fingerprint, run seed, chosen template
 #   and hash, rendered prompt, model parameters, attempts, and validations.
-# - This is a CONFIGURATION DRAFT, not a replacement for the old tasks.yaml
-#   or a claim the YAML registry already loads this shape.
+# - This task replaces tasks_draft.yaml's tarot_celtic_cross, which describes
+#   how runs before this file were made; the draft keeps the evaluation tasks
+#   until they have a task file format of their own.

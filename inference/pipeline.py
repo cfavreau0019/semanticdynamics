@@ -1,9 +1,16 @@
 """
 Generic generation pipeline: inputs -> prompts -> requests -> responses (+ validation),
-persisted as tables by RunStore. Task specifics (what an input is, which prompt variables
-it provides, how outputs are validated) come from an InferenceTask (task.py); the tasks
-themselves live in applications/<application>/. Prompt text comes from the `prompts` library
-and optional personas from the `personas` package.
+persisted as tables by RunStore. A run is a task (task.py) and its config (task_config.py):
+the task makes the inputs and validates the responses, the config says everything else, and
+every function here reads it as task.config. Prompt text comes from the `prompts` library and
+optional personas from the `personas` package.
+
+    task = InferenceTask.from_config(InferenceTaskConfig.from_file("applications/tarot/tasks.yaml"))
+    store, requests = prepare_run(task)
+    run_live(store, task, requests)
+
+A task that gives its settings in Python rather than in a config (evaluation, until it has a
+task file of its own) passes them to prepare_run as a GenerationConfig, which becomes its config.
 
 Order of writes (so an interrupted run can be resumed or collected from the tables alone):
     runs -> prompt_templates, personas -> inputs, input_items -> prompts -> requests
@@ -25,12 +32,20 @@ from llm import BatchJob, ChatRequest, ChatResponse, generate_many, get_provider
 from llm.batch import wait_for_batch
 from inference.schema import SCHEMA_VERSION, TABLES
 from inference.store import DEFAULT_ROOT, RunStore, code_version, new_id, utc_now
-from inference.task import INPUT_KEY, InferenceTask
+from inference.task import INPUT_KEY, InferenceTask, RunInput, RunTemplate
+from inference.task_config import InferenceTaskConfig
+from instantiation import Personas
 from personas import SAMPLING_MODES, PersonaSet
 from prompts import PromptLibrary, PromptTemplate, default_library
 
+
 @dataclass
 class GenerationConfig:
+    """
+    A run's settings, flat, as a task that gives them in Python states them (evaluation, until it
+    has a task file of its own); prepare_run makes them the task's InferenceTaskConfig. Runs made
+    before task configs stored their settings in this shape (InferenceTaskConfig.from_run reads them).
+    """
     n: int                                    # number of inputs; requests = n x len(templates)
     provider: str
     model: Optional[str] = None
@@ -55,114 +70,139 @@ class GenerationConfig:
 
 
 # ---- preparing a run -------------------------------------------------------------------
-def resolve_templates(task: InferenceTask, config: GenerationConfig,
+def resolve_templates(task: InferenceTask, settings: GenerationConfig,
                       library: Optional[PromptLibrary] = None) -> list[PromptTemplate]:
-    """The templates a run will use, pinned to exact versions (also written back to config.templates)."""
+    """The templates of a run given settings, pinned to exact versions (written back to settings.templates)."""
     library = library or default_library()
-    refs = list(config.templates)
+    refs = list(settings.templates)
     if not refs:
-        refs = [task.persona_template if config.persona_set and task.persona_template else task.default_template]
+        refs = [task.persona_template if settings.persona_set and task.persona_template else task.default_template]
     templates = [library.get(r) for r in refs]
     if len({t.id for t in templates}) != len(templates):
         raise ValueError(f"The same template is listed twice: {[t.id for t in templates]}")
-    if config.persona_set:
+    if settings.persona_set:
         ignoring = [t.id for t in templates if not t.uses("persona")]
         if ignoring:
             warnings.warn(f"Personas were requested but {ignoring} take no `persona` variable; "
-                          f"those prompts will not mention the persona.", stacklevel=2)
-    config.templates = [t.id for t in templates]
+                          f"those prompts will not mention the persona.", stacklevel=3)
+    settings.templates = [t.id for t in templates]
     return templates
 
 
-def resolve_personas(config: GenerationConfig) -> Optional[PersonaSet]:
-    if not config.persona_set:
-        if config.persona_ids:
-            raise ValueError("persona_ids given without a persona_set")
-        return None
-    if config.persona_sampling not in SAMPLING_MODES:
-        raise ValueError(f"persona_sampling must be one of {SAMPLING_MODES}")
-    people = PersonaSet.load(config.persona_set)
-    return people.select(config.persona_ids) if config.persona_ids else people
+def resolve_personas(config: InferenceTaskConfig) -> tuple[Optional[PersonaSet], str]:
+    """The persona set of a task that computes its inputs in Python (its config's `persona` entry), and how to sample it."""
+    entry = config.instantiation.state.get("persona") if config.instantiation else None
+    if not isinstance(entry, Personas):
+        return None, "random"
+    mode = config.instantiation.method("persona")
+    if mode not in SAMPLING_MODES:
+        raise ValueError(f"persona sampling must be one of {SAMPLING_MODES}, not {mode!r}")
+    people = PersonaSet.load(entry.file or entry.set)
+    return (people.select(entry.select) if entry.select else people), mode
 
 
-def prepare_run(task: InferenceTask, config: GenerationConfig, root=DEFAULT_ROOT,
-                library: Optional[PromptLibrary] = None) -> tuple[RunStore, list[ChatRequest]]:
+def inputs_from_hooks(task: InferenceTask, seed: int,
+                      library: PromptLibrary) -> tuple[list[RunTemplate], list[RunInput], dict]:
     """
-    Create the run and write runs, prompt_templates, personas, inputs, input_items, prompts
-    and requests. Each of the n sampled inputs (with its persona, if any) is rendered with
-    every template, giving n x len(templates) requests.
+    A run's templates and inputs, for a task that computes its inputs in Python (sample_inputs,
+    assign_personas, template_variables), with its config's templates and personas; and what to
+    record of them in runs.config. InferenceTask.run_inputs uses it for such a task.
     """
-    if config.mode not in ("live", "batch", "dry_run"):
-        raise ValueError(f"mode must be live, batch or dry_run; got {config.mode!r}")
-    library = library or default_library()
-    templates = resolve_templates(task, config, library)      # fail before anything is written
-    people = resolve_personas(config)
-    if config.seed is None:
-        config.seed = random.SystemRandom().randrange(2**31)
-
-    rng = random.Random(config.seed)
-    payloads = task.sample_inputs(config.n, rng)
+    config = task.config
+    templates = [RunTemplate(t, library.status(t)) for t in (library.get(ref.id) for ref in config.prompt.templates)]
+    people, mode = resolve_personas(config)
+    rng = random.Random(seed)
+    payloads = task.sample_inputs(config.execution.n, rng)
     # personas are drawn after the inputs, so a seed gives the same inputs with or without them
-    if people:
-        assigned = task.assign_personas(payloads, people, rng, config.persona_sampling)
-    else:
-        assigned = [None] * len(payloads)
+    assigned = task.assign_personas(payloads, people, rng, mode) if people else [None] * len(payloads)
     if len(assigned) != len(payloads):
         raise ValueError("assign_personas must return one entry per payload")
+    inputs = [RunInput(payload, task.template_variables(payload, persona), persona["id"] if persona else None,
+                       [people.row(persona)] if persona else [])
+              for payload, persona in zip(payloads, assigned)]
+    return templates, inputs, {"persona_set_sha256": people.sha256 if people else None,
+                               "task_options": task.options()}
+
+
+def prepare_run(task: InferenceTask, settings: Optional[GenerationConfig] = None, root=DEFAULT_ROOT,
+                library: Optional[PromptLibrary] = None) -> tuple[RunStore, list[ChatRequest]]:
+    """
+    Create the run and write runs, prompt_templates, personas, inputs, input_items, prompts and
+    requests, as the task's config says (InferenceTask.from_config). A task that gives its settings
+    in Python passes them as `settings`; they become its config. Each input is rendered with every
+    template (or as prompt.sample says), and every prompt is rendered before anything is written.
+    """
+    library = library or default_library()
+    if settings is not None:
+        if settings.persona_ids and not settings.persona_set:
+            raise ValueError("persona_ids given without a persona_set")
+        resolve_templates(task, settings, library)
+        if settings.seed is None:
+            settings.seed = random.SystemRandom().randrange(2**31)
+        task.config = InferenceTaskConfig.from_settings(task.name, settings)
+    config = task.config
+    if config is None:
+        raise ValueError(f"{task.name} has no config: build it with InferenceTask.from_config, or give settings")
+    x, m = config.execution, config.model
+    seed = x.seed if x.seed is not None else random.SystemRandom().randrange(2**31)
+    templates, run_inputs, extra = task.run_inputs(seed, library)
+    # every prompt is rendered before anything is written: a template that cannot render leaves no run behind
+    rendered = [[(templates[k], templates[k].render(inp.values))
+                 for k in (inp.templates if inp.templates is not None else range(len(templates)))]
+                for inp in run_inputs]
 
     store = RunStore.create(root, task=task.name)
     sha, dirty = code_version()
     now = utc_now()
+    stored = {**asdict(settings), **extra} if settings is not None else \
+        {"task_config": config.record(), "seed": seed, **extra}
     store.upsert("runs", [{
-        "run_id": store.run_id, "name": config.name, "dataset": config.dataset, "task": task.name,
-        "mode": config.mode,
-        "status": "prepared", "provider": config.provider, "model": config.model,
-        "config": {**asdict(config), "persona_set_sha256": people.sha256 if people else None,
-                   "task_options": task.options()},
+        "run_id": store.run_id, "name": x.name, "dataset": x.dataset, "task": task.name, "mode": x.mode,
+        "status": "prepared", "provider": m.provider, "model": m.name, "config": stored,
         "code_version": sha, "code_dirty": dirty, "schema_version": SCHEMA_VERSION,
         "summary": None, "created_at": now, "updated_at": now,
     }])
     store.append("prompt_templates", [{
-        "template_sha256": t.sha256, "template_id": t.id, "name": t.name, "version": t.version,
-        "system_template": t.system, "user_template": t.user, "required": list(t.required),
-        "optional": list(t.optional), "description": t.description, "changes": t.changes,
-        "based_on": t.based_on, "status": library.status(t),
+        "template_sha256": t.template.sha256, "template_id": t.template.id, "name": t.template.name,
+        "version": t.template.version, "system_template": t.template.system, "user_template": t.template.user,
+        "required": list(t.template.required), "optional": list(t.template.optional),
+        "description": t.template.description, "changes": t.template.changes, "based_on": t.template.based_on,
+        "status": t.status,
     } for t in templates])
-    if people:
-        used = {p["id"]: p for p in assigned if p is not None}
-        store.append("personas", [people.row(p) for p in used.values()])
+    used = {row["persona_id"]: row for inp in run_inputs for row in inp.personas}
+    if used:
+        store.append("personas", list(used.values()))
     for table, rows in task.reference_rows().items():
         store.append(table, rows)
 
-    request_mode = "batch" if config.mode == "batch" else "live"
+    request_mode = "batch" if x.mode == "batch" else "live"
     inputs, items, prompts, request_rows, requests = [], [], [], [], []
-    for i, (payload, persona) in enumerate(zip(payloads, assigned)):
+    for i, (inp, prompts_of_input) in enumerate(zip(run_inputs, rendered)):
         input_id = new_id("inp")
-        persona_id = persona["id"] if persona else None
+        payload, persona_id = inp.payload, inp.persona_id
         inputs.append({"input_id": input_id, "run_id": store.run_id, "input_index": i,
                        "input_type": task.input_type, "payload": payload, "persona_id": persona_id,
                        "created_at": now})
         items += [{"input_id": input_id, "run_id": store.run_id, "item_index": k, **item}
                   for k, item in enumerate(task.input_items(payload))]
-        variables = task.template_variables(payload, persona)
 
-        for template in templates:
+        for run_template, rendered_prompt in prompts_of_input:
+            template = run_template.template
             prompt_id, request_id = new_id("prm"), new_id("req")
-            rendered = template.render_from(variables)
-            system = config.system if config.system is not None else rendered.system
+            system = config.prompt.system if config.prompt.system is not None else rendered_prompt.system
             messages = ([{"role": "system", "content": system}] if system else []) + \
-                       [{"role": "user", "content": rendered.user}]
+                       [{"role": "user", "content": rendered_prompt.user}]
             prompts.append({"prompt_id": prompt_id, "input_id": input_id, "run_id": store.run_id,
                             "template": template.id, "template_sha256": template.sha256, "system": system,
-                            "user_text": rendered.user, "messages": messages,
+                            "user_text": rendered_prompt.user, "messages": messages,
                             "prompt_sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
                             "created_at": now})
             request_rows.append({"request_id": request_id, "prompt_id": prompt_id, "run_id": store.run_id,
-                                 "provider": config.provider, "model": config.model, "params": config.params,
-                                 "extra_body": config.extra_body, "mode": request_mode, "created_at": now})
+                                 "provider": m.provider, "model": m.name, "params": dict(m.parameters),
+                                 "extra_body": dict(m.extra_body), "mode": request_mode, "created_at": now})
             requests.append(ChatRequest(
-                messages=messages, model=config.model, params=dict(config.params), id=request_id,
-                extra_body=dict(config.extra_body),
+                messages=messages, model=m.name, params=dict(m.parameters), id=request_id,
+                extra_body=dict(m.extra_body),
                 metadata=_metadata(payload, input_id, prompt_id, persona_id, template.id)))
 
     store.append("inputs", inputs)
@@ -188,8 +228,14 @@ def list_runs(root=DEFAULT_ROOT, dataset: Optional[str] = None) -> list[dict]:
 
 
 def load_config(store: RunStore) -> GenerationConfig:
-    """The run's GenerationConfig; also reads runs written by earlier schema versions."""
+    """
+    The GenerationConfig of a run that stored its settings flat (a task that gives them in Python,
+    or any run before task configs, of any schema version). A run's config, whatever its shape:
+    InferenceTaskConfig.from_run(store.run()).
+    """
     cfg = dict(store.run()["config"])
+    if "task_config" in cfg:
+        raise ValueError(f"{store.run_id} recorded an InferenceTaskConfig: read it with InferenceTaskConfig.from_run")
     if "template" in cfg:                       # schema version 1: a single template name
         template = cfg.pop("template")
         cfg.setdefault("templates", [template] if template else [])
@@ -293,16 +339,21 @@ def _attempt_offsets(store: RunStore) -> dict[str, int]:
 
 
 # ---- running ---------------------------------------------------------------------------
-def _provider_for(store: RunStore, config: GenerationConfig):
-    llm = get_provider(config.provider)
+def _config(store: RunStore, task: InferenceTask) -> InferenceTaskConfig:
+    """The task's config; for a task rebuilt without one, what its run recorded."""
+    return task.config if task.config is not None else InferenceTaskConfig.from_run(store.run())
+
+
+def _provider_for(store: RunStore, provider: str):
+    llm = get_provider(provider)
     if hasattr(llm, "batch_dir"):  # keep this run's batch files inside its directory
         llm = copy.copy(llm)
         llm.batch_dir = store.batch_files_dir
     return llm
 
 
-def _validate_fn(task: InferenceTask, config: GenerationConfig):
-    if not config.validate:
+def _validate_fn(task: InferenceTask, config: InferenceTaskConfig):
+    if config.validation is None:
         return None
     validator = task.validator()
     if validator is None:
@@ -321,7 +372,7 @@ def run_live(store: RunStore, task: InferenceTask, requests: Optional[list[ChatR
     Generate every request without a successful final response, so it also resumes a run:
     requests never attempted, interrupted, or whose last attempt was an API error.
     """
-    config = load_config(store)
+    config = _config(store, task)
     requests = requests if requests is not None else rebuild_requests(store)
     done = finished_request_ids(store)
     offsets = _attempt_offsets(store)
@@ -331,8 +382,9 @@ def run_live(store: RunStore, task: InferenceTask, requests: Optional[list[ChatR
         print(f"Resuming: {len(done)} finished; {len(pending)} to go ({n_err} retrying after API errors)")
     store.update_run(status="running")
     try:
-        generate_many(pending, provider=_provider_for(store, config), max_workers=config.max_workers,
-                      validate=_validate_fn(task, config), validation_retries=config.validation_retries,
+        generate_many(pending, provider=_provider_for(store, config.model.provider),
+                      max_workers=config.execution.workers, validate=_validate_fn(task, config),
+                      validation_retries=config.validation.retries if config.validation else 0,
                       on_result=lambda r: write_response(store, r, offsets.get(r.request_id, 0), task),
                       progress=progress)
     except BaseException:
@@ -357,9 +409,8 @@ def record_batch(store: RunStore, job: BatchJob, round_: int, n_requests: Option
 
 
 def submit_batch(store: RunStore, requests: Optional[list[ChatRequest]] = None) -> BatchJob:
-    config = load_config(store)
     requests = requests if requests is not None else rebuild_requests(store)
-    llm = _provider_for(store, config)
+    llm = _provider_for(store, store.run()["provider"])
     job = llm.submit_batch(requests, metadata={"run_id": store.run_id})
     record_batch(store, job, 0, n_requests=len(requests))
     store.update_run(status="submitted")
@@ -369,30 +420,31 @@ def submit_batch(store: RunStore, requests: Optional[list[ChatRequest]] = None) 
 def collect_batch(store: RunStore, task: InferenceTask, wait: bool = False, progress: bool = True) -> dict:
     """
     Collect the run's initial batch: fetch results, validate, regenerate invalid ones
-    (config.retry_mode: live or follow-up batches), then write everything. Returns the run
+    (execution.retry_mode: live or follow-up batches), then write everything. Returns the run
     summary, or the batch's current status if it is still running and wait=False.
     """
-    config = load_config(store)
+    config = _config(store, task)
+    x = config.execution
     pending = [b for b in store.read("batches") if b["round"] == 0 and not b["collected"]]
     if not pending:
         raise RuntimeError(f"{store.run_id} has no uncollected batch")
-    llm = _provider_for(store, config)
+    llm = _provider_for(store, config.model.provider)
     job = llm.get_batch(pending[0]["batch_id"])
     job.input_file = pending[0]["input_file"]
     record_batch(store, job, 0)
     if not job.done:
         if not wait:
             return {"batch_id": job.id, "status": job.status, "request_counts": job.request_counts}
-        job = wait_for_batch(job, llm, poll_interval=config.poll_interval, verbose=progress)
+        job = wait_for_batch(job, llm, poll_interval=x.poll_interval, verbose=progress)
         record_batch(store, job, 0)
 
     requests = [r for r in rebuild_requests(store) if r.id not in finished_request_ids(store)]
     validate = _validate_fn(task, config)
     responses = run_batch_results(job, llm, requests, validate=validate)
-    if validate is not None and config.validation_retries > 0:
-        responses = retry_invalid(responses, requests, validate, llm, retries=config.validation_retries,
-                                  mode=config.retry_mode, max_workers=config.max_workers,
-                                  poll_interval=config.poll_interval, progress=progress,
+    if validate is not None and config.validation.retries > 0:
+        responses = retry_invalid(responses, requests, validate, llm, retries=config.validation.retries,
+                                  mode=x.retry_mode, max_workers=x.workers,
+                                  poll_interval=x.poll_interval, progress=progress,
                                   on_batch=lambda j, rnd: record_batch(store, j, rnd))
     offsets = _attempt_offsets(store)
     for r in responses:

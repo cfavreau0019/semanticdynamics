@@ -1,4 +1,4 @@
-"""inference.task_file: task files read into checked TaskSpecs, and the problems they report."""
+"""inference.task_config: InferenceTaskConfig, from task files, entries, settings and runs; the problems reported."""
 import io
 import json
 import shutil
@@ -10,8 +10,8 @@ import pytest
 import yaml
 
 import applications
-from applications.tarot.code.readings import TarotReadings
-from inference.task_file import TaskFileError, load_task_file, main
+from inference.pipeline import GenerationConfig
+from inference.task_config import InferenceTaskConfig, TaskConfigError, edited, load_task_file, main, parse_edit
 from instantiation import Literal, OneOf, Personas, Steps
 from spec_files import read_yaml
 from prompts import get_template
@@ -19,6 +19,7 @@ from prompts import get_template
 ROOT = Path(__file__).parents[1]
 TAROT = ROOT / "applications" / "tarot"
 DECK = TAROT / "vector_space_config.json"
+POSITIONS = json.loads(DECK.read_text(encoding="utf-8"))["step_aliases"]
 REFERENCE = ROOT / "applications" / "template" / "inference_task_reference.yaml"
 
 BASE = """
@@ -40,7 +41,7 @@ def write(tmp_path: Path, text: str, name: str = "tasks.yaml") -> Path:
 
 
 def problems(tmp_path: Path, text: str) -> list[str]:
-    with pytest.raises(TaskFileError) as caught:
+    with pytest.raises(TaskConfigError) as caught:
         load_task_file(write(tmp_path, text))
     return caught.value.problems
 
@@ -55,17 +56,17 @@ def test_the_tarot_task_reads_as_written():
     assert template.id == "celtic_cross_v4" and template.template.sha256 == get_template("celtic_cross_v4").sha256
     assert spec.prompt.retired_templates == ("celtic_cross_v1", "celtic_cross_v3") and spec.prompt.sample is None
 
-    cards = spec.instantiation.state["cards"]
-    readings = TarotReadings()
-    assert isinstance(cards, Steps) and cards.file == readings.deck_config
-    assert cards.names == tuple(readings.positions) and cards.states == tuple(readings.cards)
+    cards, deck = spec.instantiation.state["cards"], json.loads(DECK.read_text(encoding="utf-8"))
+    assert isinstance(cards, Steps) and cards.file == DECK
+    assert cards.names == tuple(deck["step_aliases"]) and cards.states == tuple(deck["aliases"])
     assert (cards.negative_polarity, cards.negative_suffix, cards.replacement, dict(cards.fixed)) == \
         (True, " reversed", True, {})
 
     assert (spec.model.provider, spec.model.name, dict(spec.model.parameters)) == \
         ("openai", "gpt-6-luna", {"max_tokens": 3600})
     assert (spec.execution.mode, spec.execution.workers, spec.execution.n) == ("live", 2, 1)
-    assert spec.execution.seed is None and spec.execution.retry_mode is None          # not given: None
+    assert spec.execution.seed is None and spec.execution.retry_mode == "live"         # not given: the default
+    assert spec.prompt.system is None
     assert spec.validation.custom_validator == "applications.tarot.code.validation:celtic_cross_validator"
     assert (spec.validation.expected, list(spec.validation.checks), spec.validation.retries) == \
         ("cards", ["non_empty", "not_truncated", "no_refusal"], 2)
@@ -74,7 +75,7 @@ def test_the_tarot_task_reads_as_written():
 
 
 def test_task_files_and_task_classes_agree():
-    specs = applications.task_specs()
+    specs = applications.task_configs()
     assert set(specs) == {"tarot_celtic_cross"} and applications.task_files() == [TAROT / "tasks.yaml"]
     for name, spec in specs.items():
         module, cls = spec.implemented_by.split(":")
@@ -84,7 +85,7 @@ def test_task_files_and_task_classes_agree():
 def test_the_reference_has_a_valid_structure():
     [spec] = load_task_file(REFERENCE, check=False).values()
     assert spec.name == "task_name" and spec.prompt.templates[0].id == "example_v1"
-    with pytest.raises(TaskFileError, match="example_v1"):           # its names are placeholders
+    with pytest.raises(TaskConfigError, match="example_v1"):           # its names are placeholders
         load_task_file(REFERENCE)
 
 
@@ -182,6 +183,8 @@ def tarot_task(**changes) -> str:
     ({"prompt.templates": [{"template": "celtic_cross_v4", "inline": "x"}]}, "'template' cannot be combined with 'inline'"),
     ({"execution.mode": "nightly"}, "'nightly' is not one of ['live', 'batch', 'dry_run']"),
     ({"output": {"format": "text"}}, "Additional properties are not allowed ('output' was unexpected)"),
+    ({"validation.checks": {"json_fields": {"schema": "reading"}}},
+     "Additional properties are not allowed ('json_fields' was unexpected)"),
     ({"instantiation": None, "prompt.templates": [{"template": "celtic_cross_v4", "variables": {"cards": None}}]},
      "celtic_cross_v4 does not render with its fixed variables: missing required variables ['cards']"),
 ])
@@ -226,7 +229,7 @@ def test_a_persona_set_path_is_relative_to_the_task_file(tmp_path, monkeypatch):
 # ---- given instants -------------------------------------------------------------------------------------
 def draw(**changes) -> dict:
     """A Celtic Cross draw: Death everywhere, but for `changes` ({position: card}, spaces as underscores)."""
-    return {**{p: "Death" for p in TarotReadings().positions}, **{k.replace("_", " "): v for k, v in changes.items()}}
+    return {**{p: "Death" for p in POSITIONS}, **{k.replace("_", " "): v for k, v in changes.items()}}
 
 
 def with_instants(instants, state: bool = True) -> str:
@@ -295,6 +298,95 @@ def test_task_names_and_duplicate_keys(tmp_path):
     assert "lowercase letters" in problems(tmp_path, BASE.replace("\nt:", "\nTarot:"))[0]
     duplicated = BASE.replace("  engine: inference\n", "  engine: inference\n  engine: inference\n")
     assert "duplicate key 'engine'" in problems(tmp_path, duplicated)[0]
+
+
+# ---- one task, edited ---------------------------------------------------------------------------------------
+def test_one_task_with_edits(tmp_path):
+    spec = InferenceTaskConfig.from_file(TAROT / "tasks.yaml", "tarot_celtic_cross", {"execution.n": 20, "model.parameters.temperature": 0.5,
+                                                                   "instantiation.state.cards.steps.fixed": {"Outcome": "Death"}})
+    assert spec.execution.n == 20 and dict(spec.model.parameters) == {"max_tokens": 3600, "temperature": 0.5}
+    assert dict(spec.instantiation.state["cards"].fixed) == {"Outcome": "Death"}
+    assert spec.edits["execution.n"] == 20 and spec.content["execution"]["n"] == 20      # recorded, as edited
+    plain = InferenceTaskConfig.from_file(TAROT / "tasks.yaml")                                             # the file's only task
+    assert plain.sha256 == load_task_file(TAROT / "tasks.yaml")["tarot_celtic_cross"].sha256 != spec.sha256
+    assert plain.edits == {} and plain.instantiation_sha256 != spec.instantiation_sha256
+    assert InferenceTaskConfig.from_file(TAROT / "tasks.yaml", None, {"execution.n": 3}).instantiation_sha256 == plain.instantiation_sha256
+    with pytest.raises(TaskConfigError, match="no task 'tarot' in the file; it has tarot_celtic_cross"):
+        InferenceTaskConfig.from_file(TAROT / "tasks.yaml", "tarot")
+    with pytest.raises(TaskConfigError, match="no such file"):
+        InferenceTaskConfig.from_file(tmp_path / "nope.yaml")
+
+
+def test_edits_reach_into_an_instantiation_file(tmp_path):
+    shutil.copy(ROOT / "applications" / "template" / "instantiation.yaml", tmp_path / "instantiation.yaml")
+    task = {"instantiation": "instantiation.yaml", "prompt": {"templates": [{"inline": "x"}]}}
+    out = edited(task, {"instantiation.state.tone": "grim", "prompt.sample": "cycle"}, tmp_path)
+    assert out["instantiation"]["state"]["tone"] == "grim" and "character" in out["instantiation"]["state"]
+    assert out["prompt"] == {"templates": [{"inline": "x"}], "sample": "cycle"} and task["instantiation"] == "instantiation.yaml"
+    assert edited({}, {"a.b.c": 1}, tmp_path) == {"a": {"b": {"c": 1}}}
+    with pytest.raises(ValueError, match="cannot set prompt.templates.x: prompt.templates is"):
+        edited(task, {"prompt.templates.x": 1}, tmp_path)
+
+
+@pytest.mark.parametrize("text, edit", [
+    ("execution.n=20", ("execution.n", 20)),
+    ("model.name=null", ("model.name", None)),
+    ("instantiation.state.cards.steps.replacement=false", ("instantiation.state.cards.steps.replacement", False)),
+    ("instantiation.state.cards.steps.fixed={Hopes and Fears: The Sun reversed}",
+     ("instantiation.state.cards.steps.fixed", {"Hopes and Fears": "The Sun reversed"})),
+    ("prompt.templates=[{template: celtic_cross_v2}]", ("prompt.templates", [{"template": "celtic_cross_v2"}])),
+    ("execution.name=a=b", ("execution.name", "a=b")),
+])
+def test_command_line_edits(text, edit):
+    assert parse_edit(text) == edit
+
+
+def test_a_bad_command_line_edit():
+    with pytest.raises(ValueError, match="dotted.path=value"):
+        parse_edit("execution.n")
+
+
+def test_a_run_s_record_gives_back_its_config(tmp_path):
+    spec = InferenceTaskConfig.from_file(TAROT / "tasks.yaml", None, {"execution.n": 2})
+    record = spec.record()
+    assert record["source"] == "applications/tarot/tasks.yaml" and record["edits"] == {"execution.n": 2}
+    again = InferenceTaskConfig.from_record(json.loads(json.dumps(record)))    # as it is stored, in JSON
+    assert (again.name, again.sha256, again.instantiation_sha256) == (spec.name, spec.sha256, spec.instantiation_sha256)
+    assert (again.validation, again.execution, again.model) == (spec.validation, spec.execution, spec.model)
+    assert again.implemented_by == spec.implemented_by and again.edits == spec.edits
+    assert again.instantiation is None and again.content == spec.content    # its files are not read again
+    assert InferenceTaskConfig.from_run({"task": spec.name, "config": {"task_config": record, "seed": 7}}).sha256 == spec.sha256
+
+
+def test_a_config_written_in_code(tmp_path):
+    entry = {"description": "A test task.", "engine": "inference", "model": {"provider": "openai"},
+             "prompt": {"templates": [{"inline": "Say {{ word }}."}], "system": "Be brief."},
+             "instantiation": {"state": {"word": {"one_of": ["hello", "goodbye"]}}}, "validation": None}
+    config = InferenceTaskConfig.from_entry("t", entry, edits={"execution.n": 3})
+    assert (config.prompt.system, config.validation, config.execution.n, config.source) == ("Be brief.", None, 3, None)
+    assert config.prompt.templates[0].template.required == ("word",) and config.edits == {"execution.n": 3}
+    with pytest.raises(TaskConfigError, match=r"t \(in code\):\n  t.model: 'provider' is a required property"):
+        InferenceTaskConfig.from_entry("t", {**entry, "model": {}})
+
+
+@pytest.mark.parametrize("version", [1, 4, 5])
+def test_settings_of_runs_before_task_configs(version):
+    """Runs before task configs stored flat settings, in the shape of GenerationConfig (version 1: one template)."""
+    settings = {**vars(GenerationConfig(n=50, provider="featherless", model="m", templates=["celtic_cross_v4"],
+                                        params={"max_tokens": 2400}, seed=42, max_workers=2, validation_retries=1,
+                                        dataset="tarot-v4", persona_set="tarot_personas", persona_ids=["7"])),
+                "task_options": {"draw": "replacement"}, "persona_set_sha256": "ab"}
+    if version == 1:
+        settings = {k: v for k, v in settings.items() if k not in ("templates", "persona_set", "persona_ids")}
+        settings["template"] = "celtic_cross_v1"
+    config = InferenceTaskConfig.from_run({"task": "tarot_celtic_cross", "config": settings})
+    assert (config.model.provider, config.model.name, dict(config.model.parameters)) == ("featherless", "m", {"max_tokens": 2400})
+    x = config.execution
+    assert (x.n, x.seed, x.workers, x.dataset, x.mode, config.validation.retries) == (50, 42, 2, "tarot-v4", "live", 1)
+    assert [t.id for t in config.prompt.templates] == (["celtic_cross_v1"] if version == 1 else ["celtic_cross_v4"])
+    persona = config.instantiation.state["persona"] if version > 1 else None
+    assert version == 1 and config.instantiation is None or (persona.set, persona.select) == ("tarot_personas", ("7",))
+    assert InferenceTaskConfig.from_run({"task": "t", "config": {**settings, "validate": False}}).validation is None
 
 
 def test_dates_stay_as_written(tmp_path):

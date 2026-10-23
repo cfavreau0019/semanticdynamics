@@ -1,28 +1,64 @@
 """instantiation: sampling a run's instants from an InstantiationSpec, and the original Instantiation."""
+import json
 import random
 import re
 import shutil
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
-from applications.tarot.code.readings import DRAW_MODES, REVERSED_SUFFIX, TarotReadings
+from applications.tarot.code.validation import REVERSED_SUFFIX
 from inference.pipeline import list_runs
 from inference.store import DEFAULT_ROOT, RunStore
-from inference.task_file import load_task_file
+from inference.task_config import load_task_file
 from instantiation import (
     Generate, Instantiation, InstantiationError, InstantiationSpec, Literal, OneOf, Personas, Steps, draw_steps,
     fixed_size, probes, read_instantiation,
 )
 from personas import PersonaSet
+from spec_files import file_sha256
 
 ROOT = Path(__file__).parents[1]
 TAROT = ROOT / "applications" / "tarot"
 PINS = {"Present": "Death", "Outcome": "The Sun reversed"}
 
 
-def cards_of(readings: TarotReadings) -> Steps:
-    """The steps entry that describes a TarotReadings' draws."""
+@dataclass
+class Draws:
+    """How TarotReadings drew cards before the task file: from the deck, with a draw mode and pins."""
+    draw: str = "replacement"                  # or "unique"
+    pins: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        deck = json.loads((TAROT / "vector_space_config.json").read_text(encoding="utf-8"))
+        self.positions, self.cards = deck["step_aliases"], deck["aliases"]
+        self.reversible = bool(deck.get("negative_polarity", False))
+        self.states = [c + s for c in self.cards for s in (["", REVERSED_SUFFIX] if self.reversible else [""])]
+
+
+def drawn_before_task_files(readings: Draws, n: int, rng: random.Random) -> list[dict]:
+    """The card draws TarotReadings made before the task file (its _draw_one, kept here as the reference)."""
+    def one() -> dict:
+        draw = {}
+        if readings.draw == "replacement":
+            for pos in readings.positions:
+                draw[pos] = readings.pins.get(pos) or rng.choice(readings.states)
+            return draw
+        used = {s.removesuffix(REVERSED_SUFFIX) for s in readings.pins.values()}
+        picks = iter(rng.sample([c for c in readings.cards if c not in used], len(readings.positions) - len(readings.pins)))
+        for pos in readings.positions:
+            if pos in readings.pins:
+                draw[pos] = readings.pins[pos]
+            else:
+                card = next(picks)
+                draw[pos] = card + REVERSED_SUFFIX if readings.reversible and rng.random() < 0.5 else card
+        return draw
+    return [one() for _ in range(n)]
+
+
+def cards_of(readings: Draws) -> Steps:
+    """The steps entry that describes those draws."""
     return Steps(tuple(readings.positions), tuple(readings.cards), readings.reversible,
                  REVERSED_SUFFIX if readings.reversible else None, readings.draw == "replacement", readings.pins)
 
@@ -31,27 +67,27 @@ def column(spec: InstantiationSpec, name: str, n: int, seed: int) -> list:
     return [i.instant[name] for i in Instantiation.sample(spec, n, seed=seed)]
 
 
-# ---- the tarot draws, as TarotReadings made them -------------------------------------------------
-@pytest.mark.parametrize("draw", DRAW_MODES)
+# ---- the tarot draws, as they were made before the task file ------------------------------
+@pytest.mark.parametrize("draw", ["replacement", "unique"])
 @pytest.mark.parametrize("pins", [{}, PINS])
 @pytest.mark.parametrize("seed", [0, 1, 42])
 def test_tarot_draws_are_those_of_tarot_readings(draw, pins, seed):
-    readings = TarotReadings(draw=draw, pins=pins)
+    readings = Draws(draw=draw, pins=pins)
     spec = InstantiationSpec({"cards": cards_of(readings)})
-    assert column(spec, "cards", 8, seed) == readings.sample_inputs(8, random.Random(seed))
+    assert column(spec, "cards", 8, seed) == drawn_before_task_files(readings, 8, random.Random(seed))
 
 
 def test_the_task_file_draws_as_tarot_readings_does():
     spec = load_task_file(TAROT / "tasks.yaml")["tarot_celtic_cross"].instantiation
-    assert column(spec, "cards", 8, 7) == TarotReadings().sample_inputs(8, random.Random(7))
+    assert column(spec, "cards", 8, 7) == drawn_before_task_files(Draws(), 8, random.Random(7))
 
 
 @pytest.mark.parametrize("mode", ["random", "cycle"])
 def test_personas_are_drawn_after_the_cards_as_before(mode):
-    readings, people = TarotReadings(), PersonaSet.load("tarot_personas")
+    readings, people = Draws(), PersonaSet.load("tarot_personas")
     spec = InstantiationSpec({"cards": cards_of(readings), "persona": Personas("tarot_personas", mode)})
     rng = random.Random(3)
-    cards = readings.sample_inputs(6, rng)
+    cards = drawn_before_task_files(readings, 6, rng)
     personas = people.sample(rng, 6, mode)                 # the pipeline's order: inputs, then personas
     run = Instantiation.sample(spec, 6, seed=3)
     assert [i.instant["cards"] for i in run] == cards and [i.instant["persona"] for i in run] == personas
@@ -64,7 +100,9 @@ def reproduce(root: Path) -> list[str]:
     runs = [r for r in list_runs(root) if r["task"] == "tarot_celtic_cross"]
     for run in runs:
         config, store = run["config"], RunStore.open(run["run_id"], root)
-        state = {"cards": cards_of(TarotReadings.from_options(config["task_options"]))}
+        options = config["task_options"]
+        assert options["deck_sha256"] == file_sha256(TAROT / "vector_space_config.json")   # the deck it drew from
+        state = {"cards": cards_of(Draws(options["draw"], options["pins"]))}
         if config.get("persona_set"):
             state["persona"] = Personas(config["persona_set"], config.get("persona_sampling", "random"),
                                         tuple(config.get("persona_ids") or ()))
@@ -101,10 +139,10 @@ def test_one_of_at_random_and_in_cycle():
 
 
 def test_the_default_method_applies_to_entries_that_choose_only():
-    readings = TarotReadings()
+    readings = Draws()
     spec = InstantiationSpec({"cards": cards_of(readings), "size": OneOf(("S", "M"))}, sample="cycle")
     assert (spec.method("cards"), spec.method("size")) == (None, "cycle")
-    assert column(spec, "cards", 4, 1) == readings.sample_inputs(4, random.Random(1))
+    assert column(spec, "cards", 4, 1) == drawn_before_task_files(readings, 4, random.Random(1))
     assert column(spec, "size", 4, 1) == ["S", "M", "S", "M"]
 
 
@@ -131,7 +169,7 @@ def test_generate_is_called_with_the_run_generator_and_its_options():
 
 
 def test_an_entry_added_later_leaves_the_earlier_ones_alone():
-    cards = cards_of(TarotReadings())
+    cards = cards_of(Draws())
     before = column(InstantiationSpec({"cards": cards}), "cards", 5, 11)
     after = InstantiationSpec({"cards": cards, "persona": Personas("tarot_personas"), "size": OneOf(("S", "M"))})
     assert column(after, "cards", 5, 11) == before
@@ -150,7 +188,7 @@ def test_an_instantiation_file(tmp_path):
 
 
 def test_probes_try_every_candidate_and_persona():
-    spec = InstantiationSpec({"cards": cards_of(TarotReadings()), "size": OneOf(("S", "M", "L")),
+    spec = InstantiationSpec({"cards": cards_of(Draws()), "size": OneOf(("S", "M", "L")),
                               "persona": Personas("tarot_personas", select=(1, 2))})
     tried = list(probes(spec))
     assert [label for label, _ in tried] == [

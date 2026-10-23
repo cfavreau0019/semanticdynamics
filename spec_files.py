@@ -1,7 +1,7 @@
 """
 Reading the declarative files of an application (task files, instantiation files, and the files
 they name), and reporting what is wrong with them in plain words. Shared by the `instantiation`
-package and the task-file loader (inference.task_file); it depends on neither.
+package and the task config loader (inference.task_config); it depends on neither.
 
   read_yaml       strict: a duplicate key is an error, and dates stay as written
   file_sha256     a file's identity, independent of line endings

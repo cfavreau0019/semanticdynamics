@@ -1,18 +1,26 @@
 """
 Generate a dataset with an LLM from the command line: start, collect, resume and inspect
-runs of any generation task of any application (applications/<application>/). Results are
-written as tables under data/generations/<run_id>/ (see inference/README.md).
+runs of the tasks of any application's task file (applications/<application>/tasks.yaml).
+Results are written as tables under data/generations/<run_id>/ (see inference/README.md).
 
     python -m inference.generate run tarot_celtic_cross --n 20 --provider featherless --max-tokens 2000
     python -m inference.generate run tarot_celtic_cross --n 500 --provider openai --model gpt-4o-mini --mode batch
+    python -m inference.generate run tarot_celtic_cross --n 20 --personas tarot_personas --template celtic_cross_v2
+    python -m inference.generate run tarot_celtic_cross --n 5 --set "instantiation.state.cards.steps.fixed={Outcome: Death}"
+    python -m inference.generate run --task-file drafts/tasks.yaml my_task --n 5 --dry-run
     python -m inference.generate collect run_tarot_celtic_cross_20261001_101500_ab12cd --wait
     python -m inference.generate resume run_tarot_celtic_cross_20261001_101500_ab12cd
     python -m inference.generate status run_tarot_celtic_cross_20261001_101500_ab12cd
     python -m inference.generate list [--dataset tarot-v1]
 
-`run --help` lists the tasks; `run <task> --help` lists the general options and the task's
-own (for tarot_celtic_cross: --draw, --pin, --deck-config). collect, resume and status take
-only a run id: the run recorded which task it belongs to.
+A run does what its task's config says. The options of `run` change that for the run: each is
+an edit of the task (--n is execution.n, --model is model.name, ...), and --set makes any other.
+The task is checked as edited, and the run records its config, with the edits. collect, resume
+and status take only a run id: the run recorded its config.
+
+From Python, run_task does the same:
+
+    run_task("tarot_celtic_cross", {"execution.n": 5, "execution.mode": "dry_run"})
 
 Grow one dataset over several sessions by giving each run the same --dataset label:
 
@@ -22,7 +30,6 @@ Grow one dataset over several sessions by giving each run the same --dataset lab
 `python inference/generate.py ...` works too.
 """
 import argparse
-import inspect
 import json
 import sys
 import warnings
@@ -31,12 +38,54 @@ from pathlib import Path
 if __package__ in (None, ""):  # allow `python inference/generate.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from applications import get_task, task_of, tasks  # noqa: E402
-from inference.pipeline import (  # noqa: E402
-    GenerationConfig, collect_batch, list_runs, load_config, prepare_run, run_live, submit_batch, summarize,
-)
+from typing import Any, Mapping, Optional  # noqa: E402
+
+from applications import task_file_of, task_names, task_of  # noqa: E402
+from inference.pipeline import collect_batch, list_runs, prepare_run, run_live, submit_batch, summarize  # noqa: E402
 from inference.store import DEFAULT_ROOT, RunStore  # noqa: E402
-from personas import SAMPLING_MODES  # noqa: E402
+from inference.task import InferenceTask  # noqa: E402
+from inference.task_config import InferenceTaskConfig, TaskConfigError, parse_edit  # noqa: E402
+from instantiation import InstantiationError, Personas  # noqa: E402
+from spec_files import read_yaml  # noqa: E402
+
+
+# ---- running a task, from Python -------------------------------------------------------
+def find_config(task: str | Path | InferenceTaskConfig, edits: Optional[Mapping[str, Any]] = None) -> InferenceTaskConfig:
+    """
+    A task's config, edited: by name (from the applications' task files), by the path of a task
+    file (its only task; or "path::name"), or a config (read again from its file, the edits added).
+    """
+    if isinstance(task, InferenceTaskConfig):
+        return InferenceTaskConfig.from_file(task.source, task.name, {**task.edits, **(edits or {})})
+    text = str(task)
+    path, _, name = text.partition("::")
+    if name or Path(path).suffix in (".yaml", ".yml") or Path(path).is_file():
+        return InferenceTaskConfig.from_file(path, name or None, edits)
+    return InferenceTaskConfig.from_file(task_file_of(text), text, edits)
+
+
+def run_task(task: str | Path | InferenceTaskConfig, edits: Optional[Mapping[str, Any]] = None, *, root=DEFAULT_ROOT,
+             wait: bool = False, progress: bool = True) -> RunStore:
+    """
+    Run a task (see find_config), with edits, e.g. {"execution.n": 5}. A live run runs to the end;
+    a batch run is submitted, and collected too with wait=True; a dry run is prepared only.
+    Returns the run's store.
+    """
+    runnable = InferenceTask.from_config(find_config(task, edits))
+    for warning in runnable.run_warnings(root):
+        warnings.warn(warning, stacklevel=2)
+    store, requests = prepare_run(runnable, root=root)
+    mode = runnable.config.execution.mode
+    if mode == "live":
+        run_live(store, runnable, requests, progress=progress)
+    elif mode == "batch":
+        submit_batch(store, requests)
+        if wait:
+            collect_batch(store, runnable, wait=True, progress=progress)
+    return store
+
+
+# ---- the command line ------------------------------------------------------------------
 
 
 def _json_arg(text: str) -> dict:
@@ -49,55 +98,88 @@ def _json_arg(text: str) -> dict:
     return value
 
 
-def task_summary(cls) -> str:
-    """The first line of a task's docstring, for --help."""
-    return (inspect.getdoc(cls) or "").partition("\n")[0]
+def _edit_arg(text: str) -> tuple:
+    try:
+        return parse_edit(text)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(str(e))
 
 
-def add_run_arguments(g, task_cls) -> None:
-    """The options every generation run takes. The task adds its own after these (InferenceTask.add_arguments)."""
-    default, with_personas = getattr(task_cls, "default_template", None), task_cls.persona_template
-    templates = f"Default: {default}" + (f", or {with_personas} with --personas" if with_personas not in (None, default)
-                                         else "") if default else "Default: the task's"
-    g.add_argument("--n", type=int, required=True, help="number of inputs to sample (one request each, per template)")
-    g.add_argument("--provider", default="featherless", help="llm provider name (default: %(default)s)")
-    g.add_argument("--model", help="model name (default: the provider's default from .env)")
-    g.add_argument("--mode", choices=["live", "batch"], default="live",
-                   help="live: concurrent calls now; batch: submit a provider batch (OpenAI)")
+# the options that edit one setting of the task: (option's dest, the setting)
+EDITS = [
+    ("n", "execution.n"), ("seed", "execution.seed"), ("mode", "execution.mode"), ("workers", "execution.workers"),
+    ("retry_mode", "execution.retry_mode"), ("poll_interval", "execution.poll_interval"),
+    ("name", "execution.name"), ("dataset", "execution.dataset"),
+    ("provider", "model.provider"), ("model", "model.name"), ("max_tokens", "model.parameters.max_tokens"),
+    ("temperature", "model.parameters.temperature"), ("top_p", "model.parameters.top_p"),
+    ("extra_body", "model.extra_body"), ("validation_retries", "validation.retries"),
+]
+
+
+def edits_of(args) -> dict:
+    """The task edits the command line asks for, {dotted.path: value}; --set last, so it has the last word."""
+    edits = {setting: getattr(args, dest) for dest, setting in EDITS if getattr(args, dest) is not None}
+    if args.dry_run:
+        edits["execution.mode"] = "dry_run"
+    if args.template:
+        edits["prompt.templates"] = [{"template": t} for t in args.template]
+    if args.personas:
+        edits["instantiation.state.persona"] = {"personas": args.personas}
+    if args.system is not None:
+        edits["prompt.system"] = args.system
+    if args.no_validate:
+        edits["validation"] = None
+    edits.update(dict(args.set))
+    return edits
+
+
+def add_run_arguments(g) -> None:
+    """The options of `run`. Each changes a setting of the task file (default: as the file says)."""
+    g.add_argument("task", nargs="?", help="a task of an application's tasks.yaml (listed below), or of --task-file")
+    g.add_argument("--task-file", metavar="PATH", help="run a task of this task file (its only one, unless TASK names it)")
+    g.add_argument("--set", type=_edit_arg, action="append", default=[], metavar="SETTING=VALUE",
+                   help="change any setting of the task, by its dotted path; the value is read as YAML, e.g. "
+                        "--set execution.n=20 --set 'model.parameters={max_tokens: 2000}'. Repeatable")
+    g.add_argument("--n", type=int, help="number of inputs (instants); requests = n x templates (execution.n)")
+    g.add_argument("--provider", help="llm provider name (model.provider)")
+    g.add_argument("--model", help="model name (model.name; null = the provider's default from .env)")
+    g.add_argument("--mode", choices=["live", "batch"],
+                   help="live: concurrent calls now; batch: submit a provider batch, e.g. OpenAI (execution.mode)")
     g.add_argument("--wait", action="store_true", help="batch mode: wait for the batch and collect it")
     g.add_argument("--dry-run", action="store_true", help="write inputs/prompts/requests only; no API calls")
-    g.add_argument("--name", help="label stored with the run")
+    g.add_argument("--name", help="label stored with the run (execution.name)")
     g.add_argument("--dataset", help="dataset this run belongs to; use the same label across sessions to grow "
-                                     "one dataset from several runs")
-    # sampling / prompt
-    g.add_argument("--seed", type=int, help="seed for sampling inputs and personas (default: random, recorded)")
-    g.add_argument("--template", action="append", default=[], metavar="NAME",
-                   help="prompt template from the prompts library: 'name_v2' pins a version, 'name' takes the "
-                        "latest. Repeat to render every input with each template (n inputs x templates requests) "
-                        f"for a paired comparison. {templates}. See `python -m prompts list`.")
-    g.add_argument("--system", help="system prompt (overrides the template's)")
-    g.add_argument("--personas", metavar="SET", help="persona set name or JSON path (e.g. tarot_personas); "
-                                                     "each input is assigned one persona")
-    g.add_argument("--persona-sampling", choices=SAMPLING_MODES, default="random",
-                   help="random: seeded, with replacement; cycle: in order, every persona equally often "
-                        "(default: %(default)s)")
-    g.add_argument("--persona", action="append", default=[], metavar="ID",
-                   help="restrict to this persona (id, number or full name); repeatable")
-    # generation params
-    g.add_argument("--max-tokens", type=int, default=2400, help="default: %(default)s")
-    g.add_argument("--temperature", type=float)
-    g.add_argument("--top-p", type=float)
-    g.add_argument("--extra-body", type=_json_arg, default={}, metavar="JSON",
-                   help="provider-specific params, e.g. '{\"top_k\": 40, \"min_p\": 0.02}'")
-    g.add_argument("--workers", type=int, default=2, help="live mode: concurrent requests (default: %(default)s)")
-    # validation
-    g.add_argument("--no-validate", action="store_true", help="skip validation (and therefore retries)")
-    g.add_argument("--validation-retries", type=int, default=2, help="regenerations per invalid output "
-                                                                     "(default: %(default)s)")
-    g.add_argument("--retry-mode", choices=["live", "batch"], default="live",
-                   help="batch runs: regenerate invalid outputs live (fast) or as follow-up batches "
-                        "(cheaper, slower) (default: %(default)s)")
-    g.add_argument("--poll-interval", type=float, default=60.0, help="batch status poll seconds")
+                                     "one dataset from several runs (execution.dataset)")
+    g.add_argument("--seed", type=int, help="seed for sampling the instants (execution.seed; default: chosen, recorded)")
+    g.add_argument("--template", action="append", default=[], metavar="ID",
+                   help="prompt template id (name_vN) instead of the task's; repeat to render every input with "
+                        "each (a paired comparison). See `python -m prompts list`")
+    g.add_argument("--personas", metavar="SET",
+                   help="add a persona to every instant, from this persona set (name or path, e.g. tarot_personas): "
+                        "the state entry `persona`, which templates taking `persona` receive")
+    g.add_argument("--system", help="system prompt, replacing the templates' own (prompt.system)")
+    g.add_argument("--max-tokens", type=int, help="model.parameters.max_tokens")
+    g.add_argument("--temperature", type=float, help="model.parameters.temperature")
+    g.add_argument("--top-p", type=float, help="model.parameters.top_p")
+    g.add_argument("--extra-body", type=_json_arg, metavar="JSON",
+                   help="provider-specific params, e.g. '{\"top_k\": 40, \"min_p\": 0.02}' (model.extra_body)")
+    g.add_argument("--workers", type=int, help="live mode: concurrent requests (execution.workers)")
+    g.add_argument("--no-validate", action="store_true",
+                   help="skip validation, and therefore retries (validation: null)")
+    g.add_argument("--validation-retries", type=int, help="regenerations per invalid output (validation.retries)")
+    g.add_argument("--retry-mode", choices=["live", "batch"],
+                   help="batch runs: regenerate invalid outputs live (fast) or as follow-up batches (cheaper, "
+                        "slower) (execution.retry_mode)")
+    g.add_argument("--poll-interval", type=float, help="batch status poll seconds (execution.poll_interval)")
+
+
+def task_list() -> str:
+    """The tasks of the applications' task files, with their descriptions, for `run --help`."""
+    lines = ["tasks:"]
+    for name, path in sorted(task_names().items()):
+        description = " ".join(str((read_yaml(path)[name] or {}).get("description", "")).split())
+        lines.append(f"  {name:<24} {description[:90]}")
+    return "\n".join(lines)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -106,15 +188,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", default=str(DEFAULT_ROOT), help="root directory for runs (default: %(default)s)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run = sub.add_parser("run", help="start a new run of a task")
-    by_task = run.add_subparsers(dest="task", required=True, metavar="TASK")
-    for name, task_cls in sorted(tasks().items()):
-        if task_cls.cli != "generate":
-            continue
-        g = by_task.add_parser(name, help=task_summary(task_cls), description=inspect.getdoc(task_cls),
-                               formatter_class=argparse.RawDescriptionHelpFormatter)
-        add_run_arguments(g, task_cls)
-        task_cls.add_arguments(g)
+    run = sub.add_parser("run", help="start a new run of a task", epilog=task_list(),
+                         description="Start a run of a task of a task file. Its options change the task's settings "
+                                     "for this run.", formatter_class=argparse.RawDescriptionHelpFormatter)
+    add_run_arguments(run)
 
     for name, help_ in [("collect", "collect a batch run's results"), ("resume", "finish an interrupted live run"),
                         ("status", "show a run's status")]:
@@ -142,36 +219,48 @@ def print_summary(store: RunStore, summary: dict) -> None:
 
 
 def cmd_run(args) -> int:
-    task = get_task(args.task).from_args(args)
-    params = {"max_tokens": args.max_tokens}
-    if args.temperature is not None:
-        params["temperature"] = args.temperature
-    if args.top_p is not None:
-        params["top_p"] = args.top_p
-    config = GenerationConfig(
-        n=args.n, provider=args.provider, model=args.model, templates=list(args.template), system=args.system,
-        params=params, extra_body=args.extra_body, mode="dry_run" if args.dry_run else args.mode, seed=args.seed,
-        validate=not args.no_validate, validation_retries=args.validation_retries, retry_mode=args.retry_mode,
-        max_workers=args.workers, poll_interval=args.poll_interval, name=args.name, dataset=args.dataset,
-        persona_set=args.personas, persona_sampling=args.persona_sampling, persona_ids=list(args.persona),
-    )
-    for warning in task.run_warnings(config, args.out):
+    if args.task_file:
+        which = f"{args.task_file}::{args.task}" if args.task else args.task_file
+    elif args.task:
+        which = args.task
+    else:
+        print("Name a task, or give --task-file.\n" + task_list(), file=sys.stderr)
+        return 2
+    try:
+        task = InferenceTask.from_config(find_config(which, edits_of(args)))
+    except (TaskConfigError, KeyError, ValueError) as e:
+        print(f"error: {e.args[0] if isinstance(e, KeyError) else e}", file=sys.stderr)
+        return 2
+    config = task.config
+    for warning in task.run_warnings(args.out):
         print(f"WARNING: {warning}", file=sys.stderr)
+    state = config.instantiation.state if config.instantiation else {}
+    people = {name: e.set for name, e in state.items() if isinstance(e, Personas)}
+    for name in people:
+        ignoring = [t.id for t in config.prompt.templates if name not in t.template.variables
+                    and name not in t.bind.values()]
+        if ignoring:
+            print(f"note: no `{name}` in {ignoring}: those prompts will not mention the persona", file=sys.stderr)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        store, requests = prepare_run(task, config, root=args.out)
+        try:
+            store, requests = prepare_run(task, root=args.out)
+        except (InstantiationError, ValueError) as e:        # e.g. n against exhaustive sampling, a template
+            print(f"error: {e}", file=sys.stderr)
+            return 2
     for w in caught:
         print(f"note: {w.message}", file=sys.stderr)
     drafts = [t["template_id"] for t in store.read("prompt_templates") if t["status"] == "draft"]
     print(f"Prepared {len(requests)} requests in {store.dir}\n"
-          f"  templates: {', '.join(config.templates)}"
-          f"{'  personas: ' + config.persona_set if config.persona_set else ''}")
+          f"  templates: {', '.join(t.id for t in config.prompt.templates)}"
+          f"{'  personas: ' + ', '.join(people.values()) if people else ''}")
     if drafts:
         print(f"  note: {drafts} not locked yet; lock with `python -m prompts lock` once you keep data from them")
-    if config.mode == "dry_run":
+    mode = config.execution.mode
+    if mode == "dry_run":
         print_summary(store, summarize(store))
         return 0
-    if config.mode == "live":
+    if mode == "live":
         print_summary(store, run_live(store, task, requests))
         return 0
     job = submit_batch(store, requests)
@@ -194,7 +283,7 @@ def cmd_collect(args) -> int:
 
 def cmd_resume(args) -> int:
     store = RunStore.open(args.run_id, args.out)
-    if load_config(store).mode != "live":
+    if store.run()["mode"] != "live":
         print("resume is for live runs; use `collect` for batch runs.")
         return 2
     print_summary(store, run_live(store, task_of(store.run())))

@@ -8,12 +8,12 @@ time, through it and keeps the record.
 
   schema     table definitions -> JSONL row checks and Postgres DDL (schema.sql)
   store      RunStore: data/generations/<run_id>/<table>.jsonl
-  task       InferenceTask: what a task supplies (inputs, prompt variables, validator, ...)
-  task_file  load_task_file: an application's tasks.yaml as checked TaskSpecs (states from `instantiation`)
-  pipeline   prepare_run, run_live, submit_batch, collect_batch
+  task_config  InferenceTaskConfig: a task's whole config, from a task file (edited), code or a run
+  task       InferenceTask: a task built from its config (inputs, prompt variables, validation, ...)
+  pipeline   prepare_run, run_live, submit_batch, collect_batch: each reads task.config
              (prompt text comes from the `prompts` package, personas from `personas`)
-  generate   command-line script: runs the generation tasks of every application
+  generate   command-line script, and run_task(): runs the tasks of every application's task file
 
-The tasks themselves live with their application: applications/tarot/code/readings.py is
-TarotReadings (card draws, prompt variables, validator).
+The tasks themselves live with their application, in its tasks.yaml; Python of its own, if any,
+next to it (applications/tarot/code/readings.py is TarotReadings).
 """

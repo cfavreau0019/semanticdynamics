@@ -3,13 +3,16 @@ Subjects: the generated outputs an evaluation scores, read from inference runs.
 
 A subject is the final response of a request, together with the structured input it was
 generated from (e.g. the card draw), so the evaluator can be told what the output was
-supposed to reflect.
+supposed to reflect. A run of a task file stored its input as an instant ({"cards": draw, ...});
+the subject's input is then the instant's entry the responses were validated against (its
+config's validation.expected, e.g. the draw), and `instant` holds the whole.
 """
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from inference.pipeline import final_responses, list_runs
+from inference.task import INSTANT
 from inference.store import DEFAULT_ROOT, RunStore
 
 
@@ -19,11 +22,25 @@ class Subject:
     request_id: str
     run_id: str
     text: str
-    input: Any                       # the generation input payload, e.g. {position: card}
+    input: Any                       # what the output is about, e.g. the draw {position: card}
     template: Optional[str] = None   # prompt template that produced it
     model: Optional[str] = None
     persona_id: Optional[str] = None  # persona the output was written for, if any
     valid: Optional[bool] = None     # the generation run's validation verdict
+    instant: Optional[dict] = None   # the whole instant, for a run of a task file
+
+
+def subject_input(run: dict, row: dict) -> Any:
+    """
+    What a generation input says the output is about: for a run of a task file, the instant's
+    `expected` entry (its config's validation.expected; the whole instant if none); for an earlier
+    run, the input it stored.
+    """
+    if row.get("input_type") != INSTANT:
+        return row["payload"]
+    content = (run["config"].get("task_config") or {}).get("content") or {}
+    expected = (content.get("validation") or {}).get("expected")
+    return row["payload"][expected] if expected is not None else row["payload"]
 
 
 def load_subjects(
@@ -52,6 +69,7 @@ def load_subjects(
     subjects: list[Subject] = []
     for run_id in run_ids:
         store = RunStore.open(run_id, root)
+        run = store.run()
         prompts = {p["prompt_id"]: p for p in store.read("prompts")}
         requests = {r["request_id"]: r for r in store.read("requests")}
         inputs = {i["input_id"]: i for i in store.read("inputs")}
@@ -73,6 +91,7 @@ def load_subjects(
             source = inputs[prompt["input_id"]]
             subjects.append(Subject(
                 response_id=response["response_id"], request_id=request_id, run_id=run_id, text=text,
-                input=source["payload"], template=prompt["template"], model=model,
-                persona_id=source.get("persona_id"), valid=valid))
+                input=subject_input(run, source), template=prompt["template"], model=model,
+                persona_id=source.get("persona_id"), valid=valid,
+                instant=source["payload"] if source.get("input_type") == INSTANT else None))
     return subjects

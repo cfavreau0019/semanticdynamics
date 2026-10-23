@@ -1,15 +1,14 @@
 """Prompt (KV) caching: cached tokens are recorded, and templates keep what varies at the end."""
 from types import SimpleNamespace
 
-from applications.tarot.code.readings import TarotReadings
-from inference.pipeline import GenerationConfig, prepare_run, run_live, summarize
+from inference.pipeline import run_live, summarize
 from evaluation.rubric import get_rubric
 from llm import ChatResponse, Usage
 from llm.providers import register_provider
 from llm.providers.openai_compatible import _usage
 from personas import PersonaSet
 from prompts import get_template
-from test_inference import TarotScripted, isolated_registry, reading_from_prompt  # noqa: F401
+from test_inference import TarotScripted, isolated_registry, prepare, reading_from_prompt  # noqa: F401
 
 
 def shared_prefix(a: str, b: str) -> int:
@@ -35,8 +34,7 @@ def test_cached_tokens_are_stored_and_summed(tmp_path, isolated_registry):
 
     provider = Cached()
     register_provider("cached", lambda **kw: provider)
-    task = TarotReadings()
-    store, requests = prepare_run(task, GenerationConfig(n=3, provider="cached"), root=tmp_path)
+    task, store, requests = prepare(tmp_path, {"model.provider": "cached"}, n=3)
     summary = run_live(store, task, requests, progress=False)
     assert [r["cached_tokens"] for r in store.read("responses")] == [1024] * 3
     assert (summary["cached_tokens"], summary["prompt_tokens"]) == (3072, 3900)

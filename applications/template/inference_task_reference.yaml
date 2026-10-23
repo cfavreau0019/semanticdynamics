@@ -2,8 +2,9 @@
 # --------------------------------------------------------------------------
 # This file is a DOCUMENTED DESIGN TEMPLATE, not a claim that every field
 # is currently supported by the runtime or YAML task registry. Its structure
-# is checked by inference/schemas/task.schema.yaml; inference/task_file.py
-# reads task files, and `python -m inference.task_file check` checks one.
+# is checked by inference/schemas/task.schema.yaml; inference/task_config.py
+# reads a task into an InferenceTaskConfig, and `python -m inference.task_config
+# check` checks a file.
 #
 # Convention:
 #   - Uncomment optional keys only when needed.
@@ -195,6 +196,8 @@ task_name:
     workers: 2               # Max parallel live inferences, not model tokens.
     n: 1                     # Number of sampled/created base inputs in the run;
                              # not the number of outputs returned per API call.
+                             # null: the instantiation's own number (given
+                             # instants, or exhaustive sampling).
     seed: null               # Seed for input/persona sampling; a generated seed
                              # should be recorded when none is supplied.
     # retry_mode: live       # For invalid outputs from batch jobs:
@@ -219,11 +222,21 @@ task_name:
       not_truncated: {}      # Detect finish_reason indicating output truncation.
       # no_refusal: {}       # Heuristic refusal detector; enable only when
                              # refusal is incompatible with the task's purpose.
-      # json_fields:         # Only if wired into the desired generic registry.
-      #   schema: structured_answer
+                             # A check named here replaces the custom validator's
+                             # check of the same name, so it is tuned here.
     retries: 2               # Additional GENERATION attempts following failed
                              # validation (not retries for API/network failures).
                              # Do not change the instantiated state on retry.
+
+# RUNNING (not additional YAML keys):
+#   python -m inference.generate run task_name --n 20      # or --task-file PATH
+#   run_task("task_name", {"execution.n": 20})              # inference.generate
+# Each command-line option edits one setting for the run (--n is execution.n,
+# --model is model.name, --system is prompt.system, --no-validate sets
+# validation to null, ...), and --set SETTING=VALUE edits any other by its
+# dotted path. The edited task is checked like this file, and the run records
+# its config, with the edits, in runs.config.task_config (the chosen seed
+# beside it, runs.config.seed).
 
 # RECOMMENDED RECORDING / REPRODUCIBILITY POLICY (not additional YAML keys):
 # Store the resolved instant, rendered messages, prompt/template hashes, task
