@@ -1,0 +1,7 @@
+schema_version: 1
+
+name: tarot
+title: Tarot
+description: >-
+  Generate, evaluate, and analyze tarot readings
+  from structured card spreads.

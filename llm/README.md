@@ -9,7 +9,7 @@ llm/
     base.py                 LLMProvider: the interface every provider implements
     openai_compatible.py    OpenAI, Featherless, or any OpenAI-compatible server (chat, embeddings, Batch API)
     __init__.py             registry: get_provider("openai" | "featherless"), register_provider
-  inference.py              generate, generate_many (thread pool)
+  text_generation.py        generate, generate_many (thread pool)
   batch.py                  run_batch, wait_for_batch, run_batch_results, JSONL save/load
   embeddings.py             embed, embed_documents, embed_samples, SentenceTransformerEmbedder
   whitebox.py               WhiteBoxModel (NNsight / NDIF hidden states and generation)

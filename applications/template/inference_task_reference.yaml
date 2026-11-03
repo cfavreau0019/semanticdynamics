@@ -1,0 +1,250 @@
+# SemanticDynamics — researcher reference for an inference-task definition
+# --------------------------------------------------------------------------
+# This file is a DOCUMENTED DESIGN TEMPLATE, not a claim that every field
+# is currently supported by the runtime or YAML task registry. Its structure
+# is checked by inference/schemas/task.schema.yaml; inference/task_config.py
+# reads a task into an InferenceTaskConfig, and `python -m inference.task_config
+# check` checks a file.
+#
+# Convention:
+#   - Uncomment optional keys only when needed.
+#   - Paths are illustrative, resolved relative to the task file's folder
+#     (for an application's tasks.yaml, the application directory).
+#   - A value of null means "not specified", not necessarily a runtime default.
+#   - Prompt TOML files declare their own required/optional Jinja variables.
+#   - Provider-specific model parameters must be checked against the chosen API.
+#
+# An application's tasks.yaml maps task names to entries like this one, with
+# no `tasks:` key above them. Replace `task_name` with a stable identifier
+# (lowercase letters, digits and underscores): every run stores it.
+
+task_name:
+  # PURPOSE AND PROVENANCE --------------------------------------------------
+  description: "Describe the scientific or application purpose of this task."
+  version: 1                # Version of THIS task definition, not its prompt(s).
+  created_by: null          # Optional: researcher, team, or automated creator.
+  created_ts: null          # Optional: ISO 8601 UTC timestamp, e.g. 2026-10-18T22:00:00Z.
+  # tags: [baseline, summarization]  # Optional discovery/filtering labels (proposed).
+  # permissions:              # Optional access policy; exact enforcement model TBD.
+  #   execute: [researchers]
+  #   edit: [maintainers]
+  permissions: null
+
+  # IMPLEMENTATION ----------------------------------------------------------
+  engine: inference         # Routes this task to the generic inference engine.
+  implemented_by: null      # Optional: "package.module:ChildInferenceTask".
+                            # Use only for task-specific Python extensions;
+                            # omit when declarative configuration is sufficient.
+
+  # INSTANTIATION -----------------------------------------------------------
+  instantiation: null       # OPTIONAL. Describes the task's possible underlying states.
+                            # Each input of a run gets one resolved state, its `instant`:
+                            # every prompt template renders from it (paired comparison),
+                            # validation checks the response against it, and retries
+                            # reuse it rather than resampling. It is stored with the run.
+  #
+  # Three levels, each optional beyond the one before:
+  #   1. Direct prompt       leave `instantiation` out; the template takes no variables.
+  #   2. Templated prompt    leave it out; give fixed values in the template's `variables`.
+  #   3. State-based         give an instantiation, inline (a mapping, below) or as the path
+  #                          of an instantiation file relative to the application folder,
+  #                          e.g. `instantiation: instantiation.yaml` (same content as inline).
+  #
+  # A template variable takes the state entry of the same name; `bind` (under a template,
+  # below) renames. The instant can hold more than any template uses: validation and
+  # later analysis may use the rest.
+  #
+  # instantiation:
+  #   version: 1             # Optional: version of this format.
+  #   sample: random         # Optional: how entries that sample choose a value, unless
+  #                          # they say otherwise: random (default) | cycle | exhaustive.
+  #                          #   random      independently for each instant
+  #                          #   cycle       candidates in order across the run's instants,
+  #                          #               so each is used equally often
+  #                          #   exhaustive  every combination of the run's exhaustive
+  #                          #               entries, each exactly once: execution.n must
+  #                          #               EQUAL the number of combinations, and a run
+  #                          #               with any other n is refused before it starts.
+  #                          #               Never the default: combinations multiply.
+  #   state:                 # REQUIRED unless `instants` are given: its entries, by name.
+  #                          # Entries are sampled in the order written, from the run's
+  #                          # seed (execution.seed), so a seed reproduces a run's states.
+  #
+  #     # A plain value is a LITERAL, the same for every instant, lists included:
+  #     tone: whimsical
+  #     themes: [friendship, curiosity]       # a literal list, never sampled
+  #
+  #     # A mapping says how the value is obtained. One of these keys:
+  #     character:
+  #       one_of: [fox, owl, rabbit]          # sample one candidate; or the path of a
+  #       # sample: cycle                     # JSON/YAML file listing them
+  #     cards:
+  #       steps:                              # one state per step, as coordinate_systems'
+  #         from: vector_space_config.json    # Instantiation: steps, states and polarity
+  #         negative_suffix: " reversed"      # from a file, or `names` + `states` (+
+  #         replacement: true                 # `negative_polarity`) listed here.
+  #         fixed: {}                         # replacement: false = each state at most once.
+  #                                           # fixed: steps given, not drawn {step: state}.
+  #     persona:
+  #       personas: tarot_personas            # a persona set (personas/), stored by id
+  #       sample: cycle                       # with a snapshot; `select: [ids]` restricts it.
+  #                                           # A path (people.json) is relative to the
+  #                                           # application folder, like every path here.
+  #     spread:
+  #       generate:                           # anything else: a Python callable returns
+  #         using: package.module:function    # the value; called with the run's random
+  #         options: {}                       # generator and these keyword arguments
+  #     settings:
+  #       value: {strict: true}               # a literal MAPPING must be wrapped in `value`
+  #
+  # GIVEN INSTANTS, instead of sampling: values already chosen, e.g. hand-picked cases or
+  # the inputs of an earlier run under a new template.
+  #
+  # instantiation:
+  #   instants: draws.jsonl  # A list written here, or the path of a YAML/JSON file holding
+  #                          # one, or of a JSONL file with one instant per line. They are
+  #                          # used in order; execution.n may be left out, and if given must
+  #                          # EQUAL their number. Not combined with `sample`.
+  #   state:                 # Optional with `instants`: each instant is checked against it
+  #     cards:               # before the run, so a typo is an error, not a prompt. A persona
+  #       steps: {from: vector_space_config.json, negative_suffix: " reversed"}
+  #     persona:             # may then be given by id, number or full name (persona: 7),
+  #       personas: tarot_personas            # and a literal entry may be left out.
+  #
+  # The format is checked by instantiation/instantiation.schema.yaml.
+
+  # input_items: null       # OPTIONAL: the instant's entries a run also writes in long form,
+  #                         # to its input_items table, for SQL: a mapping entry gives a row
+  #                         # per key (label: the key, value: its value), any other entry one
+  #                         # row. null or left out: every entry; [] none; e.g. [cards].
+
+  # PROMPTS -----------------------------------------------------------------
+  prompt:
+    templates:              # REQUIRED nonempty list, even for one template.
+      - template: example_v1
+        # `template`: a prompt template's id, name_vN. Pinned to a version,
+        # so a new version never changes a task silently; ids, not paths, so
+        # a task survives templates moving. `python -m prompts show <id>`
+        # prints the template's file and text.
+        # Or give the Jinja text here instead of `template`, with an optional
+        # `name` (default <task>_inline_<k>; its id is <name>_v1). Every
+        # variable it uses is required:
+        # inline: "Summarize the following article: {{ article }}"
+        # name: article_summary
+        # `variables` is OPTIONAL when instantiation supplies the required
+        # names declared by the prompt TOML. Do not duplicate those names.
+        # `bind` is OPTIONAL: take a template variable from a state entry of
+        # another name, {template_variable: state_entry}, e.g.
+        # bind: {cards: spread}
+        # With NO instantiation, variables can be inline assignments:
+        # variables:
+        #   article: "Example text"
+        #   style: concise
+        # OR a reference to a YAML file supplying the mappings:
+        # variables: prompts/variables/example.yaml
+        # Personas are not given per template: a persona is part of the
+        # instant (a `personas` entry under instantiation.state), and a
+        # template that takes a `persona` variable receives it. Checking the
+        # task renders each template with every persona of the set, so a
+        # field a template reads but a persona lacks is found before a run.
+        # Template requirements, optional values, system/user messages, and
+        # Jinja body belong in the versioned prompt TOML wherever possible.
+        # Additional template entries run against the same resolved base
+        # instantiation (paired comparison), not newly sampled states.
+      # - template: example_v2
+      # - inline: "Write one sentence explaining {{ concept }}."
+      #   variables: {concept: probability}
+
+    # sample: crossed        # OPTIONAL: how instants meet templates. crossed (default):
+                             # every instant is rendered with every template, a paired
+                             # comparison (n instants x T templates requests).
+                             # random | cycle: each instant gets one template.
+
+    retired_templates: []    # Historical prompt IDs kept for discovery.
+                             # Not selected for new runs; old dataset records
+                             # should retain hashes/versions independently.
+
+  # GENERATION MODEL --------------------------------------------------------
+  model:
+    provider: openai         # Registered provider ID, e.g. openai, featherless.
+    name: "MODEL_ID"        # Exact model ID accepted by the selected provider.
+    parameters:             # Provider-supported generation/request parameters.
+      max_tokens: 2048       # Requested output-token ceiling; provider adapter may
+                             # translate to max_completion_tokens, etc.
+      # temperature: 0.7     # Sampling randomness, when supported.
+      # top_p: 1.0           # Nucleus sampling probability threshold.
+      # stop: ["END"]       # Optional stopping sequences, when supported.
+      # presence_penalty: 0.0  # Penalize introducing already-used tokens/topics.
+      # frequency_penalty: 0.0 # Penalize repeated token frequency.
+      # seed: 123            # Provider-side generation seed, IF supported;
+                             # distinct from execution.seed for input sampling.
+      # response_format:     # API-level output format, e.g. supported JSON mode.
+      #   type: json_object
+      # logprobs: true       # Request token log probabilities, if supported.
+      # top_logprobs: 5      # Number of alternatives for returned token logprobs.
+      # logit_bias: {}       # Optional per-token logit biases (provider-specific).
+      # reasoning_effort: medium  # Some reasoning models only; not universal.
+      # NOTE: omitting a parameter defers to provider/model defaults. Do not
+      # assume every model supports temperature, stop, penalties, seed, etc.
+
+    extra_body: {}           # Non-standard backend request JSON fields, e.g. for
+                             # compatible vLLM/Featherless endpoints; forwarded
+                             # only if the selected provider supports them.
+      # top_k: 40           # Example fields in extra_body, not universal.
+      # min_p: 0.02
+      # repetition_penalty: 1.1
+
+  # RUN / EXECUTION ---------------------------------------------------------
+  execution:
+    mode: live               # live | batch; optionally dry_run for preview.
+                             # Batch requires provider support.
+    workers: 2               # Max parallel live inferences, not model tokens.
+    n: 1                     # Number of sampled/created base inputs in the run;
+                             # not the number of outputs returned per API call.
+                             # null: the instantiation's own number (given
+                             # instants, or exhaustive sampling).
+    seed: null               # Seed for input/persona sampling; a generated seed
+                             # should be recorded when none is supplied.
+    # retry_mode: live       # For invalid outputs from batch jobs:
+                             # live | batch (where supported).
+    # poll_interval: 60      # Seconds between batch-status checks when waiting.
+    # dataset: null          # Optional experiment grouping label (proposed location).
+    # name: null             # Optional human-readable run name (proposed location).
+    # API transport retry/timeout settings belong to provider configuration
+    # unless you deliberately expose task-level overrides later.
+
+  # RESPONSE VALIDATION -----------------------------------------------------
+  validation:
+    custom_validator: null   # Optional: package.module:function returning the
+                             # application's validator (a validation.Validator).
+                             # Its code may use both the model response and
+                             # the ORIGINAL resolved instantiation (`instant`).
+    # expected: null         # OPTIONAL: the state entry the response is checked
+                             # against, e.g. cards; null = the whole instant.
+    checks:                  # Reusable generic checks; omit any not wanted.
+      non_empty:
+        min_chars: 1         # Minimum output text length.
+      not_truncated: {}      # Detect finish_reason indicating output truncation.
+      # no_refusal: {}       # Heuristic refusal detector; enable only when
+                             # refusal is incompatible with the task's purpose.
+                             # A check named here replaces the custom validator's
+                             # check of the same name, so it is tuned here.
+    retries: 2               # Additional GENERATION attempts following failed
+                             # validation (not retries for API/network failures).
+                             # Do not change the instantiated state on retry.
+
+# RUNNING (not additional YAML keys):
+#   python -m inference.generate run task_name --n 20      # or --task-file PATH
+#   run_task("task_name", {"execution.n": 20})              # inference.generate
+# Each command-line option edits one setting for the run (--n is execution.n,
+# --model is model.name, --system is prompt.system, --no-validate sets
+# validation to null, ...), and --set SETTING=VALUE edits any other by its
+# dotted path. The edited task is checked like this file, and the run records
+# its config, with the edits, in runs.config.task_config (the chosen seed
+# beside it, runs.config.seed).
+
+# RECOMMENDED RECORDING / REPRODUCIBILITY POLICY (not additional YAML keys):
+# Store the resolved instant, rendered messages, prompt/template hashes, task
+# version/hash, provider + actual model, request parameters/extra_body, RNG seed,
+# each attempt's response + validation, and usage where provided. Do not put
+# result artifacts or hashes that are computed at runtime into this template.

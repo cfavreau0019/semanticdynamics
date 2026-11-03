@@ -1,22 +1,23 @@
 """evaluation.dashboard: the data joined from evaluation and generation runs, and the page built from it."""
 import json
 
-from data_generation.pipeline import prepare_run, run_live
-from evaluation.celtic_cross import EXPECTATION_CONTEXT
+from applications.tarot.code.persona_expectations import TarotPersonaExpectations
+from inference.pipeline import prepare_run, run_live
 from evaluation.dashboard import DATA_MARKER, build_data, main, render
 from evaluation.expectations import generate_expectations
-from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_app, readings, registry  # noqa: F401
+from test_inference import as_schema_version_4
+from test_evaluation import POSITIONS, RUBRIC, eval_config, evaluation_task, readings, registry  # noqa: F401
 
 
 def evaluated(tmp_path, registry, readings):
     """An expectations run and an evaluation run (4 readings x 2 personas); returns (eval_root, store, requests)."""
     eval_root = tmp_path / "evaluations"
-    stage1 = generate_expectations("tarot_personas", provider="eval-scripted", context=EXPECTATION_CONTEXT,
+    stage1 = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                    root=eval_root, progress=False)
-    app = evaluation_app(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
-    store, requests = prepare_run(app, eval_config(dataset="eval-demo"), root=eval_root)
+    task = evaluation_task(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
+    store, requests = prepare_run(task, eval_config(dataset="eval-demo"), root=eval_root)
     registry.plan = {requests[1].metadata["input_id"]: ["real_flag"]}
-    run_live(store, app, requests, progress=False)
+    run_live(store, task, requests, progress=False)
     return eval_root, store, requests
 
 
@@ -32,13 +33,24 @@ def test_build_data_joins_evaluations_to_their_texts(tmp_path, registry, reading
     for sid, subject in data["subjects"].items():
         assert subject["text"] == texts[sid] and list(subject["input"]) == POSITIONS
         assert (subject["task"], subject["model"], subject["dataset"]) == ("tarot_celtic_cross", "scripted-model", "demo")
-        assert subject["template"] == "celtic_cross_v1" and subject["labels"]["2a.1"] == "Present"
+        assert subject["template"] == "celtic_cross_v4" and subject["labels"]["2a.1"] == "Present"
     for e in data["evaluations"]:
         assert e["ev"] == "evaluator-model" and e["sid"] in data["subjects"] and e["pid"] in data["personas"]
         assert len(e["s"]) == 47 and e["total"] == (60.0 if e["flags"] else 80.0)
         assert e["out"]["persona_reaction"] and set(e["sec"]) == {s.key for s in RUBRIC.sections}
     assert [e["flags"][0]["id"] for e in data["evaluations"] if e["flags"]] == ["RF5"]
     assert all(p["name"] for p in data["personas"].values())
+
+
+def test_runs_written_before_schema_version_5_are_shown_the_same(tmp_path, registry, readings):
+    eval_root, store, _ = evaluated(tmp_path, registry, readings)
+    before = build_data(eval_root)
+    for old_run in (store, readings[1]):                # the evaluation run and the generation run it scored
+        as_schema_version_4(old_run)
+    after = build_data(eval_root, tasks=["tarot_celtic_cross"])
+    assert {s["task"] for s in after["subjects"].values()} == {"tarot_celtic_cross"}
+    before.pop("generated_at"), after.pop("generated_at")
+    assert after == before
 
 
 def test_build_data_selection_and_missing_generation_run(tmp_path, registry, readings):
@@ -74,12 +86,12 @@ def test_page_embeds_the_data(tmp_path, registry, readings, capsys):
 
 
 def test_evaluation_commands_rebuild_the_dashboard(tmp_path, registry, readings, capsys):
-    from evaluation.evaluate_tarot import main as evaluate
+    from evaluation.evaluate import main as evaluate
     root, store = readings
     out = tmp_path / "evaluations"
     page = out / "dashboard.html"
-    common = ["evaluate", "--readings-root", str(root), "--readings-run", store.run_id, "--provider", "eval-scripted",
-              "--no-personas", "--seed", "5"]
+    common = ["run", "celtic_cross_evaluation", "--subjects-root", str(root), "--subject-run", store.run_id,
+              "--provider", "eval-scripted", "--no-personas", "--seed", "5"]
     assert evaluate(["--out", str(out), "--no-dashboard", *common, "--n", "1"]) == 0 and not page.exists()
     assert evaluate(["--out", str(out), *common, "--dry-run"]) == 0 and not page.exists()     # nothing new to show
     assert evaluate(["--out", str(out), *common, "--n", "2"]) == 0

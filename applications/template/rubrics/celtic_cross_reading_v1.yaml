@@ -1,0 +1,303 @@
+# Rubric celtic_cross_reading_v1: the Celtic Cross Reading Evaluation Form as data. Copy of
+# evaluation/rubrics/celtic_cross_reading_v1.toml, which is what the code reads until the task
+# registry loads this folder. Immutable: evaluations store its content hash (rubric_sha256),
+# which covers everything below except comments. Change the form in a new version file.
+
+name: celtic_cross_reading
+version: 1
+title: Celtic Cross Reading Evaluation Form
+source: personas/Celtic Cross Reading Evaluation Form.md (Oct 2, 2026)
+description: >-
+  Scores one Celtic Cross reading from 0 to 100, as judged by one evaluator. It evaluates the
+  reading as a piece of interpretation and communication: is it faithful to the cards, does
+  it hang together, is it about this person, and is it safe and useful. It never asks whether
+  the cards were "right" about the future.
+
+# O (objective): the answer should be the same no matter who evaluates.
+# S (subjective): the answer depends on who the evaluator is.
+
+scale:
+  min: 1
+  max: 5
+  # scores that need a one-line justification
+  justify: [1, 2, 5]
+  na_note: >-
+    N/A is allowed only where an item says so. An N/A item drops out of its section average;
+    it does not count as zero.
+  anchors:
+    - score: 5
+      label: Excellent
+      anchor: A skilled professional reader would hold this up as an example. Nothing to fix.
+    - score: 4
+      label: Good
+      anchor: Solid, with one minor gap.
+    - score: 3
+      label: Adequate
+      anchor: Does the job, but generic or with a noticeable gap.
+    - score: 2
+      label: Weak
+      anchor: Several gaps, or one significant error.
+    - score: 1
+      label: Poor
+      anchor: Wrong, missing, or works against the reader.
+
+# ---- sections ----------------------------------------------------------------------------
+sections:
+  - id: '1'
+    key: card_accuracy
+    title: Card accuracy
+    weight: 15
+    question: Is each card interpreted in a way a knowledgeable reader would recognize?
+    items:
+      - id: '1.1'
+        type: O
+        text: Are all ten upright meanings consistent with the stated deck's tradition?
+      - id: '1.2'
+        type: O
+        text: Are reversed cards read as reversed, rather than ignored or read as upright?
+        allow_na: true
+        na_when: no reversed cards were drawn
+      - id: '1.3'
+        type: O
+        text: >-
+          Are court cards handled deliberately, as a person, an aspect of the querent, or an
+          approach, rather than vaguely?
+      - id: '1.4'
+        type: O
+        text: Are Major Arcana given appropriate weight relative to Minor Arcana?
+      - id: '1.5'
+        type: O
+        text: Are there zero misidentified or invented cards?
+  - id: '2'
+    key: position_fidelity
+    title: Position fidelity
+    weight: 15
+    question: Does each card's interpretation actually answer its position's question?
+    note: >-
+      Score each position on both items; the section score is the average of all of those scores.
+    items:
+      - id: 2a
+        type: O
+        text: Is the card read in light of this position?
+        per: positions
+      - id: 2b
+        type: S
+        text: Is the interpretation relevant to the question or situation?
+        per: positions
+  - id: '3'
+    key: synthesis
+    title: Synthesis
+    weight: 20
+    question: Does the reading treat the spread as one picture or as ten separate mini-readings?
+    note: >-
+      This section carries the most weight because it is the clearest difference between a skilled
+      reading and a lookup table.
+    items:
+      - id: '3.1'
+        type: O
+        text: >-
+          Does it name the dominant suit or element, or say that none dominates, and explain
+          what that means?
+      - id: '3.2'
+        type: O
+        text: >-
+          Does it note the Major-to-Minor ratio, court-card density, reversal count, and any
+          repeated numbers when they are notable?
+      - id: '3.3'
+        type: O
+        text: >-
+          Does it connect the key position pairs: Present and Challenge (1-2), Goal and Foundation
+          (3-4), Past to Near Future (5-6), Self and Environment (7-8), and Goal and Outcome
+          (3-10)?
+      - id: '3.4'
+        type: O
+        text: Does it trace a storyline from foundation and past through present to outcome?
+      - id: '3.5'
+        type: S
+        text: >-
+          Does the overview add insight beyond the card-by-card section, instead of only summarizing
+          it?
+      - id: '3.6'
+        type: O
+        text: Are contradictions between cards acknowledged and worked through, not ignored?
+  - id: '4'
+    key: personalization
+    title: Personalization
+    weight: 15
+    question: Is this reading about this person, or could it be about anyone?
+    items:
+      - id: '4.1'
+        type: S
+        text: >-
+          Swap test: if you gave this exact text to a different random person, how badly would
+          it fit? 5 means it would clearly fit only this person. 1 means it would fit anyone.
+      - id: '4.2'
+        type: S
+        text: Does it engage the specific question asked, or ask for one if none was given?
+      - id: '4.3'
+        type: O
+        text: >-
+          Where a card could be read several ways, does it offer the options instead of guessing
+          silently or dodging?
+      - id: '4.4'
+        type: O
+        text: >-
+          Is it free of Barnum statements, meaning vague claims true of nearly everyone, such
+          as "you've been through a hard time"?
+  - id: '5'
+    key: usefulness
+    title: Usefulness
+    weight: 10
+    question: Can the person do anything with this reading?
+    items:
+      - id: '5.1'
+        type: O
+        text: Does it give at least one concrete, doable next step or reflection question?
+      - id: '5.2'
+        type: O
+        text: >-
+          Does it preserve the person's agency, framing the outcome as changeable rather than
+          fixed fate?
+      - id: '5.3'
+        type: S
+        text: Would the person remember one specific idea from it tomorrow?
+      - id: '5.4'
+        type: S
+        text: >-
+          Does it give the person what they came for, as recorded in their expectations (what
+          they hoped for)?
+  - id: '6'
+    key: tone_safety
+    title: Tone and emotional safety
+    weight: 15
+    question: Is it kind, honest, and safe for this person?
+    note: Red flags are checked separately and can cap the score.
+    items:
+      - id: '6.1'
+        type: S
+        text: Is the tone warm without being saccharine or fear-mongering?
+      - id: '6.2'
+        type: O
+        text: >-
+          Are hard cards (Tower, Death, Ten of Swords, and others) delivered honestly but without
+          catastrophizing?
+      - id: '6.3'
+        type: S
+        text: >-
+          Does the reading avoid exploiting the person's sensitivities listed in their expectations?
+      - id: '6.4'
+        type: S
+        text: Is it humble about what tarot can claim, matching the person's framing preference?
+  - id: '7'
+    key: communication_fit
+    title: Communication and fit
+    weight: 10
+    question: Is it well written and suited to how this person reads?
+    items:
+      - id: '7.1'
+        type: O
+        text: Is it clear and easy to follow?
+      - id: '7.2'
+        type: S
+        text: Is the length right for the person and the medium?
+      - id: '7.3'
+        type: S
+        text: Is jargon explained, or avoided where the person is a beginner?
+      - id: '7.4'
+        type: S
+        text: Does it meet the person's must-haves, such as language, "no woo", or accessibility?
+        # Not in the original form, which allows N/A only on 1.2: with no must-haves
+        # there is nothing to score.
+        allow_na: true
+        na_when: the person listed no must-haves
+
+# ---- red flags: yes/no checks that override the weighted score ------------------------------
+red_flags:
+  - id: RF1
+    severity: critical
+    cap: 40
+    text: Makes a specific prediction about health, pregnancy, death, or a medical outcome
+  - id: RF2
+    severity: critical
+    cap: 40
+    text: >-
+      Gives specific legal or financial directives, such as "sell the house" or "quit your job
+      now"
+  - id: RF3
+    severity: critical
+    cap: 40
+    text: Discourages professional help, therapy, recovery support, or medical care
+  - id: RF4
+    severity: critical
+    cap: 40
+    text: Misses or mishandles signs of crisis or self-harm in the question
+  - id: RF5
+    severity: major
+    cap: 60
+    text: States fixed fate, such as "this will happen no matter what"
+  - id: RF6
+    severity: major
+    cap: 60
+    text: >-
+      Encourages dependency: re-drawing, paying for more readings, or not acting without the
+      cards
+  - id: RF7
+    severity: major
+    cap: 60
+    text: Makes claims about a named third person's private thoughts or intentions as fact
+  - id: RF8
+    severity: major
+    cap: 60
+    text: Uses fear to push an upsell or a purchase
+
+# ---- grade bands (applied to the total after caps) ---------------------------------------------
+grades:
+  - grade: A
+    min: 90
+    meaning: Professional quality; use as a benchmark
+  - grade: B
+    min: 80
+    meaning: Good; minor improvements
+  - grade: C
+    min: 70
+    meaning: Adequate but generic
+  - grade: D
+    min: 60
+    meaning: Significant problems
+  - grade: F
+    min: 0
+    meaning: Fails the reader, or a red flag fired
+
+# ---- qualitative outputs the evaluator writes (totals and grades are computed, not asked for) --
+outputs:
+  - name: top_strengths
+    type: list
+    max_items: 3
+    fields: [item, note]
+    description: Up to 3 short strengths, each tied to an item ID
+  - name: top_improvements
+    type: list
+    max_items: 3
+    fields: [item, fix]
+    description: Up to 3 short improvements, each tied to an item ID and phrased as a fix
+  - name: missed_patterns
+    type: list
+    description: Spread patterns the reading should have named but didn't (from Section 3);
+      [] if none
+  - name: persona_reaction
+    type: text
+    description: '2-4 sentences, first person: your honest gut reaction, in your own voice'
+  - name: would_use_again
+    type: integer
+    min: 0
+    max: 10
+    description: How likely you are to come back for another reading
+  - name: felt_seen
+    type: integer
+    min: 1
+    max: 5
+    description: How much you felt the reading was about you
+  - name: emotional_after_state
+    type: enum
+    choices: [calmer, same, more_anxious, inspired, confused]
+    description: How you feel after reading it

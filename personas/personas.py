@@ -86,7 +86,8 @@ class PersonaSet:
             data = data.get("personas")
         if not isinstance(data, list):
             raise ValueError(f"{path}: expected a JSON list of personas")
-        return cls(path.stem, data, path.resolve(), hashlib.sha256(raw).hexdigest())
+        # line endings normalised: a checkout may write the file with CRLF, and it is still the same set
+        return cls(path.stem, data, path.resolve(), hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest())
 
     def validate(self) -> None:
         """Every persona needs a unique string `id`; `persona_number`, when present, must be unique too."""
@@ -157,7 +158,7 @@ class PersonaSet:
 
     # ---- tabular views ------------------------------------------------------------
     def row(self, persona: Persona) -> dict[str, Any]:
-        """The record stored in data_generation's `personas` table."""
+        """The record stored in inference's `personas` table."""
         return {"persona_id": persona["id"], "persona_set": self.name,
                 "persona_number": persona.get("persona_number"), "name": display_name(persona),
                 "payload": persona, "content_sha256": content_sha256(persona)}

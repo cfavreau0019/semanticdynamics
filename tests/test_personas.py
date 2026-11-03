@@ -31,6 +31,15 @@ def test_load_by_name_and_path(tmp_path):
         PersonaSet.load(f)
 
 
+def test_a_set_s_hash_does_not_depend_on_line_endings(tmp_path):
+    raw = PersonaSet.load("tarot_personas").path.read_bytes().replace(b"\r\n", b"\n")
+    lf, crlf = tmp_path / "lf" / "tarot_personas.json", tmp_path / "crlf" / "tarot_personas.json"
+    for f, content in ((lf, raw), (crlf, raw.replace(b"\n", b"\r\n"))):     # as a Windows checkout may write it
+        f.parent.mkdir()
+        f.write_bytes(content)
+    assert PersonaSet.load(lf).sha256 == PersonaSet.load(crlf).sha256 == PersonaSet.load("tarot_personas").sha256
+
+
 @pytest.mark.parametrize("personas, match", [
     ([person(1), person(1)], "duplicate persona ids"),
     ([{"name": "no id"}], "non-empty string `id`"),

@@ -1,6 +1,6 @@
 # validation
 
-Checks LLM outputs using only regex and vocabulary matching, with no further LLM calls. The core is generic; `tarot.py` configures it for tarot readings.
+Checks LLM outputs using only regex and vocabulary matching, with no further LLM calls. The package is generic; `applications/tarot/code/validation.py` configures it for tarot readings.
 
 ```
 validation/
@@ -8,7 +8,9 @@ validation/
   extract.py    LabeledEntryExtractor, VocabularyMatcher, FreeTextMatcher  ("<label>: <value>" parsing)
   checks.py     NonEmpty, NotTruncated, RegexCheck, NoRefusal, LabeledValuesCheck, ForeignValuesCheck
   responses.py  response_validator (hook for llm), result_of, summary_frame, issues_frame
-  tarot.py      celtic_cross_validator, spread_validator, TAROT_CARDS, CELTIC_CROSS_POSITIONS
+
+applications/tarot/code/
+  validation.py celtic_cross_validator, spread_validator, TAROT_CARDS, CELTIC_CROSS_POSITIONS
 ```
 
 ## Tarot readings
@@ -16,15 +18,15 @@ validation/
 ```python
 from llm import generate_many, save_responses
 from validation import response_validator, summary_frame, issues_frame
-from validation.tarot import celtic_cross_validator
+from applications.tarot.code.validation import celtic_cross_validator
 
-validate = response_validator(celtic_cross_validator(), expected="instant")   # expected = metadata["instant"]
+validate = response_validator(celtic_cross_validator(), expected="instant")  # expected = metadata["instant"]
 
 responses = generate_many(reqs, provider="featherless", validate=validate,
                           on_result=lambda r: save_responses([r], path, append=True))  # checkpoints include validation
-[r.valid for r in responses]              # True / False / None (API failure or validator error)
-summary_frame(responses)                  # one row per response
-issues_frame(responses)                   # one row per issue; group by code / label
+[r.valid for r in responses]  # True / False / None (API failure or validator error)
+summary_frame(responses)  # one row per response
+issues_frame(responses)  # one row per issue; group by code / label
 ```
 
 What `celtic_cross_validator()` checks:

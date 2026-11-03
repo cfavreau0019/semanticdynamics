@@ -1,0 +1,58 @@
+# The people of the tarot application: which persona set it uses, what roles personas play,
+# how they are chosen, and what each prompt may tell a model about them.
+#
+# The records live in a persona set kept by the persona engine (personas/), so that other
+# applications can reuse the people. What a record holds is the `persona` schema in
+# schemas.yaml; this file is the application's side of the contract.
+
+set:
+  name: tarot_personas
+  file: personas/tarot_personas.json
+  records: 100
+  sha256: e15577e10ebcc56991fccf977fbee89580b21640e54dc01c6cb02322460eda69   # of the file; every run records the hash of the set it used
+  population: >-
+    100 adults in the United States who use a tarot app on iOS or Android, mostly in cities, spread
+    over generations, genders, backgrounds, incomes and levels of tarot experience.
+  origin: not recorded in the repository
+  # Each record mixes the person (name, demographics; reusable by any application) with their
+  # relationship to tarot (tarot_profile, description; this application only). See x-scope in the
+  # `persona` schema. Splitting the two, so a person can carry a profile per application, is open.
+
+roles:
+  reader: the person asking for a reading, in tarot_celtic_cross (optional; one per draw)
+  evaluator: the person judging a reading, in persona_expectations and celtic_cross_evaluation
+
+selection:                            # how a run chooses personas (the persona engine: personas/personas.py)
+  restrict: to given personas, by id, persona_number or full name (--persona, repeatable)
+  sampling:
+    random: seeded, with replacement
+    cycle: in order, so every persona is used equally often
+  per_task: tasks.yaml, under each task's `personas`
+
+# What a prompt shows the model about a persona. The template decides, and the decision is
+# versioned with it: disclosing different fields means a new template version.
+sensitive: [demographics.sexual_orientation, demographics.race_ethnicity, demographics.annual_household_income,
+            demographics.religion, demographics.political_party]
+disclosure:
+  celtic_cross_v2:                    # deliberately leaves out the sensitive fields
+    - name.first
+    - demographics.age
+    - demographics.profession
+    - tarot_profile.experience_level
+    - tarot_profile.primary_motivation
+  reading_expectations_v1: &whole_record     # everything, the sensitive fields included
+    - name.full
+    - demographics                    # all of it, as JSON
+    - tarot_profile                   # all of it, as JSON
+    - description
+    - notes
+  celtic_cross_evaluation_v1: *whole_record
+  celtic_cross_evaluation_v2: *whole_record
+
+shown_in_dashboard: [name.full, persona_number, demographics.age, demographics.profession,
+                     tarot_profile.experience_level, description]
+
+stored:                               # what a run keeps about the personas it used
+  personas: a snapshot of each persona used, with a hash of its content (content_sha256)
+  inputs.persona_id: the persona of each input (reader or evaluator)
+  runs.config: persona_set, persona_set_sha256, persona_sampling, persona_ids

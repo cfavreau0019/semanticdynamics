@@ -11,7 +11,7 @@ network, and is rebuilt by running the command again. In it, scores can be aggre
 task, text, evaluating model, generating model, persona and rubric question; each text has
 its score distributions and the evaluators' comments.
 
-    task              the application of the generation run the text came from
+    task              the task of the generation run the text came from
     generating model  the model that wrote the text
     evaluating model  the model that filled in the form
 
@@ -27,8 +27,8 @@ from typing import Any, Optional, Sequence
 if __package__ in (None, ""):  # allow `python evaluation/dashboard.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from data_generation.pipeline import list_runs  # noqa: E402
-from data_generation.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore, utc_now  # noqa: E402
+from inference.pipeline import list_runs  # noqa: E402
+from inference.store import DEFAULT_ROOT as READINGS_ROOT, REPO_ROOT, RunStore, utc_now  # noqa: E402
 
 EVALUATIONS_ROOT = REPO_ROOT / "data" / "evaluations"
 TEMPLATE = Path(__file__).resolve().parent / "dashboard.html"
@@ -97,7 +97,7 @@ def build_data(evaluations_root: str | Path = EVALUATIONS_ROOT, runs: Sequence[s
         if not evaluations:
             continue
 
-        options = run["config"].get("application_options") or {}
+        options = run["config"].get("task_options") or {}
         root = Path(readings_root or options.get("subjects_root") or READINGS_ROOT)
         prompts, requests = _by(store.read("prompts"), "prompt_id"), _by(store.read("requests"), "request_id")
         inputs, responses = _by(store.read("inputs"), "input_id"), _by(store.read("responses"), "response_id")
@@ -120,7 +120,7 @@ def build_data(evaluations_root: str | Path = EVALUATIONS_ROOT, runs: Sequence[s
                 source = generation[key]
                 source_run = source["run"] if source else {}
                 subjects[sid] = {
-                    "task": source_run.get("application") or e["subject_type"], "run_id": e["subject_run_id"],
+                    "task": source_run.get("task") or e["subject_type"], "run_id": e["subject_run_id"],
                     "dataset": source_run.get("dataset"), "template": payload.get("subject_template"),
                     "model": payload.get("subject_model") or (source["responses"].get(sid, {}).get("model")
                                                               if source else None) or source_run.get("model"),
@@ -171,7 +171,7 @@ def main(argv=None) -> int:
                         help="include only this evaluation run; repeatable (default: all)")
     parser.add_argument("--dataset", help="include only evaluation runs of this dataset")
     parser.add_argument("--task", action="append", default=[], metavar="NAME",
-                        help="include only evaluations of texts of this task, i.e. the application of the generation "
+                        help="include only evaluations of texts of this task, i.e. the task of the generation "
                              "run they came from, e.g. tarot_celtic_cross; repeatable (default: all)")
     parser.add_argument("--readings-root", help="where the generation runs are (default: where each evaluation "
                                                 "run found them)")

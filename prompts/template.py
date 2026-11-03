@@ -226,6 +226,22 @@ class PromptTemplate:
             raise PromptError(f"{source}: missing key {e}") from e
 
     @classmethod
+    def inline(cls, name: str, user: str, system: Optional[str] = None, description: str = "",
+               source: Optional[Path] = None) -> "PromptTemplate":
+        """
+        A template written where it is used (e.g. inline in a task file) rather than in the library.
+        Every variable its text uses is required; its id is <name>_v1, and its hash tells edits apart.
+        """
+        try:
+            used = set()
+            for text in (user, system or ""):
+                used |= meta.find_undeclared_variables(_env.parse(text))
+        except TemplateError as e:
+            raise PromptError(f"{name}: template syntax error: {e}") from e
+        return cls(name=name, version=1, user=user, system=system, required=tuple(sorted(used)),
+                   description=description, source=source)
+
+    @classmethod
     def from_toml(cls, path: str | Path) -> "PromptTemplate":
         path = Path(path)
         with open(path, "rb") as f:

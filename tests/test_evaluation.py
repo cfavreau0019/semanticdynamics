@@ -6,22 +6,24 @@ import threading
 import pytest
 
 import llm.providers as providers
-from data_generation import schema
-from data_generation.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
-from data_generation.store import RunStore
-from data_generation.tarot import TarotReadings
-from evaluation.celtic_cross import EXPECTATION_CONTEXT, CelticCrossEvaluation
+from applications import task_of
+from applications.tarot.code.celtic_cross_evaluation import CelticCrossEvaluation
+from applications.tarot.code.persona_expectations import EXPECTATION_CONTEXT, TarotPersonaExpectations
+from inference import schema
+from inference.pipeline import GenerationConfig, load_config, prepare_run, rebuild_requests, run_live
+from inference.store import RunStore
 from evaluation.checks import JsonFieldsCheck, RubricAnswerCheck, extract_json, quote_in_text
-from evaluation.evaluate_tarot import main
+from evaluation.evaluate import main
 from evaluation.expectations import EXPECTATION_FIELDS, generate_expectations, load_expectations
 from evaluation.rubric import RubricError, get_rubric, load_rubric
 from evaluation.subjects import load_subjects
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
-from personas import PersonaSet
-from test_data_generation import TarotScripted, check_primary_keys
+from test_inference import PERSONA, TarotScripted, check_primary_keys, prepare
 from validation import Validator
 
+EVALUATE = ["run", "celtic_cross_evaluation"]                    # command lines of the two stages
+EXPECTATIONS = ["expectations", "celtic_cross_evaluation"]
 POSITIONS = ["Present", "Challenge", "Conscious Goal", "Root Cause/Foundation", "Recent Past", "Near Future",
              "Your Attitude", "External Influences", "Hopes and Fears", "Outcome"]
 LABELS = {"positions": POSITIONS}
@@ -331,14 +333,12 @@ def registry(monkeypatch):
 def readings(tmp_path, registry):
     """A generation run of 4 readings (dataset 'demo'); returns (root, store)."""
     root = tmp_path / "generations"
-    app = TarotReadings()
-    store, requests = prepare_run(app, GenerationConfig(n=4, provider="tarot-scripted", seed=3, dataset="demo"),
-                                  root=root)
-    run_live(store, app, requests, progress=False)
+    task, store, requests = prepare(root, n=4, seed=3, dataset="demo")
+    run_live(store, task, requests, progress=False)
     return root, store
 
 
-def evaluation_app(readings, eval_root, **kw):
+def evaluation_task(readings, eval_root, **kw):
     root, store = readings
     kw.setdefault("subject_runs", [store.run_id])
     return CelticCrossEvaluation(subjects_root=root, expectations_root=eval_root, **kw)
@@ -368,7 +368,7 @@ def test_load_subjects(readings):
     root, store = readings
     subjects = load_subjects(root, runs=[store.run_id])
     assert len(subjects) == 4 and all(s.text and list(s.input) == POSITIONS for s in subjects)
-    assert {s.template for s in subjects} == {"celtic_cross_v1"} and all(s.valid for s in subjects)
+    assert {s.template for s in subjects} == {"celtic_cross_v4"} and all(s.valid for s in subjects)
     assert [s.response_id for s in subjects] == sorted(s.response_id for s in subjects)       # stable order
     assert len(load_subjects(root, dataset="demo")) == 4
     assert load_subjects(root, dataset="demo", templates=["celtic_cross_v2"]) == []
@@ -378,20 +378,22 @@ def test_load_subjects(readings):
 
 def test_subjects_skip_invalid_and_failed_readings(tmp_path, registry):
     reader = providers.get_provider("tarot-scripted")
-    root, app = tmp_path / "g", TarotReadings()
-    store, requests = prepare_run(app, GenerationConfig(n=3, provider="tarot-scripted", validation_retries=0), root=root)
+    root = tmp_path / "g"
+    # seeded: in about 6% of draws the Outcome card also sits in another position, and then the "invalid" reading
+    # (its Outcome line dropped) still names that card and passes
+    task, store, requests = prepare(root, {"validation.retries": 0}, n=3, seed=1)
     reader.plan = {requests[0].metadata["input_id"]: ["invalid"], requests[1].metadata["input_id"]: ["error"]}
-    run_live(store, app, requests, progress=False)
+    run_live(store, task, requests, progress=False)
     assert len(load_subjects(root, runs=[store.run_id])) == 1
     assert len(load_subjects(root, runs=[store.run_id], valid_only=False)) == 2          # API failures never count
 
 
 # ---- stage 1: expectations ---------------------------------------------------------------------
 def test_expectations_run(tmp_path, registry):
-    store = generate_expectations("tarot_personas", provider="eval-scripted", context=EXPECTATION_CONTEXT,
+    store = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                   persona_ids=["1", "2", "3"], root=tmp_path, progress=False)
     run = store.run()
-    assert run["application"] == "persona_expectations" and run["status"] == "completed"
+    assert run["task"] == "persona_expectations" and run["status"] == "completed"
     assert store.run_id.startswith("run_persona_expectations_2")
     assert run["config"]["templates"] == ["reading_expectations_v1"]
     rows = store.read("persona_expectations")
@@ -410,11 +412,11 @@ def test_expectations_run(tmp_path, registry):
 # ---- stage 2: evaluation -----------------------------------------------------------------------
 def test_two_stage_evaluation_end_to_end(tmp_path, registry, readings):
     eval_root = tmp_path / "evaluations"
-    stage1 = generate_expectations("tarot_personas", provider="eval-scripted", context=EXPECTATION_CONTEXT,
+    stage1 = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                    root=eval_root, progress=False)
-    app = evaluation_app(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
-    store, requests = prepare_run(app, eval_config(), root=eval_root)
-    assert len(requests) == 8 and store.run()["application"] == "celtic_cross_evaluation"
+    task = evaluation_task(readings, eval_root, personas_per_subject=2, expectations_run=stage1.run_id)
+    store, requests = prepare_run(task, eval_config(), root=eval_root)
+    assert len(requests) == 8 and store.run()["task"] == "celtic_cross_evaluation"
     assert store.run_id.startswith("run_celtic_cross_evaluation_2")
     assert [r["rubric_id"] for r in store.read("rubrics")] == ["celtic_cross_reading_v1"]
 
@@ -430,7 +432,7 @@ def test_two_stage_evaluation_end_to_end(tmp_path, registry, readings):
     registry.plan = {requests[0].metadata["input_id"]: ["missing_item", "fenced"],          # retried, then fine
                      requests[1].metadata["input_id"]: ["real_flag"],
                      requests[2].metadata["input_id"]: ["invented_quote", "invented_quote", "invented_quote"]}
-    summary = run_live(store, app, requests, progress=False)
+    summary = run_live(store, task, requests, progress=False)
     assert (summary["n_finished"], summary["n_valid"], summary["n_invalid"], summary["n_regenerated"]) == (8, 7, 1, 2)
 
     evaluations = {e["request_id"]: e for e in store.read("evaluations")}
@@ -465,16 +467,16 @@ def test_two_stage_evaluation_end_to_end(tmp_path, registry, readings):
 def test_na_follows_the_facts(tmp_path, registry, readings):
     """7.4 is N/A exactly when the evaluator has no must-haves; 1.2 exactly when no card is reversed."""
     eval_root = tmp_path / "e"
-    stage1 = generate_expectations("tarot_personas", provider="eval-scripted", context=EXPECTATION_CONTEXT,
+    stage1 = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
                                    root=eval_root, progress=False)
     expectations = load_expectations(stage1)
-    app = evaluation_app(readings, eval_root, personas_per_subject=3, expectations_run=stage1.run_id)
-    store, requests = prepare_run(app, eval_config(), root=eval_root)
-    run_live(store, app, requests, progress=False)
+    task = evaluation_task(readings, eval_root, personas_per_subject=3, expectations_run=stage1.run_id)
+    store, requests = prepare_run(task, eval_config(), root=eval_root)
+    run_live(store, task, requests, progress=False)
     evaluations = store.read("evaluations")
     assert len(evaluations) == 12
     scores = {(r["evaluation_id"], r["item_key"]): r for r in store.read("evaluation_item_scores")}
-    drawn = {r["response_id"]: i["payload"] for i in readings[1].read("inputs")
+    drawn = {r["response_id"]: i["payload"]["cards"] for i in readings[1].read("inputs")
              for p in readings[1].read("prompts") if p["input_id"] == i["input_id"]
              for q in readings[1].read("requests") if q["prompt_id"] == p["prompt_id"]
              for r in readings[1].read("responses") if r["request_id"] == q["request_id"]}
@@ -486,45 +488,44 @@ def test_na_follows_the_facts(tmp_path, registry, readings):
 
 def test_evaluation_without_personas(tmp_path, registry, readings):
     eval_root = tmp_path / "e"
-    app = evaluation_app(readings, eval_root)
-    store, requests = prepare_run(app, eval_config(persona_set=None, n=2), root=eval_root)
+    task = evaluation_task(readings, eval_root)
+    store, requests = prepare_run(task, eval_config(persona_set=None, n=2), root=eval_root)
     assert len(requests) == 2 and store.read("personas") == []
     prompt = store.read("prompts")[0]
     assert "# Who you are" not in prompt["user_text"] and "No evaluator persona is given" in prompt["system"]
-    run_live(store, app, requests, progress=False)
+    run_live(store, task, requests, progress=False)
     evaluations = store.read("evaluations")
     assert len(evaluations) == 2 and all(e["persona_id"] is None and e["expectations"] is None for e in evaluations)
 
 
 def test_sampling_and_pairing(tmp_path, registry, readings):
     eval_root = tmp_path / "e"
-    a, _ = prepare_run(evaluation_app(readings, eval_root), eval_config(n=2, mode="dry_run"), root=eval_root)
-    b, _ = prepare_run(evaluation_app(readings, eval_root), eval_config(n=2, mode="dry_run"), root=eval_root)
+    a, _ = prepare_run(evaluation_task(readings, eval_root), eval_config(n=2, mode="dry_run"), root=eval_root)
+    b, _ = prepare_run(evaluation_task(readings, eval_root), eval_config(n=2, mode="dry_run"), root=eval_root)
     pick = lambda s: [(i["payload"]["subject_response_id"], i["persona_id"]) for i in s.read("inputs")]
     assert pick(a) == pick(b) and len(pick(a)) == 2                         # same seed -> same readings and personas
 
-    cycled, _ = prepare_run(evaluation_app(readings, eval_root, personas_per_subject=2),
+    cycled, _ = prepare_run(evaluation_task(readings, eval_root, personas_per_subject=2),
                             eval_config(mode="dry_run", persona_sampling="cycle"), root=eval_root)
     numbers = {p["persona_id"]: p["persona_number"] for p in cycled.read("personas")}
     assert [numbers[i["persona_id"]] for i in cycled.read("inputs")] == [1, 2, 3, 4, 5, 6, 7, 8]
 
     with pytest.raises(ValueError, match="generated without a persona"):
-        prepare_run(evaluation_app(readings, eval_root, pairing="subject"), eval_config(mode="dry_run"), root=eval_root)
+        prepare_run(evaluation_task(readings, eval_root, pairing="subject"), eval_config(mode="dry_run"), root=eval_root)
     with pytest.raises(KeyError, match="generate them first"):
-        stage1 = generate_expectations("tarot_personas", provider="eval-scripted", persona_ids=["1"],
-                                       context=EXPECTATION_CONTEXT, root=eval_root, progress=False)
-        prepare_run(evaluation_app(readings, eval_root, expectations_run=stage1.run_id),
+        stage1 = generate_expectations(TarotPersonaExpectations(), "tarot_personas", provider="eval-scripted",
+                                       persona_ids=["1"], root=eval_root, progress=False)
+        prepare_run(evaluation_task(readings, eval_root, expectations_run=stage1.run_id),
                     eval_config(mode="dry_run", persona_ids=["2"]), root=eval_root)
 
 
 def test_the_reading_persona_can_evaluate_its_own_reading(tmp_path, registry):
-    root, eval_root, gen = tmp_path / "g", tmp_path / "e", TarotReadings()
-    store, requests = prepare_run(gen, GenerationConfig(n=3, provider="tarot-scripted", persona_set="tarot_personas",
-                                                        seed=2), root=root)
+    root, eval_root = tmp_path / "g", tmp_path / "e"
+    gen, store, requests = prepare(root, {**PERSONA, "prompt.templates": [{"template": "celtic_cross_v2"}]}, n=3, seed=2)
     run_live(store, gen, requests, progress=False)
-    app = CelticCrossEvaluation(subjects_root=root, subject_runs=[store.run_id], pairing="subject",
+    task = CelticCrossEvaluation(subjects_root=root, subject_runs=[store.run_id], pairing="subject",
                                 subject_templates=["celtic_cross_v2"], expectations_root=eval_root)
-    evaluation, _ = prepare_run(app, eval_config(mode="dry_run"), root=eval_root)
+    evaluation, _ = prepare_run(task, eval_config(mode="dry_run"), root=eval_root)
     written_for = {r["response_id"]: i["persona_id"] for i in store.read("inputs")
                    for p in store.read("prompts") if p["input_id"] == i["input_id"]
                    for q in store.read("requests") if q["prompt_id"] == p["prompt_id"]
@@ -534,12 +535,12 @@ def test_the_reading_persona_can_evaluate_its_own_reading(tmp_path, registry):
 
 def test_resume_scores_only_what_is_missing(tmp_path, registry, readings):
     eval_root = tmp_path / "e"
-    app = evaluation_app(readings, eval_root)
-    store, requests = prepare_run(app, eval_config(persona_set=None), root=eval_root)
-    run_live(store, app, requests[:2], progress=False)
+    task = evaluation_task(readings, eval_root)
+    store, requests = prepare_run(task, eval_config(persona_set=None), root=eval_root)
+    run_live(store, task, requests[:2], progress=False)
     assert len(store.read("evaluations")) == 2
-    fresh = CelticCrossEvaluation(**{k: v for k, v in store.run()["config"]["application_options"].items()
-                                     if k != "rubric_sha256"})
+    fresh = task_of(store.run())                                   # as `resume` rebuilds it, from the run alone
+    assert type(fresh) is CelticCrossEvaluation and fresh.options() == task.options()
     assert run_live(store, fresh, progress=False)["n_finished"] == 4
     assert len(store.read("evaluations")) == 4 and registry.calls[requests[0].metadata["input_id"]] == 1
     check_primary_keys(store)
@@ -549,16 +550,18 @@ def test_resume_scores_only_what_is_missing(tmp_path, registry, readings):
 def test_cli_evaluate_runs_both_stages(tmp_path, registry, readings, capsys):
     root, store = readings
     out = str(tmp_path / "evaluations")
-    assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-dataset", "demo", "--n", "2",
-                 "--provider", "eval-scripted", "--persona", "1", "--persona", "2", "--personas-per-reading", "2",
+    assert main(["--out", out, *EVALUATE, "--subjects-root", str(root), "--subject-dataset", "demo", "--n", "2",
+                 "--provider", "eval-scripted", "--persona", "1", "--persona", "2", "--personas-per-subject", "2",
                  "--seed", "5", "--dataset", "eval-demo"]) == 0
     printed = capsys.readouterr().out
-    assert "Stage 1: recording persona expectations" in printed and "Stage 2: prepared 4 evaluations of 2 readings" in printed
+    assert "Stage 1: recording persona expectations" in printed and "Stage 2: prepared 4 evaluations of 2 subjects" in printed
     assert "evaluations: 4   mean total 80.0" in printed and "grades: B: 4" in printed and "red flags: none" in printed
-    runs = {r["application"]: r for r in map(lambda p: RunStore(p).run(), (tmp_path / "evaluations").glob("run_*"))}
+    assert "section averages (1-5): card_accuracy 4.00" in printed                 # scale and ratings: from the rubric
+    assert "would use again (0-10): 6.00   felt seen (1-5): 2.00" in printed
+    runs = {r["task"]: r for r in map(lambda p: RunStore(p).run(), (tmp_path / "evaluations").glob("run_*"))}
     assert set(runs) == {"persona_expectations", "celtic_cross_evaluation"}
     evaluation = runs["celtic_cross_evaluation"]
-    assert evaluation["config"]["application_options"]["expectations_run"] == runs["persona_expectations"]["run_id"]
+    assert evaluation["config"]["task_options"]["expectations_run"] == runs["persona_expectations"]["run_id"]
     assert evaluation["dataset"] == "eval-demo" and evaluation["config"]["params"] == {"max_tokens": 4000}
 
     assert main(["--out", out, "status", evaluation["run_id"]]) == 0
@@ -568,12 +571,24 @@ def test_cli_evaluate_runs_both_stages(tmp_path, registry, readings, capsys):
     assert "4 evaluations" in listing and "persona_expectations" in listing
 
 
+def test_the_script_offers_evaluation_tasks_only(tmp_path, registry, capsys):
+    for command in ("run", "expectations"):
+        with pytest.raises(SystemExit):
+            main(["--out", str(tmp_path), command, "tarot_celtic_cross"])                 # that is generate's
+        assert "(choose from celtic_cross_evaluation)" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        main(["--out", str(tmp_path), *EVALUATE, "--help"])
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "--subject-template NAME" in help_text and "(default: celtic_cross_v4)" in help_text
+    assert "persona set name or JSON path (default: tarot_personas)" in help_text
+
+
 def test_cli_expectations_then_reuse_and_options(tmp_path, registry, readings, capsys):
     root, store = readings
     out = str(tmp_path / "evaluations")
-    assert main(["--out", out, "expectations", "--provider", "eval-scripted", "--persona", "4"]) == 0
+    assert main(["--out", out, *EXPECTATIONS, "--provider", "eval-scripted", "--persona", "4"]) == 0
     [stage1] = list((tmp_path / "evaluations").glob("run_*"))
-    assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-run", store.run_id, "--n", "1",
+    assert main(["--out", out, *EVALUATE, "--subjects-root", str(root), "--subject-run", store.run_id, "--n", "1",
                  "--provider", "eval-scripted", "--persona", "4", "--expectations", stage1.name, "--json-mode",
                  "--temperature", "0"]) == 0
     assert "Stage 1" not in capsys.readouterr().out                           # reused, not regenerated
@@ -582,10 +597,10 @@ def test_cli_expectations_then_reuse_and_options(tmp_path, registry, readings, c
                                                     "response_format": {"type": "json_object"}}
     assert len(evaluation.read("evaluations")) == 1
 
-    assert main(["--out", out, "evaluate", "--n", "1"]) == 2                  # no readings selected
-    assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-dataset", "demo",
+    assert main(["--out", out, *EVALUATE, "--n", "1"]) == 2     # no readings selected
+    assert main(["--out", out, *EVALUATE, "--subjects-root", str(root), "--subject-dataset", "demo",
                  "--no-personas", "--dry-run", "--provider", "eval-scripted"]) == 0
-    assert "prepared 4 evaluations of 4 readings" in capsys.readouterr().out   # default: every reading
+    assert "prepared 4 evaluations of 4 subjects" in capsys.readouterr().out   # default: every reading
 
 
 def test_cli_batch_evaluation_submit_then_collect(tmp_path, registry, readings, capsys):
@@ -604,9 +619,9 @@ def test_cli_batch_evaluation_submit_then_collect(tmp_path, registry, readings, 
 
     root, store = readings
     out = str(tmp_path / "evaluations")
-    assert main(["--out", out, "expectations", "--provider", "eval-scripted", "--persona", "1", "--persona", "2"]) == 0
+    assert main(["--out", out, *EXPECTATIONS, "--provider", "eval-scripted", "--persona", "1", "--persona", "2"]) == 0
     [stage1] = list((tmp_path / "evaluations").glob("run_persona_expectations_*"))
-    assert main(["--out", out, "evaluate", "--readings-root", str(root), "--readings-run", store.run_id, "--n", "3",
+    assert main(["--out", out, *EVALUATE, "--subjects-root", str(root), "--subject-run", store.run_id, "--n", "3",
                  "--provider", "fake-batch", "--mode", "batch", "--persona", "1", "--persona", "2",
                  "--expectations", stage1.name]) == 0
     assert "Submitted batch batch_1" in capsys.readouterr().out
@@ -629,9 +644,9 @@ def test_cli_batch_evaluation_submit_then_collect(tmp_path, registry, readings, 
 def test_cli_resume_can_lower_workers(tmp_path, registry, readings):
     """A run refused for concurrency is resumed with fewer workers; the new setting is kept."""
     eval_root = tmp_path / "e"
-    app = evaluation_app(readings, eval_root)
-    store, requests = prepare_run(app, eval_config(persona_set=None), root=eval_root)
-    run_live(store, app, requests[:1], progress=False)
+    task = evaluation_task(readings, eval_root)
+    store, requests = prepare_run(task, eval_config(persona_set=None), root=eval_root)
+    run_live(store, task, requests[:1], progress=False)
     assert load_config(store).max_workers == 4
     assert main(["--out", str(eval_root), "resume", store.run_id, "--workers", "1"]) == 0
     assert load_config(store).max_workers == 1 and len(store.read("evaluations")) == 4
@@ -644,14 +659,14 @@ def test_readings_can_be_selected_by_generating_model_and_template(tmp_path, reg
     assert len(load_subjects(root, runs=[store.run_id], models=["SCRIPTED-model"])) == 4      # case is ignored
     assert load_subjects(root, runs=[store.run_id], models=["other-model"]) == []
     out = str(tmp_path / "evaluations")
-    common = ["--out", out, "evaluate", "--readings-root", str(root), "--readings-run", store.run_id,
+    common = ["--out", out, *EVALUATE, "--subjects-root", str(root), "--subject-run", store.run_id,
               "--provider", "eval-scripted", "--no-personas", "--dry-run"]
-    assert main([*common, "--readings-model", "scripted-model", "--readings-template", "celtic_cross_v1"]) == 0
-    assert "prepared 4 evaluations of 4 readings" in capsys.readouterr().out
+    assert main([*common, "--subject-model", "scripted-model", "--subject-template", "celtic_cross_v4"]) == 0
+    assert "prepared 4 evaluations of 4 subjects" in capsys.readouterr().out
     [run] = [RunStore(p).run() for p in (tmp_path / "evaluations").glob("run_*")]
-    assert run["config"]["application_options"]["subject_models"] == ["scripted-model"]
+    assert run["config"]["task_options"]["subject_models"] == ["scripted-model"]
 
-    assert main([*common, "--readings-model", "other-model"]) == 1                             # says what there is
-    assert "The selected runs hold: 4 of celtic_cross_v1 by scripted-model" in capsys.readouterr().err
-    assert main([*common, "--readings-template", "celtic_cross_v4"]) == 1
-    assert "no readings match --readings-template celtic_cross_v4." in capsys.readouterr().err
+    assert main([*common, "--subject-model", "other-model"]) == 1                             # says what there is
+    assert "The selected runs hold: 4 of celtic_cross_v4 by scripted-model" in capsys.readouterr().err
+    assert main([*common, "--subject-template", "celtic_cross_v1"]) == 1
+    assert "no subjects match --subject-template celtic_cross_v1." in capsys.readouterr().err

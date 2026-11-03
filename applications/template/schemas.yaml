@@ -1,0 +1,237 @@
+# The data of the tarot application: the domain vocabulary, and every kind of data its tasks
+# take in or give back.
+#
+#   vocabulary   the cards, their orientations, and the Celtic Cross positions
+#   schemas      one entry per kind of data, as JSON Schema (draft 2020-12) written in YAML.
+#                Tasks (tasks.yaml) and prompt variables (prompts/*.yaml) refer to an entry by
+#                name; "$ref: '#/schemas/<name>'" refers to one from another.
+#
+# Keys starting with x- carry what JSON Schema cannot say: where a value comes from, how it is
+# drawn, derived or stored. `implemented_by` names the code that does it today.
+
+vocabulary: # CJF : should this correspond to specific data inputs (prompt or otherwise?)
+            # the used tarot inputs are in vector_space_config.json
+            # probably want to not have this as a specific format/yaml file unless needed
+            # let the application dictate how to lay out this metadata
+
+  cards:
+    description: The 78 cards of a Rider-Waite-Smith deck, named as in the deck config.
+    major_arcana: [
+      The Fool, The Magician, The High Priestess, The Empress, The Emperor, The Hierophant,
+      The Lovers, The Chariot, Strength, The Hermit, The Wheel of Fortune, Justice,
+      The Hanged Man, Death, Temperance, The Devil, The Tower, The Star, The Moon, The Sun,
+      Judgement, The World]
+    minor_arcana:
+      name: "{rank} of {suit}"
+      ranks: [Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Page, Knight, Queen, King]
+      suits: [Wands, Cups, Swords, Pentacles]
+    # The deck config lists the 78 names in alphabetical order. That is the order of the
+    # vector space's dimensions and the order draws are sampled from, so a seed reproduces an
+    # earlier run's draws only in this order.
+    order: alphabetical
+    in_text:                          # other ways a reading may write a card's name
+      without_the: true               # "The Tower" may be written "Tower"
+      spellings: {Judgement: [Judgment]}
+      rank_numerals: true             # "Two of Cups" may be written "2 of Cups" (Two to Ten)
+      # Tying a card to its position accepts all of these. Spotting cards that were not drawn
+      # accepts only names of more than one word, and a one-word name only when capitalised,
+      # so "inner strength" or "the world" in prose is not a card.
+      implemented_by: applications/tarot/validation.py (card_aliases, TarotCardMatcher)
+
+  orientations:
+    values: [upright, reversed]
+    reversible: true                  # the deck config's negative_polarity: a drawn card may be reversed
+    state: '"<card>" when upright, "<card> reversed" when reversed'
+    in_text:                          # how a reading says a card is reversed, next to the card's name
+      reversed: '\b(?:reversed|reversal|inverted|upside[- ]down|rx)\b|\(\s*r\s*\)'
+      not_reversed: '\bnot\s+(?:reversed|inverted)\b'
+      reversed_before_name: '\b(?:reversed|inverted)\s+(?:the\s+)?$'      # "the reversed Sun"
+      implemented_by: applications/tarot/validation.py (TarotCardMatcher)
+
+  # The Celtic Cross, in reading order (the deck config's step_aliases).
+  #   also     other names a reading may use for the position
+  #   meaning  as worded in the celtic_cross_v3 and v4 prompts (what the model sees is the prompt's text)
+  positions:
+    - name: Present
+      also: [Present Situation, Current Situation]
+      meaning: the central situation, energy, or issue currently at hand.
+    - name: Challenge
+      also: [Challenges, Obstacle, Crossing Card]
+      meaning: what crosses, complicates, opposes, modifies, or demands a response from the Present.
+    - name: Conscious Goal
+      also: [Conscious, Goal]
+      meaning: what is consciously sought, considered, hoped for, or potentially available.
+    - name: Root Cause/Foundation
+      also: [Root Cause, Foundation, Subconscious]
+      meaning: underlying influences, roots, unconscious factors, or deeper conditions beneath the situation.
+    - name: Recent Past
+      also: [Past]
+      meaning: relevant influences or developments that have led into the present and may now be receding.
+    - name: Near Future
+      also: [Immediate Future, Future]
+      meaning: the next stage, emerging development, or direction the situation appears to be moving toward.
+    - name: Your Attitude
+      also: [Attitude, Self, Yourself]
+      meaning: >-
+        the querent's stance, internal orientation, assumptions, behavior, or way of relating to the
+        situation.
+    - name: External Influences
+      also: [External Influence, Environment, Outside Influences]
+      meaning: >-
+        external circumstances, surrounding influences, other people, or conditions outside the
+        querent's direct control.
+    - name: Hopes and Fears
+      also: [Hopes & Fears]
+      meaning: desires, anxieties, expectations, ambivalence, or emotionally charged possibilities.
+    - name: Outcome
+      also: [Final Outcome, Likely Outcome]
+      meaning: >-
+        the direction the situation tends toward if its current dynamics continue. Treat this as a
+        likely trajectory, not fixed fate.
+
+schemas:
+
+  # ---- readings (task tarot_celtic_cross) ------------------------------------------------------
+  card_state:
+    description: A drawn card and its orientation.
+    type: string
+    examples: [Death, Death reversed, Ten of Swords]
+    x-values: every card of vocabulary.cards, upright and followed by " reversed" (156 states)
+
+  celtic_cross_draw:
+    description: >-
+      One card state per Celtic Cross position, keyed by the position's name and in position
+      order. The input of a reading. It has the shape of coordinate_systems'
+      Instantiation.instant, with positions as steps and card states as states.
+    type: object
+    required:
+      - Present
+      - Challenge
+      - Conscious Goal
+      - Root Cause/Foundation
+      - Recent Past
+      - Near Future
+      - Your Attitude
+      - External Influences
+      - Hopes and Fears
+      - Outcome
+    propertyNames: {enum: [Present, Challenge, Conscious Goal, Root Cause/Foundation, Recent Past,
+                           Near Future, Your Attitude, External Influences, Hopes and Fears, Outcome]}
+    additionalProperties: {$ref: '#/schemas/card_state'}
+    examples:
+      - {Present: Death, Challenge: The Sun reversed, Conscious Goal: Ace of Cups,
+         Root Cause/Foundation: Four of Swords, Recent Past: The Tower, Near Future: Page of Wands,
+         Your Attitude: Strength reversed, External Influences: Six of Pentacles,
+         Hopes and Fears: The Moon, Outcome: Ten of Cups}
+    x-order: vocabulary.positions     # prompts list the cards in this order
+    x-drawn:                          # how tarot_celtic_cross samples one; implemented_by: applications/tarot/readings.py
+      replacement: >-
+        each position independently takes any of the 156 states, so a card may repeat, even upright
+        and reversed (as Instantiation does)
+      unique: no card twice, as from a real deck; each card is reversed with probability 1/2
+      pins: positions fixed to a given state in every draw
+    x-facts:                          # derived from a draw; the evaluation uses them
+      n_reversed: how many positions hold a reversed card
+      reversals_used: '"yes" when n_reversed > 0, otherwise "no"'
+    x-stored-as:
+      inputs.payload: the draw (inputs.input_type tarot_draw)
+      input_items: one row per position; label = position, value = state, entity = card, qualifier = upright or reversed
+
+  reading:
+    description: >-
+      A model's reading of a draw: free text, which ties each drawn card to its position either in
+      "Position: Card" lines or in sentences that name both (celtic_cross_v4 asks for the latter).
+    type: string
+    minLength: 200
+    x-checked-by: tasks.yaml, tarot_celtic_cross output.validation
+    x-stored-as: {response_texts.text: the reading, validations: its verdict, validation_issues: each problem}
+
+  # ---- evaluation stage 1 (task persona_expectations) -------------------------------------------
+  expectation_context:
+    description: What a persona is told they are about to receive, before stating their expectations.
+    type: object
+    properties:
+      reading_type: {type: string, examples: [Celtic Cross tarot reading]}
+      question: {type: string, description: the question they will ask; leave out for none}
+    required: [reading_type]
+    additionalProperties: false
+    x-stored-as: {inputs.payload: the context (inputs.input_type expectation_context)}
+
+  persona_expectations:
+    description: >-
+      What a persona expects from a reading, recorded before they see one (Part A3 of the Celtic Cross
+      Reading Evaluation Form).
+    type: object
+    properties:
+      situation_summary:
+        type: string
+        minLength: 1
+        description: "1-2 sentences, first person: what is actually going on for them right now"
+      what_they_hoped_for:
+        type: string
+        minLength: 1
+        description: what they hope to get from the reading, e.g. comfort, a decision, insight
+      framing_preference:
+        enum: [predictive, reflective, creative, no_preference]
+        description: >-
+          how they want tarot framed: predictive (tell me what will happen), reflective (help me
+          think), creative (material to work with), no_preference
+      must_haves:
+        type: array
+        items: {type: string}
+        description: what the written reading itself must do for them, e.g. plain wording; [] if nothing
+      sensitivities:
+        type: array
+        items: {type: string}
+        description: topics to handle with care, e.g. grief or money stress; [] if none
+    required: [situation_summary, what_they_hoped_for, framing_preference, must_haves, sensitivities]
+    x-normalised: >-
+      framing_preference is lower-cased with spaces as underscores; empty list entries are dropped, and
+      a missing list counts as []
+    x-checked-by: evaluation/checks.py JsonFieldsCheck, with EXPECTATION_FIELDS (evaluation/expectations.py)
+    x-stored-as: {persona_expectations: "one row per persona, with response_id, persona_id and the context"}
+
+  # ---- evaluation stage 2 (task celtic_cross_evaluation) -----------------------------------------
+  evaluation_subject:
+    description: >-
+      What one evaluation is about: a reading (the final response of a tarot_celtic_cross request)
+      and what it was generated from. The reading's text is read from its generation run, not copied.
+    type: object
+    properties:
+      subject_response_id: {type: string, description: responses.response_id of the reading}
+      subject_request_id: {type: string}
+      subject_run_id: {type: string, description: the generation run}
+      subject_template: {type: [string, "null"], description: prompt template the reading was written with}
+      subject_model: {type: [string, "null"], description: model that wrote the reading}
+      subject_persona_id: {type: [string, "null"], description: "the persona the reading was written for, if any"}
+      subject_input: {$ref: '#/schemas/celtic_cross_draw'}
+    required: [subject_response_id, subject_request_id, subject_run_id, subject_template, subject_model,
+               subject_persona_id, subject_input]
+    additionalProperties: false
+    x-loaded-by: evaluation/subjects.py load_subjects (final, successful responses; by default only valid ones)
+    x-stored-as: {inputs.payload: the subject (inputs.input_type evaluation)}
+
+  evaluation_context:
+    description: Facts about the reading request, shown to the evaluator.
+    type: object
+    properties:
+      question_asked: {const: "none", description: the readings were generated without a question}
+      deck: {const: "Rider-Waite-Smith (standard card names; the reading did not state a deck)"}
+      reversals_used: {enum: ["yes", "no"]}
+      n_reversed: {type: integer, minimum: 0, maximum: 10}
+    required: [question_asked, deck, reversals_used, n_reversed]
+    additionalProperties: false
+    x-derived-from: the subject's draw (celtic_cross_draw x-facts)
+    x-implemented-by: applications/tarot/celtic_cross_evaluation.py (CelticCrossEvaluation.context)
+
+  evaluation_answer:
+    description: >-
+      An evaluator's filled-in form: item scores, justifications, red flags with quotes, and the
+      qualitative outputs. Its shape is generated from the rubric, so it is not repeated here.
+    type: object
+    x-defined-by: rubrics/celtic_cross_reading_v1.yaml (Rubric.render_response_format, Rubric.read)
+    x-labels: {positions: "the keys of the subject's draw, for items 2a and 2b"}
+    x-stored-as:
+      evaluations: one row per accepted answer, with the scores computed from it (never the model's own arithmetic)
+      evaluation_item_scores: one row per scored item; items 2a and 2b once per position
+      evaluation_red_flags: one row per fired red flag, with its quote
