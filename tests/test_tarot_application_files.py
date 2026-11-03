@@ -21,10 +21,10 @@ import applications
 from applications.tarot.code import validation as tarot_validation
 from applications.tarot.code.celtic_cross_evaluation import CelticCrossEvaluation
 from applications.tarot.code.persona_expectations import TarotPersonaExpectations
-from applications.tarot.code.readings import TarotReadings
 from evaluation.expectations import EXPECTATION_FIELDS
 from evaluation.rubric import get_rubric
 from evaluation.subjects import load_subjects
+from inference.task import InferenceTask
 from inference.task_config import InferenceTaskConfig, load_task_file
 from instantiation import Instantiation
 from personas import PersonaSet
@@ -131,17 +131,18 @@ def test_evaluation_inputs_fit_their_schemas(readings):  # noqa: F811
 
 # ---- what the files say the code does, it does --------------------------------------------------------------
 def test_tasks_are_the_registered_ones_with_their_stated_settings():
-    assert set(TASKS) == set(applications.tasks())
+    assert set(TASKS) == set(applications.tasks()) | set(applications.task_names())
     for name, spec in TASKS.items():
+        if name == "tarot_celtic_cross":            # tasks.yaml says how it runs now: test_task_file_agrees_with_the_code
+            continue
         module, cls_name = spec["implemented_by"].split(":")
         cls = getattr(importlib.import_module(module), cls_name)
         assert cls is applications.get_task(name)
-        if name == "tarot_celtic_cross":            # tasks.yaml says how it runs now: test_task_file_agrees_with_the_code
-            continue
         assert cls.default_template == spec["prompt"]["template"]
         assert cls.persona_template == spec["prompt"].get("with_personas", spec["prompt"]["template"])
         assert cls.input_type == spec["input"]["input_type"]
-    assert TarotReadings.from_options({}).validator().name == TASKS["tarot_celtic_cross"]["output"]["validation"]["validator"]
+    readings = InferenceTask.from_config(load_task_file(APP / "tasks.yaml")["tarot_celtic_cross"])
+    assert readings.validator().name == TASKS["tarot_celtic_cross"]["output"]["validation"]["validator"]
 
     expectations = TASKS["persona_expectations"]
     assert TarotPersonaExpectations.default_context == expectations["input"]["source"]["value"] == \
@@ -191,7 +192,7 @@ def test_task_file_agrees_with_the_code():
 
     [spec] = load_task_file(APP / "tasks.yaml").values()
     assert [t.id for t in spec.prompt.templates] == [TASKS["tarot_celtic_cross"]["prompt"]["template"]]
-    assert applications.get_task(spec.name) is TarotReadings and spec.implemented_by.endswith(":TarotReadings")
+    assert spec.implemented_by is None and spec.name not in applications.tasks()        # no Python of its own
     templates = {t.id for t in spec.prompt.templates} | set(spec.prompt.retired_templates)
     assert templates <= set(PROMPTS)                                                # each has its copy here
     cards = spec.instantiation.state["cards"]

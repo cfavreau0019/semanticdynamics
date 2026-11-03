@@ -15,11 +15,10 @@ tarot_celtic_cross:
 
   # TASK ENGINE AND PYTHON EXTENSION ----------------------------------------
   engine: inference
-  implemented_by: applications.tarot.code.readings:TarotReadings
-  # Only what this file cannot say: the draw's long form (input_items, a row
-  # per position). Sampling the draw, handing it to the template as `cards`
-  # and checking the reading against it are declared below. TarotReadings
-  # also rebuilds the task of runs made before this file, to resume them.
+  # No implemented_by: the task needs no Python of its own. Sampling the draw,
+  # handing it to the template as `cards`, the draw's long form (input_items,
+  # a row per position) and checking the reading (the custom validator below)
+  # are all declared here.
 
   # BROADER UNDERLYING STATE ------------------------------------------------
   instantiation:

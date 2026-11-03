@@ -7,7 +7,6 @@ personas, prompts, rubric, tasks and workflows, one file (or folder) each. The c
 read those files yet; tests/test_tarot_application_files.py keeps them in step with it.
 
 Tasks, one file each:
-  readings                  TarotReadings: a card draw -> a reading
   persona_expectations      TarotPersonaExpectations: evaluation stage 1, what each persona
                             expects before seeing a reading
   celtic_cross_evaluation   CelticCrossEvaluation: evaluation stage 2, an evaluator fills in

@@ -34,6 +34,11 @@ properties:
     description: package.module:Class, an InferenceTask subclass, when the task needs Python of its own
 
   instantiation: {$ref: instantiation.schema.yaml}
+  input_items:
+    type: ["array", "null"]
+    items: {type: string}
+    uniqueItems: true
+    description: "the instant's entries written in long form to input_items; null or left out: every entry"
 
   prompt:
     type: object

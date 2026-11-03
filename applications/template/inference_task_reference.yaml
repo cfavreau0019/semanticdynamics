@@ -113,6 +113,11 @@ task_name:
   #
   # The format is checked by instantiation/instantiation.schema.yaml.
 
+  # input_items: null       # OPTIONAL: the instant's entries a run also writes in long form,
+  #                         # to its input_items table, for SQL: a mapping entry gives a row
+  #                         # per key (label: the key, value: its value), any other entry one
+  #                         # row. null or left out: every entry; [] none; e.g. [cards].
+
   # PROMPTS -----------------------------------------------------------------
   prompt:
     templates:              # REQUIRED nonempty list, even for one template.

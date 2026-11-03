@@ -13,7 +13,7 @@ import applications
 import llm.providers as providers
 from llm import ChatResponse, Usage
 from llm.providers import LLMProvider, register_provider
-from applications.tarot.code.readings import TarotReadings
+from applications.tarot.code.validation import celtic_cross_validator
 from inference import schema
 from inference.generate import main, run_task
 from inference.pipeline import (
@@ -186,11 +186,10 @@ def test_store_append_upsert_read(tmp_path):
 
 
 # ---- the tarot task -------------------------------------------------------------------------
-def test_the_tarot_task_is_its_task_file_and_a_little_python(scripted):
+def test_the_tarot_task_needs_no_python_of_its_own(scripted):
     task = tarot()
-    assert type(task) is TarotReadings and task.name == "tarot_celtic_cross" and task.entry == "cards"
-    assert task.config.implemented_by == "applications.tarot.code.readings:TarotReadings"
-    assert task.input_type == INSTANT and not task.computes_inputs and not task.before_task_file
+    assert type(task) is InferenceTask and task.name == "tarot_celtic_cross" and task.config.implemented_by is None
+    assert task.input_type == INSTANT and not task.computes_inputs and "tarot_celtic_cross" not in applications.tasks()
 
 
 def test_draws_are_seeded_and_pinned(scripted):
@@ -216,16 +215,37 @@ def test_input_items_and_prompt(tmp_path, scripted):
     draw = inp["payload"]["cards"]
     assert inp["input_type"] == INSTANT and list(inp["payload"]) == ["cards"]
     items = store.read("input_items")
-    assert [i["label"] for i in items] == POSITIONS == list(draw)
-    assert all(i["value"] == (i["entity"] + (" reversed" if i["qualifier"] == "reversed" else "")) for i in items)
+    assert [(i["label"], i["value"]) for i in items] == list(draw.items()) and list(draw) == POSITIONS
+    assert all(i["entity"] is None and i["qualifier"] is None for i in items)
     assert prompt["template"] == "celtic_cross_v4" and prompt["system"] is None
     assert prompt["user_text"].startswith("You're an experienced tarot reader.")
     assert prompt["user_text"].rstrip().endswith("\n".join(f"{position}: {card}" for position, card in draw.items()))
 
 
+def test_input_items_are_the_instant_s_entries_or_those_named(tmp_path, scripted):
+    """A row per key of a mapping entry, one row for any other entry; the task file's input_items chooses entries."""
+    edits = {**PERSONA, "instantiation.state.persona.select": [7], "instantiation.state.tone": "calm"}
+    _, every, _ = prepare(tmp_path, edits, n=1, mode="dry_run")
+    labels = [i["label"] for i in every.read("input_items")]
+    assert labels == [*POSITIONS, "persona", "tone"]
+    persona_id = every.read("inputs")[0]["persona_id"]
+    assert [i["value"] for i in every.read("input_items")][-2:] == [persona_id, "calm"]
+    _, cards, _ = prepare(tmp_path, {**edits, "input_items": ["cards"]}, n=1, mode="dry_run")
+    assert [i["label"] for i in cards.read("input_items")] == POSITIONS
+    _, none, _ = prepare(tmp_path, {**edits, "input_items": []}, n=1, mode="dry_run")
+    assert none.read("input_items") == []
+    with pytest.raises(TaskConfigError, match="input_items: no state entry 'cardz'"):
+        tarot({"input_items": ["cardz"]})
+    numbers = tarot({"instantiation.state.size": 3, "instantiation.state.themes": ["a", "b"]})
+    assert numbers.input_items({"size": 3, "themes": ["a", "b"]}) == \
+        [{"label": "size", "value": "3"}, {"label": "themes", "value": '["a", "b"]'}]       # text, or JSON
+
+
 def test_the_task_file_s_validator_is_the_one_runs_had(scripted):
     """The generic checks the file names take the place of the custom validator's own: the same checks, in order."""
-    before, now = TarotReadings.from_options({}).validator(), tarot().validator()
+    deck = json.loads(DECK.read_text(encoding="utf-8"))
+    before = celtic_cross_validator(cards=deck["aliases"], name="tarot_celtic_cross")   # what runs were checked with
+    now = tarot().validator()
     assert now.name == before.name == "tarot_celtic_cross"
     assert [c.name for c in now.checks] == [c.name for c in before.checks] == \
         ["non_empty", "not_truncated", "no_refusal", "positions", "foreign_cards"]
@@ -440,6 +460,7 @@ def test_settings_given_in_python_become_a_config(tmp_path, scripted):
     stored = store.run()["config"]
     assert stored["persona_sampling"] == "cycle" and stored["task_options"] == {"deck": ["Death", "The Sun"]}
     assert load_config(store) == settings                                             # stored flat, as given
+    assert store.read("input_items") == []                    # inputs computed in Python: no rows unless it says
     rebuilt = InferenceTaskConfig.from_run(store.run())
     assert (rebuilt.execution.workers, rebuilt.prompt.system, rebuilt.validation) == (3, "Be brief.", None)
     with pytest.raises(ValueError, match="persona_ids given without a persona_set"):
@@ -466,8 +487,8 @@ def test_resume_uses_the_task_the_run_recorded(tmp_path, scripted):
 
     (copy / "tasks.yaml").write_text("not: [a task file", encoding="utf-8")         # the file is gone, in effect
     rebuilt = applications.task_of(store.run())
-    assert type(rebuilt) is TarotReadings and rebuilt.config.sha256 == task.config.sha256
-    assert rebuilt.config.execution == task.config.execution and not rebuilt.before_task_file
+    assert type(rebuilt) is InferenceTask and rebuilt.config.sha256 == task.config.sha256
+    assert rebuilt.config.execution == task.config.execution
     assert [c.name for c in rebuilt.validator().checks] == [c.name for c in task.validator().checks]
     assert run_live(store, rebuilt, progress=False)["n_valid"] == 2
 
@@ -778,8 +799,12 @@ def test_runs_written_by_schema_version_1_still_work(tmp_path, scripted):
     rebuilt = rebuild_requests(store)
     assert [r.messages for r in rebuilt] == [r.messages for r in requests]
     assert all(r.metadata["persona_id"] is None for r in rebuilt)
-    old = applications.task_of(store.run())
-    assert type(old) is TarotReadings and old.before_task_file and old.config.prompt.templates[0].id == "celtic_cross_v1"
+    old = applications.task_of(store.run())                  # no class has its name: validated as its task file says
+    assert type(old) is InferenceTask and old.config.prompt.templates[0].id == "celtic_cross_v1"
+    v = old.config.validation
+    assert (v.custom_validator, v.expected, list(v.checks), v.retries) == \
+        ("applications.tarot.code.validation:celtic_cross_validator", None, ["non_empty", "not_truncated", "no_refusal"], 2)
+    assert old.validation_expected({"input": {"Present": "Death"}}) == {"Present": "Death"}   # the draw it stored
     summary = run_live(store, old, progress=False)                       # resume an old run
     assert summary["n_valid"] == 2 and summary["by_template"]["celtic_cross_v1"]["n_finished"] == 2
 
@@ -796,7 +821,7 @@ def test_runs_written_before_schema_version_5_still_work(tmp_path, scripted, cap
     assert run["task"] == "tarot_celtic_cross" and "application" not in run and run["schema_version"] == 4
     assert run["config"]["task_options"]["draw"] == "replacement" and "application_options" not in run["config"]
     assert [r["task"] for r in list_runs(tmp_path)] == ["tarot_celtic_cross"]
-    assert type(applications.task_of(run)) is TarotReadings
+    assert type(applications.task_of(run)) is InferenceTask
     out = str(tmp_path)
     assert main(["--out", out, "status", store.run_id]) == 0 and main(["--out", out, "list"]) == 0
     assert "tarot_celtic_cross" in capsys.readouterr().out
@@ -829,10 +854,9 @@ three_cards:
 
 
 def test_tasks_are_found_in_the_application_folders():
-    found = applications.tasks()
-    assert found["tarot_celtic_cross"] is TarotReadings
-    assert {name: task.cli for name, task in found.items()} == {
-        "tarot_celtic_cross": None, "celtic_cross_evaluation": "evaluate", "persona_expectations": None}
+    found = applications.tasks()                              # classes: the evaluation tasks; tarot's readings need none
+    assert {name: task.cli for name, task in found.items()} == {"celtic_cross_evaluation": "evaluate",
+                                                                "persona_expectations": None}
     assert all(task.__module__.startswith("applications.tarot.") for task in found.values())
     assert applications.task_names() == {"tarot_celtic_cross": TAROT_FILE}
     assert applications.task_file_of("tarot_celtic_cross") == TAROT_FILE
@@ -862,7 +886,8 @@ def test_an_application_can_be_a_task_file_alone(tmp_path, scripted, capsys):
     run = store.run()
     assert (run["task"], run["status"]) == ("three_cards", "completed")
     assert [t["template_id"] for t in store.read("prompt_templates")] == ["spread_v1"]
-    assert run["summary"]["n_unvalidated"] == 3 and store.read("input_items") == []
+    assert run["summary"]["n_unvalidated"] == 3
+    assert [i["label"] for i in store.read("input_items")] == ["Past", "Present", "Future"] * 3   # its draws, long form
     assert all(set(i["payload"]["cards"].values()) <= {"Death", "The Sun", "The Moon"} for i in store.read("inputs"))
     assert main(["--out", out, "resume", run_dir.name]) == 0
     assert main(["--out", out, "list"]) == 0 and "three_cards" in capsys.readouterr().out

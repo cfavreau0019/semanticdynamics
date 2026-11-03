@@ -15,5 +15,5 @@ time, through it and keeps the record.
   generate   command-line script, and run_task(): runs the tasks of every application's task file
 
 The tasks themselves live with their application, in its tasks.yaml; Python of its own, if any,
-next to it (applications/tarot/code/readings.py is TarotReadings).
+next to it (applications/tarot/code/validation.py holds the tarot task's validator).
 """

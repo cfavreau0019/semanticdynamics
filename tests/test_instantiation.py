@@ -26,7 +26,7 @@ PINS = {"Present": "Death", "Outcome": "The Sun reversed"}
 
 @dataclass
 class Draws:
-    """How TarotReadings drew cards before the task file: from the deck, with a draw mode and pins."""
+    """How the tarot task drew cards before the task file: from the deck, with a draw mode and pins."""
     draw: str = "replacement"                  # or "unique"
     pins: dict = field(default_factory=dict)
 
@@ -38,7 +38,7 @@ class Draws:
 
 
 def drawn_before_task_files(readings: Draws, n: int, rng: random.Random) -> list[dict]:
-    """The card draws TarotReadings made before the task file (its _draw_one, kept here as the reference)."""
+    """The card draws the tarot task made before the task file (its old drawing code, kept here as the reference)."""
     def one() -> dict:
         draw = {}
         if readings.draw == "replacement":

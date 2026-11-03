@@ -26,7 +26,7 @@ How a run is sampled
                 checked against the state when there is one (see resolve). n must equal their number.
 
 The tarot draws of every run before the task file existed are reproduced exactly from their seed:
-draw_steps consumes the random generator as TarotReadings did.
+draw_steps consumes the random generator as the tarot task's own drawing code did.
 """
 import copy
 import itertools

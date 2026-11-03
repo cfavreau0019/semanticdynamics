@@ -50,7 +50,7 @@ def problems(tmp_path: Path, text: str) -> list[str]:
 def test_the_tarot_task_reads_as_written():
     [spec] = load_task_file(TAROT / "tasks.yaml").values()
     assert (spec.name, spec.engine, spec.version, spec.created_ts) == ("tarot_celtic_cross", "inference", 1, "2026-10-19")
-    assert spec.implemented_by == "applications.tarot.code.readings:TarotReadings"
+    assert spec.implemented_by is None and spec.input_items is None
 
     [template] = spec.prompt.templates
     assert template.id == "celtic_cross_v4" and template.template.sha256 == get_template("celtic_cross_v4").sha256
@@ -78,6 +78,8 @@ def test_task_files_and_task_classes_agree():
     specs = applications.task_configs()
     assert set(specs) == {"tarot_celtic_cross"} and applications.task_files() == [TAROT / "tasks.yaml"]
     for name, spec in specs.items():
+        if spec.implemented_by is None:                  # no Python of its own (tarot_celtic_cross)
+            continue
         module, cls = spec.implemented_by.split(":")
         assert applications.get_task(name).__module__ == module and applications.get_task(name).__name__ == cls
 

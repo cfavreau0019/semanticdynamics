@@ -16,7 +16,7 @@ resume, and the tables. What a task does comes from its config:
               instant's entry a response is checked against
 
 An application's own Python subclasses InferenceTask, and its config names the class as
-implemented_by. It may add input_items, derived_rows and reference_rows. A task whose inputs a
+implemented_by. It may add derived_rows and reference_rows, or its own input_items. A task whose inputs a
 config cannot declare (e.g. evaluation's subjects, the outputs of other runs) computes them in
 Python instead: sample_inputs, assign_personas and template_variables, with the templates named by
 default_template and persona_template (pipeline.inputs_from_hooks). Such a task is rebuilt to
@@ -26,6 +26,7 @@ come from add_arguments and from_args.
 Tasks live with the application they belong to, in applications/<application>/; see
 applications/tarot/ for the reference implementations.
 """
+import json
 import random
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
@@ -125,8 +126,24 @@ class InferenceTask:
         return templates, inputs, {}
 
     def input_items(self, payload: dict) -> list[dict]:
-        """Long-form rows (label, value, entity, qualifier) for input_items; optional."""
-        return []
+        """
+        Long-form rows of an input for the input_items table, for SQL: a row per entry of the instant,
+        or of the entries the config's `input_items` names. A mapping entry gives a row per key (label:
+        the key, value: its value), any other entry one row (label: the entry's name); a value that is
+        not text is written as JSON. A task computing its inputs in Python writes none unless it says.
+        """
+        if self.computes_inputs or not isinstance(payload, Mapping):
+            return []
+        names = self.config.input_items if self.config is not None and self.config.input_items is not None else payload
+        rows = []
+        for name in names:
+            if name not in payload:
+                continue
+            value = payload[name]
+            for label, item in (value.items() if isinstance(value, Mapping) else [(name, value)]):
+                rows.append({"label": str(label),
+                             "value": item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)})
+        return rows
 
     def reference_rows(self) -> dict[str, list[dict]]:
         """Rows for reference tables this task uses (e.g. its rubric), written when a run is prepared."""

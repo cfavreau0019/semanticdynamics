@@ -122,6 +122,7 @@ class InferenceTaskConfig:
     execution: ExecutionSpec
     validation: Optional[ValidationSpec]      # None: responses are not validated
     instantiation: Optional[InstantiationSpec] = None
+    input_items: Optional[tuple[str, ...]] = None   # the entries written to input_items; None: every one
     implemented_by: Optional[str] = None
     version: Optional[int] = None
     created_by: Optional[str] = None
@@ -361,6 +362,7 @@ def _build(name: str, entry: dict, here: Path, source: Optional[Path],
         execution=ExecutionSpec(**_given(entry.get("execution") or {}, ExecutionSpec)),
         validation=None if v is None else ValidationSpec(**_given(v, ValidationSpec)),
         instantiation=instantiation, implemented_by=entry.get("implemented_by"), version=entry.get("version"),
+        input_items=None if entry.get("input_items") is None else tuple(entry["input_items"]),
         created_by=entry.get("created_by"), created_ts=entry.get("created_ts"), tags=tuple(entry.get("tags") or ()),
         permissions=entry.get("permissions"), source=source)
 
@@ -430,6 +432,9 @@ def _check(config: InferenceTaskConfig, problems: list[str], references: dict) -
     v = config.validation or ValidationSpec()
     if v.expected is not None and v.expected not in state:
         problems.append(f"{name}.validation.expected: no state entry {v.expected!r}")
+    for entry_name in config.input_items or ():
+        if entry_name not in state:
+            problems.append(f"{name}.input_items: no state entry {entry_name!r}")
     for kind, reference in (("validation.custom_validator", v.custom_validator), ("implemented_by", config.implemented_by)):
         if reference is None:
             continue
@@ -517,6 +522,8 @@ def describe(config: InferenceTaskConfig) -> list[str]:
             lines.append(f"    state.{entry_name:<10}{what}")
     else:
         lines.append("    instantiation   none")
+    if config.input_items is not None:
+        lines.append(f"    input_items     {', '.join(config.input_items) or 'none'}")
     parameters = " ".join(f"{k}={v}" for k, v in config.model.parameters.items())
     lines.append(f"    model           {config.model.provider} / {config.model.name or '(provider default)'}  {parameters}")
     given = {k: v for k, v in config.execution.__dict__.items() if v is not None}

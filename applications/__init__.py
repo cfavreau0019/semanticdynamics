@@ -67,9 +67,10 @@ def get_task(name: str) -> type:
 def task_of(run: dict):
     """
     The task of an existing run, rebuilt from what its runs row recorded, to resume or collect the
-    run: its config (InferenceTaskConfig.from_run), and the task that config describes, or, for a
-    run that recorded its task's options (a task computing its inputs in Python, a run before task
-    configs), its class rebuilt from them.
+    run: its config (InferenceTaskConfig.from_run), and the task that config describes. A run that
+    recorded its task's options is a task computing its inputs in Python, rebuilt from them by its
+    class; or, when no class has its name, a run made before task configs, validated as its task
+    file says (see before_task_configs).
     """
     from inference.task import InferenceTask
     from inference.task_config import InferenceTaskConfig
@@ -78,9 +79,30 @@ def task_of(run: dict):
     options = run["config"].get("task_options")
     if options is None:
         return InferenceTask.from_config(config)
-    task = get_task(run["task"]).from_options(options)
-    task.config = config
-    return task
+    if run["task"] in tasks():
+        task = get_task(run["task"]).from_options(options)
+        task.config = config
+        return task
+    return InferenceTask(before_task_configs(config))
+
+
+def before_task_configs(config):
+    """
+    The config of a run made before task configs, completed from its task file. Its flat settings do
+    not say how its responses were validated; its task file's validation does (custom validator and
+    checks). The run stored each input as it was, not as an instant, so a response is checked against
+    the whole input (no `expected` entry). Its own retries are kept.
+    """
+    from dataclasses import replace
+
+    from inference.task_config import InferenceTaskConfig
+
+    if config.validation is None:               # the run was not validated
+        return config
+    written = InferenceTaskConfig.from_file(task_file_of(config.name), config.name, check=False).validation
+    if written is None:
+        return config
+    return replace(config, validation=replace(written, expected=None, retries=config.validation.retries))
 
 
 def task_files() -> list[Path]:

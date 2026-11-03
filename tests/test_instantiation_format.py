@@ -41,7 +41,7 @@ def test_the_reference_the_template_example_and_the_tarot_task_are_valid():
                                    "replacement": False, "fixed": {"Outcome": "Death reversed"}}}}},
     {"state": {"arc": {"steps": {"names": ["start", "end"], "states": ["hope", "loss"]}}}},
     {"state": {"narrator": {"personas": "tarot_personas", "sample": "exhaustive", "select": [1, "Maya Delgado"]}}},
-    {"state": {"twist": {"generate": {"using": "applications.tarot.code.readings:sample_spread", "options": {"k": 3}}}}},
+    {"state": {"twist": {"generate": {"using": "applications.example.code.spreads:sample_spread", "options": {"k": 3}}}}},
     {"state": {"settings": {"value": {"strict": True}}}},
     {"instants": [{"cards": {"Present": "Death"}}, {"cards": {"Present": "The Sun"}}]},   # given, not sampled
     {"instants": "draws.jsonl", "state": {"cards": {"steps": {"from": "vector_space_config.json"}}}},

@@ -124,7 +124,7 @@ schemas:
          Your Attitude: Strength reversed, External Influences: Six of Pentacles,
          Hopes and Fears: The Moon, Outcome: Ten of Cups}
     x-order: vocabulary.positions     # prompts list the cards in this order
-    x-drawn:                          # how tarot_celtic_cross samples one; implemented_by: applications/tarot/code/readings.py
+    x-drawn:                          # how tarot_celtic_cross samples one: its instantiation, in tasks.yaml
       replacement: >-
         each position independently takes any of the 156 states, so a card may repeat, even upright
         and reversed (as Instantiation does)

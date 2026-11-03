@@ -80,8 +80,8 @@ CREATE TABLE IF NOT EXISTS input_items (
 COMMENT ON COLUMN input_items.run_id IS 'run this row belongs to';
 COMMENT ON COLUMN input_items.label IS 'e.g. position ''Outcome''';
 COMMENT ON COLUMN input_items.value IS 'full value, e.g. ''Death reversed''';
-COMMENT ON COLUMN input_items.entity IS 'value without qualifiers, e.g. ''Death''';
-COMMENT ON COLUMN input_items.qualifier IS 'e.g. ''reversed'' / ''upright''';
+COMMENT ON COLUMN input_items.entity IS 'value without qualifiers, e.g. ''Death'' (runs before version 6; a task''s own input_items)';
+COMMENT ON COLUMN input_items.qualifier IS 'e.g. ''reversed'' / ''upright'' (runs before version 6; a task''s own input_items)';
 
 -- Prompt template versions used by runs: the exact text behind each rendered prompt.
 CREATE TABLE IF NOT EXISTS prompt_templates (

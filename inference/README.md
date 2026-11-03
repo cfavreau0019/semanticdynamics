@@ -14,7 +14,7 @@ inference/
   generate.py        command-line script, and run_task(): runs the tasks of every application's task file
 ```
 
-The tasks themselves are described by their application's task file, `applications/<application>/tasks.yaml` (the format: `applications/template/inference_task_reference.yaml`): what a run's inputs are (the instantiation), the prompt templates, the model, and validation. Python of the application's own is optional; `applications/tarot/code/readings.py` adds the tarot draw's long form.
+The tasks themselves are described by their application's task file, `applications/<application>/tasks.yaml` (the format: `applications/template/inference_task_reference.yaml`): what a run's inputs are (the instantiation), the prompt templates, the model, and validation. Python of the application's own is optional: the tarot readings task needs none beyond its validator (`applications/tarot/code/validation.py`).
 
 ## Generating from the command line
 
@@ -106,7 +106,7 @@ runs ─┬─< inputs ─┬─< input_items
 | `runs` | generation run | task (the inference task's name), dataset (groups runs), config (JSONB: `task_config`, the task's config as run, with its hashes and edits, and `seed`; or, for a task giving its settings in Python (evaluation) and for runs before task configs, those flat settings: templates, params, seed, retries, and `task_options`, the class's own), code_version (git sha) + code_dirty, schema_version, status, summary |
 | `personas` | persona used by the run | persona_set, persona_number, name, payload (JSONB), content_sha256 |
 | `inputs` | structured input (an instant) | payload (JSONB `{cards: {position: card}, persona: <id>}`; before version 6, the draw itself), input_type (`instant`), input_index, persona_id |
-| `input_items` | element of an input | label, value, entity, qualifier (position, `"Death reversed"`, `"Death"`, `"reversed"`) |
+| `input_items` | element of an input (an instant's entry, or a key of one; the task's `input_items` says which entries) | label, value (position, `"Death reversed"`); entity, qualifier (`"Death"`, `"reversed"`): runs before version 6, and a task's own `input_items` |
 | `prompt_templates` | template version used by the run | template_id, name, version, system_template, user_template, required, optional, changes, status |
 | `prompts` | rendered prompt | template, template_sha256, system, user_text, messages (JSONB), prompt_sha256 |
 | `requests` | API call spec | provider, model, params, extra_body, mode |
@@ -181,9 +181,9 @@ Load tables in the order they appear in `schema.sql` so foreign keys resolve.
 Describe it in the application's `tasks.yaml` (see `applications/template/inference_task_reference.yaml`, and check it with `python -m inference.task_config check`). `generate.py` then offers it as `run <name>`, without being told about it, and `run_task("<name>")` runs it from Python.
 
 A run's task is built from its config, `InferenceTask.from_config(config)`, and every pipeline function reads the config as `task.config`. Python is needed only for what a file cannot say. Name a `task.InferenceTask` subclass as the task's `implemented_by`; the pipeline asks it for
-- `input_items(payload)`: long-form rows of an instant;
 - `derived_rows(response, response_id)`: extra tables parsed from responses;
-- `reference_rows()`: reference-table rows written when a run is prepared.
+- `reference_rows()`: reference-table rows written when a run is prepared;
+- `input_items(payload)`, if its rows should differ from the default: a row per entry of the instant (a row per key of a mapping entry), limited to the entries the task file's `input_items` names.
 
 A validator of the application's own is a function (`validation.custom_validator: package.module:function`) returning a `validation.Validator`.
 

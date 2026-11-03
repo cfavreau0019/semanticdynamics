@@ -9,9 +9,8 @@ earlier, descriptive format), schemas.yaml, personas.yaml, workflows.yaml, promp
 and vector_space_config.json (the deck). The code does not read most of the others yet;
 tests/test_tarot_application_files.py keeps them in step with it.
 
-The Python is in code/, one module per task:
-  readings                  TarotReadings: what tasks.yaml's tarot_celtic_cross cannot say (the
-                            draw's long form), and the task of runs made before it
+The Python is in code/. tarot_celtic_cross needs none of its own beyond its validator; the
+evaluation tasks have a module each:
   persona_expectations      TarotPersonaExpectations: evaluation stage 1, what each persona
                             expects before seeing a reading
   celtic_cross_evaluation   CelticCrossEvaluation: evaluation stage 2, an evaluator fills in
