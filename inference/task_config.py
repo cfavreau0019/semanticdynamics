@@ -217,7 +217,7 @@ class InferenceTaskConfig:
     def _load(cls, name: str, entry: Any, here: Path, source: Optional[Path], edits: Optional[Mapping[str, Any]],
               check: bool) -> "InferenceTaskConfig":
         where = source if source is not None else f"{name} (in code)"
-        if edits:
+        if edits and isinstance(entry, Mapping):       # (anything else: the schema says what is wrong with it)
             try:
                 entry = edited(entry, edits, here)
             except (ValueError, yaml.YAMLError) as err:

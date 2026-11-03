@@ -90,25 +90,66 @@ def task_files() -> list[Path]:
                   if p.is_dir() and p.name not in NOT_APPLICATIONS and (p / "tasks.yaml").is_file())
 
 
-def task_names() -> dict[str, Path]:
-    """{task name: its task file} for every task of every application's tasks.yaml (read, not checked)."""
+def _shown(path: Path) -> str:
+    return f"applications/{path.parent.name}/{path.name}"
+
+
+def _read_task_files() -> tuple[dict[str, list[Path]], list[str]]:
+    """
+    {task name: the files that define it}, read but not checked, and why any file could not be read.
+    A bad file never raises here: it must not stand in the way of the other applications' tasks.
+    """
+    import yaml
     from spec_files import read_yaml
 
-    found: dict[str, Path] = {}
+    defined: dict[str, list[Path]] = {}
+    unreadable: list[str] = []
     for path in task_files():
-        for name in read_yaml(path) or {}:
-            if name in found:
-                raise ValueError(f"Two task files define {name!r}: {found[name]} and {path}")
-            found[name] = path
-    return found
+        try:
+            data = read_yaml(path)
+        except (yaml.YAMLError, OSError, UnicodeDecodeError) as err:
+            unreadable.append(f"{_shown(path)}: {' '.join(str(err).split())}")
+            continue
+        if not isinstance(data, dict) or not data:
+            unreadable.append(f"{_shown(path)}: the file must map task names to tasks")
+            continue
+        for name in data:
+            if isinstance(name, str):
+                defined.setdefault(name, []).append(path)
+            else:
+                unreadable.append(f"{_shown(path)}: {name!r} is not a task name")
+    return defined, unreadable
+
+
+def _two_files_define(name: str, files: list[Path]) -> str:
+    return f"Two task files define {name!r}: {' and '.join(_shown(f) for f in files)}"
+
+
+def task_names() -> dict[str, Path]:
+    """
+    {task name: its task file} for every task of every application's tasks.yaml (read, not checked).
+    A file that cannot be read and a name two files define are left out: see task_file_problems().
+    """
+    return {name: files[0] for name, files in _read_task_files()[0].items() if len(files) == 1}
+
+
+def task_file_problems() -> list[str]:
+    """What keeps tasks out of task_names(): files that cannot be read, and names two files define."""
+    defined, unreadable = _read_task_files()
+    return unreadable + [_two_files_define(name, files) for name, files in defined.items() if len(files) > 1]
 
 
 def task_file_of(name: str) -> Path:
-    """The task file that defines the task `name`."""
-    known = task_names()
-    if name not in known:
-        raise KeyError(f"No task named {name!r} in the task files; they define: {', '.join(sorted(known)) or 'none'}")
-    return known[name]
+    """The task file that defines the task `name`. Raises KeyError saying why there isn't exactly one."""
+    defined, unreadable = _read_task_files()
+    files = defined.get(name, [])
+    if len(files) > 1:
+        raise KeyError(_two_files_define(name, files))
+    if not files:
+        known = sorted(n for n, f in defined.items() if len(f) == 1)
+        raise KeyError(f"No task named {name!r} in the task files; they define: {', '.join(known) or 'none'}"
+                       + (f". It may be in a file that could not be read: {'; '.join(unreadable)}" if unreadable else ""))
+    return files[0]
 
 
 @lru_cache(maxsize=None)

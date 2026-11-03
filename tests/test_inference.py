@@ -23,6 +23,7 @@ from inference.pipeline import (
 from inference.store import RunStore
 from inference.task import INSTANT, InferenceTask
 from inference.task_config import InferenceTaskConfig, TaskConfigError
+from inference.task_config import main as task_config_main
 from instantiation import Instantiation, InstantiationError
 from spec_files import file_sha256
 from prompts import get_template
@@ -869,3 +870,71 @@ def test_an_application_can_be_a_task_file_alone(tmp_path, scripted, capsys):
     assert run_task(f"{tmp_path / 'tasks.yaml'}::three_cards", {"execution.mode": "dry_run"},
                     root=tmp_path / "runs").run()["task"] == "three_cards"
     yaml.safe_load(THREE_CARDS)                                              # (the file is plain YAML)
+
+
+# ---- one application's bad task file leaves the others alone ------------------------------------
+@pytest.mark.parametrize("text, problem", [
+    ("demo: [unclosed\n", "applications/other/tasks.yaml: "),                 # not YAML
+    ("demo: {description: a}\ndemo: {description: b}\n", "duplicate key 'demo'"),
+    ("- a list\n", "must map task names to tasks"),
+    ("", "must map task names to tasks"),
+    ("1: {description: a number for a name}\n", "1 is not a task name"),
+])
+def test_a_task_file_that_cannot_be_read_stops_only_itself(tmp_path, monkeypatch, scripted, capsys, text, problem):
+    other = tmp_path / "other" / "tasks.yaml"
+    other.parent.mkdir()
+    other.write_text(text, encoding="utf-8")
+    monkeypatch.setattr(applications, "task_files", lambda: [TAROT_FILE, other])
+    out = str(tmp_path / "runs")
+
+    assert main(["--out", out, "list"]) == 0
+    assert main(["--out", out, *RUN, "--n", "1", "--dry-run"]) == 0              # another application's task still runs
+    [run_dir] = list((tmp_path / "runs").glob("run_tarot_celtic_cross_*"))
+    assert main(["--out", out, "status", run_dir.name]) == 0
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit):
+        main(["--out", out, "run", "--help"])
+    help_text = " ".join(capsys.readouterr().out.split())                         # undo the line wrapping
+    assert "tarot_celtic_cross Generate a connected" in help_text
+    assert "task files with problems" in help_text and problem in help_text
+
+    assert main(["--out", out, "run", "demo", "--dry-run"]) == 2                  # a task that may be in it: says so
+    err = capsys.readouterr().err
+    assert "No task named 'demo'" in err and "applications/other/tasks.yaml" in err
+
+    assert task_config_main(["check"]) == 1                                       # `check` names it too
+    assert "tarot_celtic_cross  OK" in capsys.readouterr().out
+
+
+def test_a_task_that_is_not_a_mapping_stops_only_itself(tmp_path, monkeypatch, scripted, capsys):
+    other = tmp_path / "other" / "tasks.yaml"
+    other.parent.mkdir()
+    other.write_text("demo: 3\n", encoding="utf-8")
+    monkeypatch.setattr(applications, "task_files", lambda: [TAROT_FILE, other])
+    out = str(tmp_path / "runs")
+    assert main(["--out", out, *RUN, "--n", "1", "--dry-run"]) == 0
+    capsys.readouterr()
+    assert main(["--out", out, "run", "demo", "--dry-run"]) == 2                  # found, and refused by its checks
+    assert "demo: 3 is not of type 'object'" in capsys.readouterr().err
+
+
+def test_a_name_two_task_files_define_stops_only_that_name(tmp_path, monkeypatch, scripted, capsys):
+    files = [tmp_path / app / "tasks.yaml" for app in ("first", "second")]
+    for file in files:
+        file.parent.mkdir()
+        file.write_text(THREE_CARDS, encoding="utf-8")
+    monkeypatch.setattr(applications, "task_files", lambda: [TAROT_FILE, *files])
+    out = str(tmp_path / "runs")
+
+    assert main(["--out", out, *RUN, "--n", "1", "--dry-run"]) == 0
+    capsys.readouterr()
+    assert main(["--out", out, "run", "three_cards", "--dry-run"]) == 2           # which one? it does not guess
+    err = capsys.readouterr().err
+    assert "Two task files define 'three_cards'" in err and "applications/first/tasks.yaml" in err
+    assert main(["--out", out, "run", "--task-file", str(files[0]), "--dry-run"]) == 0   # by its file, there is no doubt
+    capsys.readouterr()
+    with pytest.raises(SystemExit):
+        main(["--out", out, "run", "--help"])
+    assert "Two task files define 'three_cards'" in " ".join(capsys.readouterr().out.split())
+    assert list(applications.task_names()) == ["tarot_celtic_cross"]

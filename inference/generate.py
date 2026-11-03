@@ -40,7 +40,7 @@ if __package__ in (None, ""):  # allow `python inference/generate.py`
 
 from typing import Any, Mapping, Optional  # noqa: E402
 
-from applications import task_file_of, task_names, task_of  # noqa: E402
+from applications import task_file_of, task_file_problems, task_names, task_of  # noqa: E402
 from inference.pipeline import collect_batch, list_runs, prepare_run, run_live, submit_batch, summarize  # noqa: E402
 from inference.store import DEFAULT_ROOT, RunStore  # noqa: E402
 from inference.task import InferenceTask  # noqa: E402
@@ -174,11 +174,16 @@ def add_run_arguments(g) -> None:
 
 
 def task_list() -> str:
-    """The tasks of the applications' task files, with their descriptions, for `run --help`."""
+    """The tasks of the applications' task files, with their descriptions, and any problem with those files, for `run --help`."""
     lines = ["tasks:"]
     for name, path in sorted(task_names().items()):
-        description = " ".join(str((read_yaml(path)[name] or {}).get("description", "")).split())
+        entry = read_yaml(path)[name]
+        description = " ".join(str(entry.get("description", "") if isinstance(entry, dict) else "").split())
         lines.append(f"  {name:<24} {description[:90]}")
+    problems = task_file_problems()
+    if problems:
+        lines += ["", "task files with problems (python -m inference.task_config check says more):",
+                  *(f"  {problem}" for problem in problems)]
     return "\n".join(lines)
 
 
