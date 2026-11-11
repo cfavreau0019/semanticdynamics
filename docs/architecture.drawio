@@ -1,56 +1,160 @@
-<mxfile host="drawio">
-<diagram name="Architecture" id="arch">
-<mxGraphModel adaptiveColors="auto"><root><mxCell id="0"/><mxCell id="1" parent="0"/>
-<mxCell id="title" value="semanticdynamics · codebase across the AI lifecycle" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="20" y="0" width="800" height="40" as="geometry"/></mxCell>
-<mxCell id="obj" value="&lt;b&gt;Objective&lt;/b&gt;: model LLM conversation as interacting particles on a hypersphere and detect &lt;b&gt;coercive influence&lt;/b&gt;&lt;br&gt;&lt;small&gt;as asymmetric, entropy-reducing attractor dynamics in embedding space · tarot readings are the current testbed application&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=15;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="20" y="50" width="1130" height="70" as="geometry"/></mxCell>
-<mxCell id="L1" value="1 · Problem &amp;amp; Data Design" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="20" y="140" width="210" height="440" as="geometry"/></mxCell>
-<mxCell id="apps" value="applications/&lt;br&gt;&lt;small&gt;tasks · schemas · workflows&lt;br&gt;tarot, template&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L1"><mxGeometry x="20" y="40" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="spec" value="spec_files.py&lt;br&gt;&lt;small&gt;strict YAML · schema checks&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L1"><mxGeometry x="20" y="120" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="inst" value="instantiation/&lt;br&gt;&lt;small&gt;sample task states (card draws)&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L1"><mxGeometry x="20" y="200" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="pers" value="personas/&lt;br&gt;&lt;small&gt;persona sets (100 users)&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L1"><mxGeometry x="20" y="280" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="fetch" value="data_fetchers/&lt;br&gt;&lt;small&gt;TruthfulQA download/load&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L1"><mxGeometry x="20" y="360" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="L2" value="2 · Prompting &amp;amp; Generation" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="250" y="140" width="210" height="440" as="geometry"/></mxCell>
-<mxCell id="prom" value="prompts/&lt;br&gt;&lt;small&gt;versioned Jinja templates · lock&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L2"><mxGeometry x="20" y="40" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="inf" value="inference/&lt;br&gt;&lt;small&gt;task config · pipeline · RunStore&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L2"><mxGeometry x="20" y="200" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="prov" value="llm/ providers&lt;br&gt;&lt;small&gt;OpenAI · Featherless · Batch API&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="L2"><mxGeometry x="20" y="360" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="L3" value="3 · Validation &amp;amp; Evaluation" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="480" y="140" width="210" height="440" as="geometry"/></mxCell>
-<mxCell id="val" value="validation/&lt;br&gt;&lt;small&gt;regex/vocab checks · retries&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L3"><mxGeometry x="20" y="360" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="eval" value="evaluation/&lt;br&gt;&lt;small&gt;rubric · persona LLM-as-judge&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L3"><mxGeometry x="20" y="200" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="dash" value="dashboard · summarize&lt;br&gt;&lt;small&gt;HTML analysis of scores&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="L3"><mxGeometry x="20" y="40" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="L4" value="4 · Representation" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="710" y="140" width="210" height="440" as="geometry"/></mxCell>
-<mxCell id="emb" value="llm/embeddings&lt;br&gt;&lt;small&gt;sentence / chunk vectors&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L4"><mxGeometry x="20" y="200" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="wb" value="llm/whitebox&lt;br&gt;&lt;small&gt;NNsight / NDIF hidden states&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L4"><mxGeometry x="20" y="120" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="tok" value="text_tokenizers/&lt;br&gt;&lt;small&gt;HF · tiktoken · spaCy · SP&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L4"><mxGeometry x="20" y="40" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="dyn" value="dynamicalembeddings/&lt;br&gt;&lt;small&gt;token windows (CNN-style)&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L4"><mxGeometry x="20" y="280" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="api" value="embeddings.py · main.py&lt;br&gt;&lt;small&gt;distances · FastAPI (legacy)&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="L4"><mxGeometry x="20" y="360" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="L5" value="5 · Dynamics &amp;amp; Detection" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="940" y="140" width="210" height="440" as="geometry"/></mxCell>
-<mxCell id="geo" value="coordinate_systems/&lt;br&gt;&lt;small&gt;geometry on S^(d-1): exp/log maps&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L5"><mxGeometry x="20" y="120" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="traj" value="states · trajectory&lt;br&gt;&lt;small&gt;N particles over turns · integrator&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="L5"><mxGeometry x="20" y="200" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="cnn" value="models/cnns.py&lt;br&gt;&lt;small&gt;conv-layer experiments&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="L5"><mxGeometry x="20" y="40" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="kij" value="Fit coupling K_ij&lt;br&gt;&lt;small&gt;planned: forces from trajectories&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;dashed=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="L5"><mxGeometry x="20" y="280" width="170" height="60" as="geometry"/></mxCell>
-<mxCell id="coer" value="Coercion detection&lt;br&gt;&lt;small&gt;planned: asymmetry · collapse,&lt;br&gt;checked against LLM judges&lt;/small&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;dashed=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="L5"><mxGeometry x="20" y="360" width="170" height="70" as="geometry"/></mxCell>
-<mxCell id="data" value="data/&lt;br&gt;&lt;small&gt;generations · evaluations (JSONL → Postgres/DuckDB)&lt;/small&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=13;boundedLbl=1;size=10;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="270" y="610" width="400" height="70" as="geometry"/></mxCell>
-<mxCell id="sup" value="&lt;b&gt;Cross-cutting&lt;/b&gt;: sandbox/ notebooks (embedding, LLM &amp;amp; population exploration) · tests/ (pytest suite for every package) · requirements.txt" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1"><mxGeometry x="20" y="710" width="1130" height="40" as="geometry"/></mxCell>
-<mxCell id="leg" value="Legend: blue = built component · orange = external model APIs · green = outputs/data · yellow dashed = planned research step · grey = legacy/support · dashed arrow = feedback or planned link" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="20" y="760" width="1130" height="30" as="geometry"/></mxCell>
-<mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L1" source="apps" target="spec"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L1" source="spec" target="inst"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e3" value="instants" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="1" source="inst" target="inf"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="1" source="pers" target="inf"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e5" value="render" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L2" source="prom" target="inf"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e6" value="requests" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L2" source="inf" target="prov"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e7" value="validate / retry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;startArrow=classic;" edge="1" parent="1" source="prov" target="val"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e8" value="runs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;" edge="1" parent="1" source="L2" target="data"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e9" value="subjects" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.75;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="data" target="L3"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e10" value="scores" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L3" source="eval" target="dash"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e11" value="compare prompt versions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" edge="1" parent="1" source="dash" target="prom"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e12" value="texts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" edge="1" parent="1" source="data" target="L4"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L4" source="tok" target="wb"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e14" value="vectors" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="1" source="wb" target="geo"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e15" value="vectors" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="1" source="emb" target="traj"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L5" source="geo" target="traj"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" edge="1" parent="L5" source="traj" target="kij"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" edge="1" parent="L5" source="kij" target="coer"><mxGeometry relative="1" as="geometry"/></mxCell>
-<mxCell id="e19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" edge="1" parent="L4" source="emb" target="dyn"><mxGeometry relative="1" as="geometry"/></mxCell>
-</root></mxGraphModel>
-</diagram>
+<mxfile host="Electron">
+  <diagram name="Architecture" id="arch">
+    <mxGraphModel dx="1282" dy="754" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1100" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" value="semanticdynamics · codebase across the AI lifecycle" vertex="1">
+          <mxGeometry height="40" width="800" x="20" as="geometry" />
+        </mxCell>
+        <mxCell id="obj" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=15;fillColor=#e1d5e7;strokeColor=#9673a6;" value="&lt;b&gt;Objective&lt;/b&gt;: &lt;b&gt;Open the Agentic Black Box with Geometry and Physics&lt;/b&gt;&lt;br&gt;&lt;small&gt;1) Characterization: Detect and quantify semantic, cognitive, and agentic properties from the geometry and trajectories of neural representations across models and workflows.&lt;/small&gt;&lt;div&gt;&lt;small&gt;2) Simiplification: Identify and exploit redundancies, equivalences, and stable dynamical structures to reduce the computational cost and complexity of models and agentic workflows.&lt;/small&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="1130" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="L1" parent="1" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" value="1 · Problem &amp;amp; Data Design" vertex="1">
+          <mxGeometry height="440" width="210" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="apps" parent="L1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="applications/&lt;br&gt;&lt;small&gt;tasks · schemas · workflows&lt;br&gt;tarot, template&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="spec" parent="L1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="spec_files.py&lt;br&gt;&lt;small&gt;strict YAML · schema checks&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="inst" parent="L1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="instantiation/&lt;br&gt;&lt;small&gt;sample task states (card draws)&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="pers" parent="L1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="personas/&lt;br&gt;&lt;small&gt;persona sets (100 users)&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="fetch" parent="L1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="data_fetchers/&lt;br&gt;&lt;small&gt;TruthfulQA download/load&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="L1" source="apps" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="spec" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="L1" source="spec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="inst" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" parent="1" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" value="2 · Prompting &amp;amp; Generation" vertex="1">
+          <mxGeometry height="440" width="210" x="250" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="prom" parent="L2" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="prompts/&lt;br&gt;&lt;small&gt;versioned Jinja templates · lock&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="inf" parent="L2" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="inference/&lt;br&gt;&lt;small&gt;task config · pipeline · RunStore&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="prov" parent="L2" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#ffe6cc;strokeColor=#d79b00;" value="llm/ providers&lt;br&gt;&lt;small&gt;OpenAI · Featherless · Batch API&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="L2" source="prom" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="inf" value="render">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="L2" source="inf" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="prov" value="requests">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" parent="1" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" value="3 · Validation &amp;amp; Evaluation" vertex="1">
+          <mxGeometry height="440" width="210" x="480" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="val" parent="L3" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="validation/&lt;br&gt;&lt;small&gt;regex/vocab checks · retries&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="eval" parent="L3" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="evaluation/&lt;br&gt;&lt;small&gt;rubric · persona LLM-as-judge&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="dash" parent="L3" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#d5e8d4;strokeColor=#82b366;" value="dashboard · summarize&lt;br&gt;&lt;small&gt;HTML analysis of scores&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="L3" source="eval" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="dash" value="scores">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" parent="1" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" value="4 · Representation" vertex="1">
+          <mxGeometry height="440" width="210" x="710" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="emb" parent="L4" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="llm/embeddings&lt;br&gt;&lt;small&gt;sentence / chunk vectors&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="wb" parent="L4" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="llm/whitebox&lt;br&gt;&lt;small&gt;NNsight / NDIF hidden states&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tok" parent="L4" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="text_tokenizers/&lt;br&gt;&lt;small&gt;HF · tiktoken · spaCy · SP&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="dyn" parent="L4" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="dynamicalembeddings/&lt;br&gt;&lt;small&gt;token windows (CNN-style)&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="L4" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" value="embeddings.py · main.py&lt;br&gt;&lt;small&gt;distances · FastAPI (legacy)&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="L4" source="tok" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="wb" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="L4" source="emb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="dyn" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" parent="1" style="swimlane;startSize=30;html=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#999999;" value="5 · Dynamics &amp;amp; Detection" vertex="1">
+          <mxGeometry height="440" width="210" x="940" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="geo" parent="L5" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="coordinate_systems/&lt;br&gt;&lt;small&gt;geometry on S^(d-1): exp/log maps&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="traj" parent="L5" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="states · trajectory&lt;br&gt;&lt;small&gt;N particles over turns · integrator&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="cnn" parent="L5" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" value="models/cnns.py&lt;br&gt;&lt;small&gt;conv-layer experiments&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="kij" parent="L5" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;dashed=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Fit coupling K_ij&lt;br&gt;&lt;small&gt;planned: forces from trajectories&lt;/small&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="coer" parent="L5" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;dashed=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Coercion detection&lt;br&gt;&lt;small&gt;planned: asymmetry · collapse,&lt;br&gt;checked against LLM judges&lt;/small&gt;" vertex="1">
+          <mxGeometry height="70" width="170" x="20" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="L5" source="geo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="traj" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="L5" source="traj" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="kij" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="L5" source="kij" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="coer" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="data" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=13;boundedLbl=1;size=10;fillColor=#d5e8d4;strokeColor=#82b366;" value="data/&lt;br&gt;&lt;small&gt;generations · evaluations (JSONL → Postgres/DuckDB)&lt;/small&gt;" vertex="1">
+          <mxGeometry height="70" width="400" x="270" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="sup" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fillColor=#f5f5f5;strokeColor=#999999;" value="&lt;b&gt;Cross-cutting&lt;/b&gt;: sandbox/ notebooks (embedding, LLM &amp;amp; population exploration) · tests/ (pytest suite for every package) · requirements.txt" vertex="1">
+          <mxGeometry height="40" width="1130" x="20" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="leg" parent="1" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontColor=#555555;" value="Legend: blue = built component · orange = external model APIs · green = outputs/data · yellow dashed = planned research step · grey = legacy/support · dashed arrow = feedback or planned link" vertex="1">
+          <mxGeometry height="30" width="1130" x="20" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="inst" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="inf" value="instants">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="pers" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="inf" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="prov" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;startArrow=classic;" target="val" value="validate / retry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="L2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.25;exitY=1;" target="data" value="runs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="data" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=0.75;exitY=0;entryX=0.5;entryY=1;" target="L3" value="subjects">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="dash" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="prom" value="compare prompt versions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="data" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" target="L4" value="texts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="wb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="geo" value="vectors">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="emb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="traj" value="vectors">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
 </mxfile>
