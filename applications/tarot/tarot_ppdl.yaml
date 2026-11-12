@@ -1,0 +1,199 @@
+# SemanticDynamics — Celtic Cross tarot reading inference, as a PDL program
+#
+# The same task as tasks.yaml's tarot_celtic_cross, written in IBM's Prompt Declaration Language
+# (https://github.com/IBM/prompt-declaration-language). tasks.yaml DECLARES the task and the
+# InferenceTask engine interprets it; this file IS the workflow for ONE reading: draw the run's
+# inputs, take one, then render -> generate -> validate -> retry.
+#
+# It does not read tasks.yaml: the instantiation (what is sampled) is written here, in the same
+# format, and sampled by the `instantiation` package, so a seed gives the same draws here as in
+# `python -m inference.generate run tarot_celtic_cross` while the two blocks stay the same.
+#
+#   A run of N readings, in parallel, stored as run tables (data/generations/<run_id>/):
+#     python -m inference.generate_ppdl run applications/tarot/tarot_ppdl.yaml --n 5 --workers 2
+#   One reading, printed (from the repository root; OPENAI_API_KEY must be set):
+#     python -m pdl.pdl --stream none --data '{"n": 5, "seed": 1234, "index": 2}' applications/tarot/tarot_ppdl.yaml
+#   `--stream none` is needed: when streaming (the default), `raw` is a list of chunks, not the
+#   response. `python -m` puts the repo root on sys.path, so the Python blocks can import the
+#   repo's packages; the bare `pdl` command does not.
+#
+# The result is what inference/generate_ppdl.py stores (its docstring describes it).
+# This file is not read by the application loader (applications/__init__.py reads only
+# tasks.yaml), so it changes nothing about the engine's runs.
+
+description: >-
+  Generate a connected, position-aware Celtic Cross tarot reading from a sampled or pinned card
+  draw (including reversals). The draw is sampled once and reused by every validation retry; the
+  result is the draw with its prompt and every attempt at its reading, each validated.
+
+defs:
+  # RUN SETTINGS (tasks.yaml: execution) -------------------------------------------------------
+  # A def overwrites a variable of the same name given with `pdl --data`, so each setting is
+  # "the --data value, or else this default" (the pattern of PDL's own stdlib).
+  n: ${ n | default(1) }                     # Base card draws of the run (execution.n).
+  seed: ${ seed | default(none) }            # Run seed (execution.seed); none: a new one.
+  index: ${ index | default(0) }             # Which of the run's n draws this execution reads.
+  max_attempts: ${ max_attempts | default(3) }   # 1 generation + validation.retries (2).
+
+  # INPUT SAMPLING (tasks.yaml: instantiation) -------------------------------------------------
+  # PDL has no input-sampling construct: its only built-in "sample" is the model call. Sampling
+  # inputs is a Python code block. This one gives the instantiation below to the `instantiation`
+  # package's sampler. All n draws come from one seeded generator, as in a tasks.yaml run, and
+  # this execution reads draw `index`: executions with the same n and seed read different draws
+  # of the same run.
+  instantiation:              # The format of tasks.yaml's `instantiation`.
+    data:
+      state:
+        cards:                # The draw: one card state per Celtic Cross position.
+          steps:
+            from: vector_space_config.json   # `step_aliases` (the 10 positions), `aliases`
+                              # (the 78 cards), `negative_polarity` (may a card be reversed).
+            negative_suffix: " reversed"     # A reversed card is "<card> reversed".
+            replacement: true # false: no card twice, each reversed with probability 1/2.
+            fixed: {}         # Positions given rather than drawn, e.g. {Outcome: Death reversed}.
+  draws:
+    lang: python
+    code: |
+      import random
+      from pathlib import Path
+      from instantiation import Instantiation, load_instantiation
+
+      # `from:` is relative to this file's folder; `pdl` runs from the repo root.
+      problems = []
+      spec, _ = load_instantiation(instantiation, Path("applications/tarot").resolve(),
+                                   "instantiation", problems, {})
+      if problems:
+          raise ValueError("; ".join(problems))
+      run_seed = seed if seed is not None else random.SystemRandom().randrange(2**32)
+      run = Instantiation.sample(spec, n, rng=random.Random(run_seed))
+      result = {"seed": run_seed, "instant": run[index].instant}
+  instant: ${ draws.instant }
+
+  # VERSIONED PROMPT (tasks.yaml: prompt.templates) --------------------------------------------
+  # The template file stays the single source of the wording. Its `{{ }}` Jinja body is rendered
+  # as the `prompts` package renders it (its filters, e.g. `kv_lines`, and its whitespace
+  # normalization) rather than with PDL's `${ }` expressions, so the prompt is byte-for-byte
+  # the one engine runs send.
+  template:
+    read: ./prompts/celtic_cross_v4.yaml      # Relative to this file.
+    parser: yaml
+  prompt:
+    lang: python
+    code: |
+      from prompts.template import _env, _normalize
+
+      result = _normalize(_env.from_string(template["template"]["user"]).render(**instant))
+
+  # MODEL (tasks.yaml: model) ------------------------------------------------------------------
+  # PDL calls models through LiteLLM: "<provider>/<model>". For openai/ it calls OpenAI's API
+  # with OPENAI_API_KEY.
+  model: openai/gpt-6-luna
+  parameters:
+    data:
+      # Current OpenAI models reject max_tokens, which the engine renames (llm/providers).
+      max_completion_tokens: 3600
+      # temperature: 0.7
+      # seed: 1234            # MODEL-generation seed; distinct from the run seed above.
+
+  # VALIDATION (tasks.yaml: validation) --------------------------------------------------------
+  # PDL's own checks are `spec` (a type/JSON schema on a block's result, raising on mismatch) and
+  # `expectations` (an LLM judge or a feedback function, see the end of this file). Neither
+  # checks free prose against the draw, so the Python validator stays the authority: non_empty
+  # (200 characters), not_truncated, no_refusal, and the reading checked against the draw
+  # (positions, foreign_cards).
+  validate:
+    function:
+      text: string
+      finish_reason: string
+    return:
+      lang: python
+      code: |
+        from applications.tarot.code.validation import celtic_cross_validator
+
+        result = celtic_cross_validator(min_chars=200).validate(
+            text, expected=instant["cards"], finish_reason=finish_reason).to_dict()
+
+# ONE READING: generate, validate, retry ---------------------------------------------------------
+lastOf:
+  - repeat:
+      lastOf:
+        - model: ${ model }
+          # Exactly the rendered prompt, so a retry is a fresh generation, not a continuation
+          # of the failed reading.
+          input:
+            array:
+              - role: user
+                content: ${ prompt }
+          parameters: ${ parameters }
+          modelResponse: raw  # The provider's full response: finish_reason, model, usage.
+          def: reading
+          contribute: []
+
+        - call: ${ validate }
+          args:
+            text: ${ reading }
+            finish_reason: ${ raw.choices[0].finish_reason }
+          def: validation
+          contribute: []
+
+        - data:
+            text: ${ reading }
+            finish_reason: ${ raw.choices[0].finish_reason }
+            model: ${ raw.model }
+            usage: ${ raw.usage }
+            validation: ${ validation }
+    # Retries reuse the SAME draw: `instant` is fixed for the whole execution.
+    until: ${ validation.passed }
+    maxIterations: ${ max_attempts }
+    join:
+      as: array               # Every attempt, in order; the last is the reading kept.
+    def: attempts
+    contribute: []
+
+  - data:
+      seed: ${ draws.seed }
+      index: ${ index }
+      input: ${ instant }
+      template: ${ template.name }_v${ template.version }
+      messages:
+        - role: user
+          content: ${ prompt }
+      model: ${ model }
+      parameters: ${ parameters }
+      attempts: ${ attempts }
+
+# MANY READINGS IN ONE EXECUTION (not used) ------------------------------------------------------
+# PDL's `map` block runs a block once per item, in parallel (maxWorkers), but it is not in
+# PDL's tutorial, which runs many instances of a program from Python instead. That is what
+# inference/generate_ppdl.py does (--n, --workers): one execution of this file per draw. With
+# `map`, the reading above would become a function `read` and the run would be:
+#
+#   - map:
+#       call: ${ read }
+#       args:
+#         instant: ${ instant }
+#     for:
+#       instant: ${ draws.instants }
+#     maxWorkers: 2
+#     join:
+#       as: array
+
+# THE PDL-NATIVE VALIDATION ALTERNATIVE (not used above) -----------------------------------------
+# A model block can carry `expectations`, each `expect` (an English statement) checked by a
+# `feedback` function after the block runs. The default feedback is an LLM judge (stdlib
+# llm_as_judge, configured by pdl_llm_as_judge). A custom one takes (expectation, response) and
+# returns a score (float), an instruction (string), or [score, instruction]. An instruction,
+# with `retry: N` on the block, re-runs it with the instruction appended to pdl_context as a
+# user message (repair-style retries: the model is told what was wrong).
+# Wired to this repo's validator it would look like:
+#
+#   - model: openai/gpt-6-luna
+#     input: ...
+#     retry: 2
+#     expectations:
+#       - expect: Every drawn card is named with its position and orientation.
+#         feedback: ${ validator_feedback }   # (expectation, response) -> [score, summary]
+#
+# Two differences from the loop above: the feedback function gets only the response text, not
+# the finish_reason (so not_truncated cannot run), and retries are repair-style only when the
+# model's input is pdl_context; with an explicit `input`, as here, the instruction is not seen.
