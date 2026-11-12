@@ -17,3 +17,4 @@ pytest
 jinja2
 pyyaml
 jsonschema
+prompt-declaration-language
