@@ -36,3 +36,5 @@ data/evaluations/
 # local DuckDB database files (views over the JSONL tables)
 *.duckdb
 *.duckdb.wal
+
+Overview of Efforts.txt
